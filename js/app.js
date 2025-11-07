@@ -31,16 +31,26 @@ document.getElementById('year').textContent = String(new Date().getFullYear());
 function updateNavByAuth() {
   const isAuth = Boolean(JSON.parse(localStorage.getItem('ms_auth_state') || 'null'));
   const btnLogout = document.getElementById('btn-logout');
+  const btnTheme = document.getElementById('btn-theme');
   const header = document.getElementById('site-header');
   const footer = document.getElementById('site-footer');
+  const isAuthPage = location.hash === '#/auth' || location.hash === '';
+  
   if (isAuth) {
     btnLogout?.classList.remove('hidden');
+    btnTheme?.classList.remove('hidden');
     header?.classList.add('hidden');
     footer?.classList.add('hidden');
   } else {
     btnLogout?.classList.add('hidden');
-    header?.classList.remove('hidden');
-    footer?.classList.remove('hidden');
+    btnTheme?.classList.add('hidden');
+    if (isAuthPage) {
+      header?.classList.add('hidden');
+      footer?.classList.remove('hidden');
+    } else {
+      header?.classList.remove('hidden');
+      footer?.classList.remove('hidden');
+    }
   }
 }
 
@@ -86,6 +96,7 @@ updateNavByAuth();
 })();
 
 window.addEventListener('auth:changed', updateNavByAuth);
+window.addEventListener('hashchange', updateNavByAuth);
 window.addEventListener('auth:changed', async (e) => {
   if (e.detail.user) {
     await loadUserProfile();

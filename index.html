@@ -32,33 +32,36 @@
       }
     </script>
 </head>
-<body class="min-h-screen bg-slate-50 text-slate-900 dark:bg-nuit dark:text-slate-100">
-  <header id="site-header" class="sticky top-0 z-40 backdrop-blur bg-white/70 dark:bg-nuit/70 border-b border-slate-200/60 dark:border-white/10">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+<body class="min-h-screen bg-slate-50 text-slate-900 dark:bg-nuit dark:text-slate-100 flex flex-col">
+  <header id="site-header" class="sticky top-0 z-40 backdrop-blur-md bg-white/80 dark:bg-nuit/80 border-b border-slate-200/60 dark:border-white/10 auth-header-styled shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded bg-gradient-to-r from-bleuFr via-blancFr to-rougeFr ring-1 ring-slate-200 dark:ring-white/10"></div>
-        <h1 class="text-lg font-semibold tracking-tight">MS Corp</h1>
-        <span class="hidden sm:inline text-sm text-slate-500">Portail Entreprise</span>
+        <div class="header-logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">MS Corp</h1>
+          <span class="hidden sm:inline text-xs text-slate-500 dark:text-slate-400">Portail Entreprise</span>
+        </div>
       </div>
       <nav class="flex items-center gap-1 text-sm">
-        <button id="btn-logout" class="hidden ml-2 rounded-md px-3 py-1.5 border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5">Déconnexion</button>
-        <button id="btn-theme" class="ml-2 rounded-md px-3 py-1.5 border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5">Thème</button>
+        <button id="btn-logout" class="hidden ml-2 rounded-md px-3 py-1.5 border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">Déconnexion</button>
+        <button id="btn-theme" class="hidden ml-2 rounded-md px-3 py-1.5 border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">Thème</button>
       </nav>
     </div>
+    <div class="header-accent-line"></div>
   </header>
 
-  <main id="app" class="py-2">
+  <main id="app" class="flex-1 flex flex-col overflow-hidden">
     <!-- Le routeur injecte ici -->
   </main>
 
-  <footer id="site-footer" class="mt-16 border-t border-slate-200/60 dark:border-white/10">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-sm text-slate-500 flex items-center justify-between">
+  <footer id="site-footer" class="border-t border-slate-200/60 dark:border-white/10 mt-auto">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 text-sm text-slate-500 text-center">
       <p>© <span id="year"></span> MS Corp. Tous droits réservés.</p>
-      <div class="flex items-center gap-2">
-        <span class="inline-block w-3 h-2 bg-bleuFr"></span>
-        <span class="inline-block w-3 h-2 bg-blancFr border border-slate-200/60 dark:border-white/10"></span>
-        <span class="inline-block w-3 h-2 bg-rougeFr"></span>
-      </div>
     </div>
   </footer>
 

@@ -99,18 +99,6 @@ export function viewEmploye(root) {
               </div>
             </div>
             <div class="stat-card">
-              <div class="stat-icon" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="2" x2="12" y2="22"></line>
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                </svg>
-              </div>
-              <div>
-                <div class="stat-label">Salaire total</div>
-                <div id="stat-salaire-emp" class="stat-value">0 €</div>
-              </div>
-            </div>
-            <div class="stat-card">
               <div class="stat-icon" style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -245,7 +233,6 @@ export function viewEmploye(root) {
         document.getElementById('stat-en-attente-emp').textContent = '0';
         document.getElementById('stat-validees-emp').textContent = '0';
         document.getElementById('stat-traitees-emp').textContent = '0';
-        document.getElementById('stat-salaire-emp').textContent = '0,00 €';
         document.getElementById('stat-annulees-emp').textContent = '0';
         return;
       }
@@ -257,26 +244,11 @@ export function viewEmploye(root) {
       const traitees = ventes.filter(v => v.statut === 'traite').length;
       const annulees = ventes.filter(v => v.statut === 'annule').length;
 
-      // Calculer le salaire total
-      // Le salaire correspond aux ventes créées par l'employé et validées (statut 'valide')
-      let salaireTotal = 0;
-      ventes.forEach(v => {
-        // Seules les ventes validées comptent pour le salaire
-        if (v.statut === 'valide') {
-          const ressource = ressourcesCache.find(r => r.id === v.typeRessourceId);
-          if (ressource) {
-            const prixVente = ressource.prixVente || ressource.prix || 0;
-            salaireTotal += prixVente * (v.quantite || 0);
-          }
-        }
-      });
-
       // Mettre à jour l'affichage
       document.getElementById('stat-total-ventes-emp').textContent = formatNumber(totalVentes);
       document.getElementById('stat-en-attente-emp').textContent = formatNumber(enAttente);
       document.getElementById('stat-validees-emp').textContent = formatNumber(validees);
       document.getElementById('stat-traitees-emp').textContent = formatNumber(traitees);
-      document.getElementById('stat-salaire-emp').textContent = formatAmount(salaireTotal) + ' €';
       document.getElementById('stat-annulees-emp').textContent = formatNumber(annulees);
     } catch (e) { console.error('Erreur chargement stats:', e); }
   }

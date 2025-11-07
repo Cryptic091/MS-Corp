@@ -1579,7 +1579,10 @@ export function viewVentes(root) {
         try {
           const ressource = ressourcesCache.find(r => r.id === vente.typeRessourceId) || {};
           const salaire = (ressource.prixVente || ressource.prix || 0) * (vente.quantite || 0);
-          await updateDoc(doc(fb.db, 'ventes', venteId), { statut: 'valide' });
+          await updateDoc(doc(fb.db, 'ventes', venteId), { 
+            statut: 'valide',
+            updatedAt: serverTimestamp()
+          });
           await addDoc(collection(fb.db, 'finance'), {
             type: 'salaire',
             montant: salaire,
@@ -1681,7 +1684,10 @@ export function viewVentes(root) {
               const ressource = ressourcesCache.find(r => r.id === vente.typeRessourceId) || {};
               const prixBourse = ressource.prixBourse || 0;
               const beneficeReel = prixBourse * (vente.quantite || 0);
-              await updateDoc(doc(fb.db, 'ventes', venteId), { statut: 'traite' });
+              await updateDoc(doc(fb.db, 'ventes', venteId), { 
+                statut: 'traite',
+                updatedAt: serverTimestamp()
+              });
               await addDoc(collection(fb.db, 'finance'), {
                 type: 'benefice',
                 montant: beneficeReel,
