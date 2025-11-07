@@ -69,6 +69,7 @@
   flex: 1;
   min-height: 100vh; 
   padding: 0.75rem; /* minimal padding */
+  overflow-y: auto;
 }
 
 /* Headings */
@@ -86,7 +87,7 @@
 .switch.on::after { transform: translateX(16px); }
 
 /* General page container */
-.page-card { background: white; border: 1px solid rgba(2,6,23,0.08); border-radius: 0.9rem; padding: 1rem; min-height: calc(100vh - 1.5rem); display: flex; flex-direction: column; }
+.page-card { background: white; border: 1px solid rgba(2,6,23,0.08); border-radius: 0.9rem; padding: 1rem; min-height: calc(100vh - 1.5rem); display: flex; flex-direction: column; overflow: visible; }
 .dark .page-card { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.12); }
 
 /* Home cards - Design sobre et moderne */
