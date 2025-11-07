@@ -1,0 +1,152 @@
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+.sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 260px;
+  height: 100vh;
+  border-right: 1px solid rgba(2,6,23,0.08);
+  background: white;
+  padding: 1rem;
+  z-index: 10;
+  overflow-y: auto;
+}
+.dark .sidebar { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.12); }
+.sidebar a { display: block; padding: 0.6rem 0.75rem; border-radius: 0.5rem; color: rgb(71,85,105); }
+.dark .sidebar a { color: rgba(248,250,252,0.8); }
+.sidebar a.active, .sidebar a:hover { background: rgba(15,23,42,0.06); }
+.dark .sidebar a.active, .dark .sidebar a:hover { background: rgba(255,255,255,0.06); }
+.sidebar .section-title { font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; color: rgb(100,116,139); margin: .5rem .25rem; }
+.dark .sidebar .section-title { color: rgba(248,250,252,0.6); }
+.sidebar .nav-item { display:flex; align-items:center; gap:.6rem; }
+.sidebar .nav-icon { width: .75rem; height: .75rem; border-radius: 999px; background: #0055A4; opacity:.7; }
+.sidebar .user-avatar { display:inline-flex; align-items:center; justify-content:center; border-radius:9999px; background: linear-gradient(135deg,#0055A4 0%, #EF4135 100%); color:#fff; font-weight:600; }
+.sidebar-inner { display: flex; flex-direction: column; height: 100%; }
+.nav-links { flex: 1 1 auto; display: flex; flex-direction: column; gap: .25rem; }
+.nav-bottom { padding-top: 1rem; border-top: 1px solid rgba(2,6,23,0.08); display: flex; flex-direction: column; gap: 0.75rem; }
+.dark .nav-bottom { border-color: rgba(255,255,255,0.12); }
+.home-card-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, rgba(0,85,164,0.1), rgba(239,65,53,0.1));
+  border: 1px solid rgba(0,85,164,0.2);
+  border-radius: 0.75rem;
+  color: rgb(15,23,42);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+.dark .home-card-link {
+  background: linear-gradient(135deg, rgba(0,85,164,0.15), rgba(239,65,53,0.15));
+  border-color: rgba(0,85,164,0.3);
+  color: rgba(248,250,252,0.9);
+}
+.home-card-link:hover {
+  background: linear-gradient(135deg, rgba(0,85,164,0.15), rgba(239,65,53,0.15));
+  border-color: rgba(0,85,164,0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,85,164,0.15);
+}
+.dark .home-card-link:hover {
+  background: linear-gradient(135deg, rgba(0,85,164,0.2), rgba(239,65,53,0.2));
+  border-color: rgba(0,85,164,0.4);
+}
+.home-card-link .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.content { 
+  margin-left: 260px;
+  flex: 1;
+  min-height: 100vh; 
+  padding: 0.75rem; /* minimal padding */
+}
+
+/* Headings */
+.page-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+.page-title { font-size: 1.875rem; font-weight: 700; }
+.page-sub { color: rgb(100,116,139); margin-top:.25rem; }
+.dark .page-sub { color: rgba(248,250,252,0.7); }
+
+/* Permissions cards & switches */
+.perm-card { display:flex; align-items:center; justify-content:space-between; padding:.75rem; border:1px solid rgba(2,6,23,0.08); border-radius:.75rem; }
+.dark .perm-card { border-color: rgba(255,255,255,0.12); }
+.switch { position: relative; width: 38px; height: 22px; background: rgba(15,23,42,.18); border-radius: 999px; cursor: pointer; }
+.switch::after { content:""; position:absolute; top:3px; left:3px; width:16px; height:16px; background:white; border-radius:999px; transition: transform .18s ease; }
+.switch.on { background:#0055A4; }
+.switch.on::after { transform: translateX(16px); }
+
+/* General page container */
+.page-card { background: white; border: 1px solid rgba(2,6,23,0.08); border-radius: 0.9rem; padding: 1rem; min-height: calc(100vh - 1.5rem); display: flex; flex-direction: column; }
+.dark .page-card { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.12); }
+
+/* Home cards */
+.home-wrap {
+  min-height: calc(100vh - 160px);
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+}
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.75rem;
+  max-width: 1100px;
+  width: 100%;
+}
+.card-flag {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid rgba(2,6,23,0.08);
+  background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.7));
+}
+.dark .card-flag { background: linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03)); border-color: rgba(255,255,255,0.12); }
+.card-flag:before {
+  content: "";
+  position: absolute; inset: 0; opacity: 0.18;
+  background: linear-gradient(90deg, #0055A4 0 33%, #fff 33% 66%, #EF4135 66% 100%);
+}
+.card-flag:hover { transform: translateY(-2px); transition: transform .18s ease; }
+.card-flag .inner { position: relative; padding: 1.6rem; }
+.card-logo-wrap { display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; }
+.card-logo { width: 56px; height: 56px; object-fit: contain; filter: drop-shadow(0 4px 10px rgba(15,23,42,0.12)); }
+.card-flag .title { font-weight: 700; font-size: 1.25rem; }
+.card-flag .desc { color: rgb(71,85,105); }
+.dark .card-flag .desc { color: rgba(248,250,252,0.8); }
+
+.card-feats { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem 1rem; margin-top: .75rem; }
+.feat { display: inline-flex; align-items: center; gap: .5rem; font-size: .9rem; color: rgb(71,85,105); }
+.feat .dot { width: .5rem; height: .5rem; border-radius: 999px; background: #0055A4; }
+.dark .feat { color: rgba(248,250,252,0.8); }
+.badge { display: inline-block; padding: .25rem .6rem; border-radius: 999px; font-size: .78rem; background: rgba(15,23,42,.06); }
+.dark .badge { background: rgba(255,255,255,.06); }
+
+/* Select styles for visibility */
+select {
+  background-color: white !important;
+  color: rgb(15,23,42) !important;
+}
+.dark select {
+  background-color: rgb(30,41,59) !important;
+  color: rgba(248,250,252,0.95) !important;
+}
+select option {
+  background-color: white !important;
+  color: rgb(15,23,42) !important;
+  padding: 0.5rem;
+}
+.dark select option {
+  background-color: rgb(30,41,59) !important;
+  color: rgba(248,250,252,0.95) !important;
+}
+

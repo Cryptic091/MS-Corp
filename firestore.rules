@@ -1,0 +1,65 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Fonction helper pour vérifier l'authentification
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    // Collection: users
+    // Contient les informations des utilisateurs (nom, email, role, active, phone, photoUrl)
+    match /users/{uid} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed();
+    }
+
+    // Collection: roles
+    // Contient les rôles et leurs permissions (name, description, permissions)
+    match /roles/{roleId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed();
+    }
+
+    // Collection: config
+    // Contient la configuration globale (stockMax, etc.)
+    // Ne peut pas être supprimée pour éviter la perte de données critiques
+    match /config/{docId} {
+      allow read: if isAuthed();
+      allow create, update: if isAuthed();
+      allow delete: if false;
+    }
+
+    // Collection: ressources
+    // Contient les types de ressources (nom, prixVente, prixBourse, tailleObjet, createdAt)
+    match /ressources/{resId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed();
+    }
+
+    // Collection: ventes
+    // Contient les ventes créées par les employés (dateVente, typeRessourceId, quantite, tailleObjet, employeId, prenom, nom, telephone, statut, createdAt)
+    match /ventes/{saleId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed();
+    }
+
+    // Collection: finance
+    // Contient les transactions financières (type, montant, description, date)
+    // Ne peut pas être modifiée ou supprimée pour garantir l'intégrité des données financières
+    match /finance/{financeId} {
+      allow read: if isAuthed();
+      allow create: if isAuthed();
+      allow update, delete: if false;
+    }
+
+    // Collection: logs
+    // Contient les logs système (type, action, message, uid, createdAt)
+    // Permet la suppression pour permettre le nettoyage des logs
+    match /logs/{logId} {
+      allow read: if isAuthed();
+      allow create: if isAuthed();
+      allow update: if false;
+      allow delete: if isAuthed();
+    }
+  }
+}

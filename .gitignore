@@ -1,0 +1,29 @@
+# Dépendances
+node_modules/
+package-lock.json
+package.json
+
+# VS Code
+.vscode/
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+*.log
+
+# Éditeurs
+.idea/
+*.swp
+*.swo
+*~
+
+# Fichiers temporaires
+*.tmp
+*.temp
+
+# Fichiers de configuration locaux (si vous avez des fichiers de config locaux)
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+

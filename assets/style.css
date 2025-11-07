@@ -1,0 +1,63 @@
+:root {
+  --bleuFr: #0055A4;
+  --rougeFr: #EF4135;
+  --blancFr: #ffffff;
+}
+
+* { box-sizing: border-box; }
+html, body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+body { margin: 0; }
+
+.nav-link {
+  padding: 0.4rem 0.75rem;
+  border-radius: 0.5rem;
+  color: rgb(71,85,105);
+}
+.dark .nav-link { color: rgba(248,250,252,0.8); }
+.nav-link:hover {
+  background: rgba(15, 23, 42, 0.04);
+}
+.dark .nav-link:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.flag-gradient {
+  background: linear-gradient(90deg, var(--bleuFr) 0 33.33%, var(--blancFr) 33.33% 66.66%, var(--rougeFr) 66.66% 100%);
+}
+
+.card {
+  border: 1px solid rgba(2,6,23,0.08);
+  border-radius: 0.75rem;
+  background: white;
+  padding: 1rem;
+}
+.dark .card {
+  background: rgba(255,255,255,0.03);
+  border-color: rgba(255,255,255,0.12);
+}
+
+.btn-primary {
+  background: var(--bleuFr);
+  color: white;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
+}
+.btn-primary:hover { filter: brightness(1.05); }
+
+.btn-danger { background: var(--rougeFr); color: white; padding: 0.5rem 0.9rem; border-radius: 0.5rem; }
+.btn-danger:hover { filter: brightness(1.05); }
+
+.grid-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+/* Petites animations subtiles */
+.fade-in { animation: fade-in 260ms ease-out; }
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+
