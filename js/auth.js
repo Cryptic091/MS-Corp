@@ -1,5 +1,5 @@
 import { html, mount, setAuthState } from './utils.js';
-import { getFirebase, initFirebaseIfReady, signInWithEmailAndPassword, addDoc, collection, serverTimestamp } from './firebase.js';
+import { getFirebase, initFirebaseIfReady, signInWithEmailAndPassword, addLogEntry } from './firebase.js';
 
 export function viewAuth(root) {
   const content = html`
@@ -96,7 +96,13 @@ export function viewAuth(root) {
     }
     try {
       const cred = await signInWithEmailAndPassword(fb.auth, String(email), String(password));
-      try { await addDoc(collection(fb.db, 'logs'), { type: 'login', uid: cred.user.uid, message: 'Connexion', createdAt: serverTimestamp() }); } catch {}
+      await addLogEntry(fb, { 
+        type: 'login', 
+        action: 'login', 
+        category: 'authentification',
+        message: `Connexion de l'utilisateur ${email}`,
+        uid: cred.user.uid
+      });
       msg.textContent = '';
       msg.className = 'auth-message';
       submitBtn.innerHTML = '<span>Connexion réussie...</span>';

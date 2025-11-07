@@ -68,7 +68,15 @@ function setupLogout() {
     try {
       if (fb && authState?.uid) {
         const mod = await import('./firebase.js');
-        try { await mod.addDoc(mod.collection(fb.db, 'logs'), { type: 'logout', uid: authState.uid, message: 'Déconnexion', createdAt: mod.serverTimestamp() }); } catch {}
+        try { 
+          await mod.addLogEntry(fb, { 
+            type: 'logout', 
+            action: 'logout', 
+            category: 'authentification',
+            message: 'Déconnexion',
+            uid: authState.uid
+          }); 
+        } catch {}
       }
       if (fb && fb.auth) await signOut(fb.auth);
     } catch (err) {

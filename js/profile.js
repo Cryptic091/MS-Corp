@@ -1,5 +1,5 @@
 import { html, mount, getCachedProfile, loadUserProfile, formatDate, checkPermission, createModal, alertModal, confirmModal, getRoleDisplayName } from './utils.js';
-import { getFirebase, waitForFirebase, collection, getDocs, query, where, doc, getDoc, addDoc, serverTimestamp, updateDoc, deleteDoc, ref, uploadBytes, getDownloadURL, deleteObject } from './firebase.js';
+import { getFirebase, waitForFirebase, collection, getDocs, query, where, doc, getDoc, addDoc, serverTimestamp, updateDoc, deleteDoc, ref, uploadBytes, getDownloadURL, deleteObject, addLogEntry } from './firebase.js';
 
 function getInitials(name) {
   if (!name) return '??';
@@ -268,11 +268,12 @@ export function viewProfile(root, context = 'entreprise') {
       try {
         if (fb && authState?.uid) {
           try { 
-            await addDoc(collection(fb.db, 'logs'), { 
+            await addLogEntry(fb, { 
               type: 'logout', 
-              uid: authState.uid, 
-              message: 'Déconnexion', 
-              createdAt: serverTimestamp() 
+              action: 'logout', 
+              category: 'authentification',
+              message: 'Déconnexion',
+              uid: authState.uid
             }); 
           } catch {}
         }
@@ -636,6 +637,13 @@ function setupParametres(fb, userId, profile) {
         // Mettre à jour dans Firestore
         await updateDoc(doc(fb.db, 'users', userId), { email: newEmail });
         
+        await addLogEntry(fb, { 
+          type: 'action', 
+          action: 'profile_email_update', 
+          category: 'profil',
+          message: `Modification de l'email: ${user.email} → ${newEmail}` 
+        });
+        
         // Réinitialiser les champs
         document.getElementById('new-email').value = '';
         document.getElementById('email-password').value = '';
@@ -663,9 +671,17 @@ function setupParametres(fb, userId, profile) {
       }
       
       try {
+        const oldProfile = getCachedProfile() || {};
         await updateDoc(doc(fb.db, 'users', userId), { 
           name, 
           phone: phone || null 
+        });
+        
+        await addLogEntry(fb, { 
+          type: 'action', 
+          action: 'profile_update', 
+          category: 'profil',
+          message: `Modification du profil: nom "${oldProfile.name || '—'}" → "${name}"${phone !== (oldProfile.phone || '') ? `, téléphone: "${oldProfile.phone || '—'}" → "${phone || '—'}"` : ''}` 
         });
         
         // Recharger le profil

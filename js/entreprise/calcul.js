@@ -199,7 +199,12 @@ export function viewCalcul(root) {
           fb = await waitForFirebase();
         }
         if (fb) {
-          await addLogEntry(fb, { type: 'logout', message: 'Déconnexion' });
+          await addLogEntry(fb, { 
+            type: 'logout', 
+            action: 'logout', 
+            category: 'authentification',
+            message: 'Déconnexion' 
+          });
           if (fb.auth) {
             await signOut(fb.auth);
           }

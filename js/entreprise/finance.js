@@ -1,5 +1,5 @@
 import { html, mount, getCachedProfile, loadUserProfile, createModal, updateNavPermissions, alertModal, updateAvatar, isAuthenticated, updateRoleBadge } from '../utils.js';
-import { getFirebase, waitForFirebase, collection, getDocs, query, orderBy, limit, where, addDoc, serverTimestamp, signOut } from '../firebase.js';
+import { getFirebase, waitForFirebase, collection, getDocs, query, orderBy, limit, where, addDoc, serverTimestamp, signOut, doc, getDoc } from '../firebase.js';
 import { addLogEntry } from '../firebase.js';
 import { formatDate } from '../utils.js';
 
@@ -54,28 +54,28 @@ export function viewFinance(root) {
             <div class="stat-card">
               <div class="stat-icon green"><span class="icon icon-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"></line><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path></svg></span></div>
               <div class="stat-content">
-                <div class="stat-label">Bénéfices totaux</div>
+                <div class="stat-label">Solde du Compte</div>
                 <div id="kpi-benefices" class="stat-value">—</div>
               </div>
             </div>
             <div class="stat-card">
               <div class="stat-icon blue"><span class="icon icon-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></span></div>
               <div class="stat-content">
-                <div class="stat-label">Ce mois</div>
+                <div class="stat-label">Bénéfice Ce mois</div>
                 <div id="kpi-month" class="stat-value">—</div>
               </div>
             </div>
             <div class="stat-card">
               <div class="stat-icon orange"><span class="icon icon-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></span></div>
               <div class="stat-content">
-                <div class="stat-label">Aujourd'hui</div>
+                <div class="stat-label">Bénéfice Aujourd'hui</div>
                 <div id="kpi-today" class="stat-value">—</div>
               </div>
             </div>
             <div class="stat-card">
               <div class="stat-icon red"><span class="icon icon-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"></line><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path></svg></span></div>
               <div class="stat-content">
-                <div class="stat-label">Moyenne/jour</div>
+                <div class="stat-label">Bénéfice Entreprise</div>
                 <div id="kpi-avg" class="stat-value">—</div>
               </div>
             </div>
@@ -96,9 +96,9 @@ export function viewFinance(root) {
                 <h3 class="font-medium text-lg">Historique des transactions</h3>
                 <select id="filter-finance" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-sm">
                   <option value="all">Tous</option>
-                  <option value="benefice">Bénéfices</option>
+                  <option value="benefice">Ajouts Solde du Compte</option>
                   <option value="salaire">Salaires</option>
-                  <option value="depense">Dépenses</option>
+                  <option value="depense">Retraits Solde du Compte</option>
                 </select>
               </div>
               <div class="user-table">
@@ -161,7 +161,12 @@ export function viewFinance(root) {
           fb = await waitForFirebase();
         }
         if (fb) {
-          await addLogEntry(fb, { type: 'logout', message: 'Déconnexion' });
+          await addLogEntry(fb, { 
+            type: 'logout', 
+            action: 'logout', 
+            category: 'authentification',
+            message: 'Déconnexion' 
+          });
           if (fb.auth) {
             await signOut(fb.auth);
           }
@@ -206,9 +211,8 @@ export function viewFinance(root) {
       <div class="modal-field">
         <label>Type de transaction *</label>
         <select id="modal-transaction-type" required>
-          <option value="salaire">Salaire</option>
-          <option value="depense">Dépense</option>
-          <option value="benefice">Bénéfice (ajout manuel)</option>
+          <option value="benefice">Ajout Solde du Compte</option>
+          <option value="depense">Retrait Solde du Compte</option>
         </select>
       </div>
       <div class="modal-field">
@@ -241,7 +245,12 @@ export function viewFinance(root) {
             date: serverTimestamp(),
             source: 'manuel'
           });
-          await addLogEntry(fb, { type: 'action', action: 'finance_add', message: `${type}: ${montant}€` });
+          await addLogEntry(fb, { 
+            type: 'action', 
+            action: 'finance_add', 
+            category: 'finance',
+            message: `Ajout d'une transaction ${type}: ${montant}€${description ? ` - ${description}` : ''}` 
+          });
           loadFinance();
           if (currentTab === 'ajout-salaire') loadTransactions();
           alertModal({ title: 'Succès', message: 'Transaction ajoutée avec succès.', type: 'success' });
@@ -268,7 +277,7 @@ export function viewFinance(root) {
         const date = f.date?.toDate ? f.date.toDate() : new Date(f.date || new Date());
         const montant = f.montant || 0;
         const tr = document.createElement('tr');
-        const typeLabel = f.type === 'benefice' ? 'Bénéfice' : f.type === 'salaire' ? 'Salaire' : 'Dépense';
+        const typeLabel = f.type === 'benefice' ? 'Ajout Solde du Compte' : f.type === 'salaire' ? 'Salaire' : f.type === 'depense' ? 'Retrait Solde du Compte' : 'Dépense';
         tr.innerHTML = `
           <td>${formatDate(date)}</td>
           <td><span class="badge-role ${f.type === 'benefice' ? 'badge-actif' : f.type === 'salaire' ? 'badge-employe' : 'badge-inactif'}">${typeLabel}</span></td>
@@ -332,7 +341,7 @@ export function viewFinance(root) {
         }
         
         const tr = document.createElement('tr');
-        const typeLabel = f.type === 'benefice' ? 'Bénéfice' : f.type === 'salaire' ? 'Salaire' : 'Dépense';
+        const typeLabel = f.type === 'benefice' ? 'Ajout Solde du Compte' : f.type === 'salaire' ? 'Salaire' : f.type === 'depense' ? 'Retrait Solde du Compte' : 'Dépense';
         const isManuel = (f.type === 'salaire' && f.source === 'manuel');
         const isPositive = f.type === 'benefice' || isManuel;
         tr.innerHTML = `
@@ -344,10 +353,61 @@ export function viewFinance(root) {
       });
       
       document.getElementById('kpi-benefices').textContent = formatNumber(total) + ' €';
-      document.getElementById('kpi-month').textContent = formatNumber(month) + ' €';
-      document.getElementById('kpi-today').textContent = formatNumber(today) + ' €';
-      const daysDiff = Math.max(1, Math.ceil((now - new Date(now.getFullYear(), now.getMonth(), 1)) / (1000 * 60 * 60 * 24)));
-      document.getElementById('kpi-avg').textContent = formatNumber(month / daysDiff) + ' €';
+      
+      // Calculer les bénéfices nets : validation du traitement - validation de la vente
+      // Bénéfice = (prixBourse * quantite) - (prixVente * quantite)
+      let beneficeTotal = 0;
+      let beneficeToday = 0;
+      let beneficeMonth = 0;
+      
+      try {
+        const ventesSnap = await getDocs(query(collection(fb.db, 'ventes'), where('statut', '==', 'traite')));
+        const ventesTraitees = ventesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        
+        // Charger les ressources pour obtenir les prix
+        const ressourcesSnap = await getDocs(collection(fb.db, 'ressources'));
+        const ressources = ressourcesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        
+        ventesTraitees.forEach(v => {
+          const ressource = ressources.find(r => r.id === v.typeRessourceId);
+          if (ressource) {
+            const prixBourse = ressource.prixBourse || 0;
+            const prixVente = ressource.prixVente || ressource.prix || 0;
+            const quantite = v.quantite || 0;
+            // Bénéfice = bénéfice après traitement - salaire employé
+            const beneficeTraitement = prixBourse * quantite;
+            const salaireEmploye = prixVente * quantite;
+            const beneficeNet = beneficeTraitement - salaireEmploye;
+            
+            beneficeTotal += beneficeNet;
+            
+            // Vérifier la date de traitement (updatedAt ou createdAt si pas de updatedAt)
+            let dateTraitement = null;
+            if (v.updatedAt) {
+              dateTraitement = v.updatedAt.toDate ? v.updatedAt.toDate() : new Date(v.updatedAt);
+            } else if (v.createdAt) {
+              dateTraitement = v.createdAt.toDate ? v.createdAt.toDate() : new Date(v.createdAt);
+            }
+            
+            if (dateTraitement) {
+              // Bénéfice aujourd'hui
+              if (dateTraitement.toDateString() === now.toDateString()) {
+                beneficeToday += beneficeNet;
+              }
+              // Bénéfice ce mois
+              if (dateTraitement.getMonth() === now.getMonth() && dateTraitement.getFullYear() === now.getFullYear()) {
+                beneficeMonth += beneficeNet;
+              }
+            }
+          }
+        });
+      } catch (e) {
+        console.error('Erreur calcul bénéfice:', e);
+      }
+      
+      document.getElementById('kpi-month').textContent = formatNumber(beneficeMonth) + ' €';
+      document.getElementById('kpi-today').textContent = formatNumber(beneficeToday) + ' €';
+      document.getElementById('kpi-avg').textContent = formatNumber(beneficeTotal) + ' €';
       
       if (!finance.length) tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="4">Aucune transaction</td></tr>';
     } catch (e) { console.error(e); }
@@ -360,7 +420,7 @@ export function viewFinance(root) {
       if (filter === 'all') tr.style.display = '';
       else {
         const type = tr.querySelector('.badge-role')?.textContent.toLowerCase() || '';
-        tr.style.display = (filter === 'benefice' && type === 'bénéfice') || (filter === 'salaire' && type === 'salaire') || (filter === 'depense' && type === 'dépense') ? '' : 'none';
+        tr.style.display = (filter === 'benefice' && (type.includes('ajout solde') || type === 'bénéfice')) || (filter === 'salaire' && type === 'salaire') || (filter === 'depense' && (type.includes('retrait solde') || type === 'dépense')) ? '' : 'none';
       }
     });
   });

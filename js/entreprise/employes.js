@@ -148,7 +148,12 @@ export function viewEmployes(root) {
           fb = await waitForFirebase();
         }
         if (fb) {
-          await addLogEntry(fb, { type: 'logout', message: 'Déconnexion' });
+          await addLogEntry(fb, { 
+            type: 'logout', 
+            action: 'logout', 
+            category: 'authentification',
+            message: 'Déconnexion' 
+          });
           if (fb.auth) {
             await signOut(fb.auth);
           }
@@ -396,7 +401,12 @@ function generateTempPassword(length = 10) {
 
           cache.push({ id: cred.user.uid, name, email, phone, role, active: true, initialPassword: tempPassword, createdAt: new Date() });
           renderRows(cache);
-          await addLogEntry(fbInstance, { type: 'action', action: 'user_create', message: email });
+          await addLogEntry(fbInstance, { 
+            type: 'action', 
+            action: 'user_create', 
+            category: 'utilisateurs',
+            message: `Création de l'utilisateur "${name || email}" (${email})` 
+          });
           alertModal({ title: 'Succès', message: `Utilisateur créé avec succès.<br><strong>Mot de passe :</strong> ${tempPassword}`, type: 'success' });
         } catch (e) { 
           let message = 'Erreur lors de la création de l\'utilisateur.';
@@ -561,7 +571,12 @@ function generateTempPassword(length = 10) {
               }
             }
             
-            await addLogEntry(fb, { type: 'action', action: 'user_update', message: `Modification de ${email} - Rôle: ${role}` });
+            await addLogEntry(fb, { 
+              type: 'action', 
+              action: 'user_update', 
+              category: 'utilisateurs',
+              message: `Modification de l'utilisateur "${name || email}" - Rôle: ${role}` 
+            });
             alertModal({ title: 'Succès', message: 'Utilisateur modifié avec succès.', type: 'success' });
           } catch (err) {
             console.error('Erreur modification utilisateur:', err);
@@ -605,7 +620,12 @@ function generateTempPassword(length = 10) {
             await deleteDoc(doc(fb.db, 'users', id));
             cache = cache.filter(u => u.id !== id);
             renderRows(cache);
-            await addLogEntry(fb, { type: 'action', action: 'user_delete', message: email });
+            await addLogEntry(fb, { 
+              type: 'action', 
+              action: 'user_delete', 
+              category: 'utilisateurs',
+              message: `Suppression de l'utilisateur "${user.name || email}" (${email})` 
+            });
             alertModal({ title: 'Succès', message: 'Utilisateur supprimé avec succès.', type: 'success' });
           } catch { 
             alertModal({ title: 'Erreur', message: 'Erreur lors de la suppression de l\'utilisateur.', type: 'danger' });

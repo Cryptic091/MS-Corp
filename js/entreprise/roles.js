@@ -114,7 +114,12 @@ export function viewRoles(root) {
           fb = await waitForFirebase();
         }
         if (fb) {
-          await addLogEntry(fb, { type: 'logout', message: 'Déconnexion' });
+          await addLogEntry(fb, { 
+            type: 'logout', 
+            action: 'logout', 
+            category: 'authentification',
+            message: 'Déconnexion' 
+          });
           if (fb.auth) {
             await signOut(fb.auth);
           }
@@ -174,6 +179,12 @@ export function viewRoles(root) {
               logs: false 
             } 
           });
+          await addLogEntry(fb, { 
+            type: 'action', 
+            action: 'role_create', 
+            category: 'roles',
+            message: `Création du rôle "${name}"` 
+          });
           alertModal({ title: 'Succès', message: 'Rôle créé avec succès.', type: 'success', onClose: () => location.reload() });
         } catch { 
           alertModal({ title: 'Erreur', message: 'Erreur lors de la création du rôle.', type: 'danger' });
@@ -197,10 +208,16 @@ export function viewRoles(root) {
     };
     try {
       await setDoc(doc(fb.db, 'roles', selectedRoleId), { permissions: perms }, { merge: true });
-      alertModal({ title: 'Succès', message: 'Permissions du rôle mises à jour avec succès.', type: 'success' });
-      // Mettre à jour le cache
       const role = rolesCache.find(r => r.id === selectedRoleId);
+      await addLogEntry(fb, { 
+        type: 'action', 
+        action: 'role_permissions_update', 
+        category: 'roles',
+        message: `Mise à jour des permissions du rôle "${role?.name || selectedRoleId}"` 
+      });
+      // Mettre à jour le cache
       if (role) role.permissions = perms;
+      alertModal({ title: 'Succès', message: 'Permissions du rôle mises à jour avec succès.', type: 'success' });
     } catch { 
       alertModal({ title: 'Erreur', message: 'Erreur lors de l\'enregistrement des permissions.', type: 'danger' });
     }
@@ -257,6 +274,12 @@ export function viewRoles(root) {
 
         await Promise.all(updates);
         rolesCache.sort((a, b) => (a.order || 0) - (b.order || 0));
+        await addLogEntry(fb, { 
+          type: 'action', 
+          action: 'role_order_update', 
+          category: 'roles',
+          message: 'Réordonnancement des rôles' 
+        });
         renderRoles();
       } catch (err) {
         alertModal({ title: 'Erreur', message: 'Erreur lors du réordonnancement des rôles.', type: 'danger' });
@@ -405,6 +428,12 @@ export function viewRoles(root) {
               const snap = await getDocs(collection(fb.db, 'roles'));
               rolesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
               rolesCache.sort((a, b) => (a.order || 0) - (b.order || 0));
+              await addLogEntry(fb, { 
+                type: 'action', 
+                action: 'role_update', 
+                category: 'roles',
+                message: `Modification du rôle "${name}"` 
+              });
               renderRoles();
               alertModal({ title: 'Succès', message: 'Rôle modifié avec succès.', type: 'success' });
             } catch (err) {
@@ -425,7 +454,14 @@ export function viewRoles(root) {
           type: 'danger',
           onConfirm: async () => {
             try {
+              const roleName = role.name || id;
               await deleteDoc(doc(fb.db, 'roles', id));
+              await addLogEntry(fb, { 
+                type: 'action', 
+                action: 'role_delete', 
+                category: 'roles',
+                message: `Suppression du rôle "${roleName}"` 
+              });
               // Recharger les rôles depuis Firestore pour être sûr
               const snap = await getDocs(collection(fb.db, 'roles'));
               rolesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));

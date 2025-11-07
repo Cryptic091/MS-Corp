@@ -159,7 +159,12 @@ function viewVentesEmploye(root) {
           fb = await waitForFirebase();
         }
         if (fb) {
-          await addLogEntry(fb, { type: 'logout', message: 'Déconnexion' });
+          await addLogEntry(fb, { 
+            type: 'logout', 
+            action: 'logout', 
+            category: 'authentification',
+            message: 'Déconnexion' 
+          });
           if (fb.auth) {
             await signOut(fb.auth);
           }
@@ -385,7 +390,12 @@ function viewVentesEmploye(root) {
             statut: 'en attente',
             createdAt: serverTimestamp()
           });
-          await addLogEntry(fb, { type: 'action', action: 'vente_create', message: `Vente de ${quantite} ressources` });
+          await addLogEntry(fb, { 
+            type: 'action', 
+            action: 'vente_create', 
+            category: 'ventes',
+            message: `Création d'une vente: ${quantite} x ${selectedRessource?.nom || ressourceId}` 
+          });
           await loadVentes();
           alertModal({ title: 'Succès', message: 'Vente créée avec succès.', type: 'success' });
         } catch (e) { 
@@ -666,7 +676,12 @@ function viewCalculEmploye(root) {
           fb = await waitForFirebase();
         }
         if (fb) {
-          await addLogEntry(fb, { type: 'logout', message: 'Déconnexion' });
+          await addLogEntry(fb, { 
+            type: 'logout', 
+            action: 'logout', 
+            category: 'authentification',
+            message: 'Déconnexion' 
+          });
           if (fb.auth) {
             await signOut(fb.auth);
           }

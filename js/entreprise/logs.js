@@ -70,13 +70,14 @@ export function viewLogs(root) {
                 <tr>
                   <th>Date/Heure</th>
                   <th>Type</th>
+                  <th>Catégorie</th>
                   <th>Utilisateur</th>
                   <th>Action</th>
                   <th>Message</th>
                 </tr>
               </thead>
               <tbody id="logs-tbody">
-                <tr><td class="py-3 text-center" colspan="5">Chargement…</td></tr>
+                <tr><td class="py-3 text-center" colspan="6">Chargement…</td></tr>
               </tbody>
             </table>
           </div>
@@ -96,7 +97,12 @@ export function viewLogs(root) {
           fb = await waitForFirebase();
         }
         if (fb) {
-          await addLogEntry(fb, { type: 'logout', message: 'Déconnexion' });
+          await addLogEntry(fb, { 
+            type: 'logout', 
+            action: 'logout', 
+            category: 'authentification',
+            message: 'Déconnexion' 
+          });
           if (fb.auth) {
             await signOut(fb.auth);
           }
@@ -192,22 +198,30 @@ export function viewLogs(root) {
     }
     const fb = fbInstance;
     if (!fb || !fb.db) return;
-    tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="5">Chargement…</td></tr>';
+      tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="6">Chargement…</td></tr>';
     try {
       // Charger le cache des utilisateurs
       await loadUsersCache();
       
       const snap = await getDocs(query(collection(fb.db, 'logs'), orderBy('createdAt', 'desc'), limit(100)));
-      tbody.innerHTML = '';
-      if (!snap.size) {
-        tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="5">Aucun log</td></tr>';
-        return;
-      }
-      // Récupérer les informations utilisateur pour tous les logs en parallèle
+        tbody.innerHTML = '';
+        if (!snap.size) {
+          tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="6">Aucun log</td></tr>';
+          return;
+        }
+      // Récupérer les informations utilisateur pour tous les logs
+      // Utiliser d'abord les informations stockées dans le log, sinon récupérer depuis Firestore
       const logsWithUsers = await Promise.all(
         snap.docs.map(async (d) => {
           const log = d.data();
-          const userInfo = await getUserInfo(log.uid);
+          // Si le log contient déjà les infos utilisateur, les utiliser
+          let userInfo;
+          if (log.userName && log.userEmail) {
+            userInfo = { name: log.userName, email: log.userEmail };
+          } else {
+            // Sinon, récupérer depuis Firestore
+            userInfo = await getUserInfo(log.uid);
+          }
           return { log, userInfo, date: log.createdAt?.toDate ? log.createdAt.toDate() : new Date() };
         })
       );
@@ -215,13 +229,15 @@ export function viewLogs(root) {
       logsWithUsers.forEach(({ log, userInfo, date }) => {
         const tr = document.createElement('tr');
         const typeClass = log.type === 'error' ? 'badge-admin' : log.type === 'login' ? 'badge-actif' : 'badge-employe';
+        const categoryBadge = log.category ? `<span class="badge-role badge-employe text-xs">${log.category}</span>` : '—';
         tr.innerHTML = `
           <td>${formatDate(date)}</td>
           <td><span class="badge-role ${typeClass}">${log.type || 'action'}</span></td>
+          <td>${categoryBadge}</td>
           <td>
             <div class="user-info">
-              <div class="user-name">${userInfo.name}</div>
-              ${userInfo.email !== '—' ? `<div class="user-handle text-xs opacity-70">${userInfo.email}</div>` : '<div class="user-handle text-xs opacity-50">—</div>'}
+              <div class="user-name">${userInfo.name || '—'}</div>
+              ${userInfo.email && userInfo.email !== '—' ? `<div class="user-handle text-xs opacity-70">${userInfo.email}</div>` : '<div class="user-handle text-xs opacity-50">—</div>'}
             </div>
           </td>
           <td>${log.action || '—'}</td>
@@ -229,7 +245,7 @@ export function viewLogs(root) {
         tbody.appendChild(tr);
       });
     } catch (e) {
-      tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="5">Erreur lors du chargement</td></tr>';
+      tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="6">Erreur lors du chargement</td></tr>';
     }
   }
 

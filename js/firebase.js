@@ -54,12 +54,15 @@ export { collection, getDocs, getDoc, doc, query, where, orderBy, limit, setDoc,
 export { getStorage, ref, uploadBytes, getDownloadURL, deleteObject };
 
 // Simple helper: log an action into Firestore
-export async function addLogEntry(fb, { type = 'action', action = '', message = '', uid = '' }) {
+export async function addLogEntry(fb, { type = 'action', action = '', message = '', uid = '', category = '' }) {
   try {
     if (!fb || !fb.db) return;
 
     // Si aucun UID n'est fourni, récupérer l'UID de l'utilisateur connecté
     let userId = uid;
+    let userName = '';
+    let userEmail = '';
+    
     if (!userId && fb.auth && fb.auth.currentUser) {
       userId = fb.auth.currentUser.uid;
     } else if (!userId) {
@@ -71,12 +74,29 @@ export async function addLogEntry(fb, { type = 'action', action = '', message = 
       }
     }
 
+    // Récupérer les informations utilisateur depuis Firestore
+    if (userId && userId !== 'system' && fb.db) {
+      try {
+        const userDoc = await getDoc(doc(fb.db, 'users', userId));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          userName = userData.name || userData.email?.split('@')[0] || 'Utilisateur';
+          userEmail = userData.email || '';
+        }
+      } catch (e) {
+        // Ignorer les erreurs de récupération utilisateur
+      }
+    }
+
     const logsRef = collection(fb.db, 'logs');
     const entry = {
       type: type || 'action',
       action: action || '',
       message: message || '',
+      category: category || '',
       uid: userId || 'system',
+      userName: userName || '',
+      userEmail: userEmail || '',
       createdAt: serverTimestamp()
     };
 

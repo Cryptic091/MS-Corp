@@ -115,7 +115,7 @@ export function viewVentes(root) {
                 </svg>
               </div>
               <div>
-                <div class="stat-label">Chiffre d'affaires</div>
+                <div class="stat-label">Bénéfice employé</div>
                 <div id="stat-ca" class="stat-value">0 €</div>
               </div>
             </div>
@@ -220,7 +220,7 @@ export function viewVentes(root) {
                 <div id="ventes-emp-quantite" class="text-2xl font-semibold mt-1">0</div>
               </div>
               <div class="p-4 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5">
-                <div class="text-xs uppercase text-slate-500 dark:text-slate-400">Chiffre d'affaires</div>
+                <div class="text-xs uppercase text-slate-500 dark:text-slate-400">Bénéfice employé</div>
                 <div id="ventes-emp-ca" class="text-2xl font-semibold mt-1">0 €</div>
               </div>
               <div class="p-4 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5">
@@ -339,7 +339,12 @@ export function viewVentes(root) {
           fb = await waitForFirebase();
         }
         if (fb) {
-          await addLogEntry(fb, { type: 'logout', message: 'Déconnexion' });
+          await addLogEntry(fb, { 
+            type: 'logout', 
+            action: 'logout', 
+            category: 'authentification',
+            message: 'Déconnexion' 
+          });
           if (fb.auth) {
             await signOut(fb.auth);
           }
@@ -468,14 +473,14 @@ export function viewVentes(root) {
       const traitees = allVentes.filter(v => v.statut === 'traite').length;
       const annulees = allVentes.filter(v => v.statut === 'annule').length;
 
-      // Calculer le chiffre d'affaires (somme des ventes validées et traitées)
+      // Calculer le bénéfice employé total (somme des bénéfices des ventes traitées de tous les employés)
       let caTotal = 0;
       allVentes.forEach(v => {
-        if (v.statut === 'valide' || v.statut === 'traite') {
+        if (v.statut === 'traite') {
           const ressource = ressourcesCache.find(r => r.id === v.typeRessourceId);
           if (ressource) {
-            const prixVente = ressource.prixVente || ressource.prix || 0;
-            caTotal += prixVente * (v.quantite || 0);
+            const prixBourse = ressource.prixBourse || 0;
+            caTotal += prixBourse * (v.quantite || 0);
           }
         }
       });
@@ -622,10 +627,13 @@ export function viewVentes(root) {
       let totalCA = 0;
       let lastDate = null;
       ventes.forEach(v => {
-        const ressource = ressourcesCache.find(r => r.id === v.typeRessourceId);
-        if (ressource) {
-          const prixVente = ressource.prixVente || ressource.prix || 0;
-          totalCA += prixVente * (v.quantite || 0);
+        // Calculer les bénéfices totaux de l'employé (seulement les ventes traitées)
+        if (v.statut === 'traite') {
+          const ressource = ressourcesCache.find(r => r.id === v.typeRessourceId);
+          if (ressource) {
+            const prixBourse = ressource.prixBourse || 0;
+            totalCA += prixBourse * (v.quantite || 0);
+          }
         }
         const currentDate = v.dateVente ? (v.dateVente.toDate ? v.dateVente.toDate() : new Date(v.dateVente)) : null;
         if (currentDate && (!lastDate || currentDate > lastDate)) {
@@ -1331,7 +1339,12 @@ export function viewVentes(root) {
             statut: 'en attente',
             createdAt: serverTimestamp()
           });
-          await addLogEntry(fb, { type: 'action', action: 'vente_create', message: `Vente de ${quantite} ressources` });
+          await addLogEntry(fb, { 
+            type: 'action', 
+            action: 'vente_create', 
+            category: 'ventes',
+            message: `Création d'une vente: ${quantite} x ${selectedRessource?.nom || ressourceId}` 
+          });
           loadStats();
           loadVentes();
           loadStockage(); // Recharger le stockage pour mettre à jour le stock disponible
@@ -1403,7 +1416,12 @@ export function viewVentes(root) {
             position: nextPosition,
             createdAt: serverTimestamp()
           });
-          await addLogEntry(fb, { type: 'action', action: 'ressource_create', message: nom });
+          await addLogEntry(fb, { 
+            type: 'action', 
+            action: 'ressource_create', 
+            category: 'ressources',
+            message: `Création de la ressource "${nom}"` 
+          });
           loadRessources();
           ressourcesCache = (await getDocs(collection(fb.db, 'ressources'))).docs.map(d => ({ id: d.id, ...d.data() }));
           alertModal({ title: 'Succès', message: 'Ressource créée avec succès.', type: 'success' });
@@ -1437,7 +1455,12 @@ export function viewVentes(root) {
       try {
         const fb = getFirebase();
         await setDoc(doc(fb.db, 'config', 'stockMax'), { valeur: newStockMax }, { merge: true });
-        await addLogEntry(fb, { type: 'action', action: 'stock_max_update', message: `Stock max: ${newStockMax}` });
+        await addLogEntry(fb, { 
+          type: 'action', 
+          action: 'stock_max_update', 
+          category: 'config',
+          message: `Mise à jour du stock maximum: ${newStockMax}` 
+        });
         loadStats();
         loadStockage();
         alertModal({ title: 'Succès', message: 'Stock max mis à jour avec succès.', type: 'success' });
@@ -1555,7 +1578,12 @@ export function viewVentes(root) {
                 quantite,
                 tailleObjet
               });
-              await addLogEntry(fb, { type: 'action', action: 'vente_update', message: venteId });
+              await addLogEntry(fb, { 
+                type: 'action', 
+                action: 'vente_update', 
+                category: 'ventes',
+                message: `Modification de la vente ${venteId}` 
+              });
               loadStats();
               loadVentes();
               alertModal({ title: 'Succès', message: 'Vente modifiée avec succès.', type: 'success' });
@@ -1592,7 +1620,12 @@ export function viewVentes(root) {
             date: serverTimestamp(),
             description: `Salaire de travail: ${ressource.nom || ''} x${vente.quantite || 0}`
           });
-          await addLogEntry(fb, { type: 'action', action: 'vente_validate', message: venteId });
+          await addLogEntry(fb, { 
+            type: 'action', 
+            action: 'vente_validate', 
+            category: 'ventes',
+            message: `Validation de la vente ${venteId} - Salaire: ${salaire}€` 
+          });
           loadStats();
           loadVentes();
           if (currentTab === 'traitement') loadTraitement();
@@ -1617,7 +1650,12 @@ export function viewVentes(root) {
             try {
               const originalData = JSON.parse(container.getAttribute('data-vente-original') || '{}');
               await updateDoc(doc(fb.db, 'ventes', venteId), { statut: 'annule' });
-              await addLogEntry(fb, { type: 'action', action: 'vente_cancel', message: venteId });
+              await addLogEntry(fb, { 
+                type: 'action', 
+                action: 'vente_cancel', 
+                category: 'ventes',
+                message: `Annulation de la vente ${venteId}` 
+              });
               loadStats();
               loadVentes();
               loadStockage(); // Recharger le stockage car la vente annulée libère le stock
@@ -1697,7 +1735,12 @@ export function viewVentes(root) {
                 date: serverTimestamp(),
                 description: `Bénéfice (bourse): ${ressource.nom || ''} x${vente.quantite || 0} (${prixBourse.toFixed(2)}€)`
               });
-              await addLogEntry(fb, { type: 'action', action: 'traitement_validate', message: venteId });
+              await addLogEntry(fb, { 
+                type: 'action', 
+                action: 'traitement_validate', 
+                category: 'ventes',
+                message: `Validation du traitement de la vente ${venteId}` 
+              });
               loadStats();
               loadTraitement();
               loadStockage();
@@ -1772,7 +1815,12 @@ export function viewVentes(root) {
                 tailleObjet,
                 legalite
               });
-              await addLogEntry(fb, { type: 'action', action: 'ressource_update', message: nom });
+              await addLogEntry(fb, { 
+                type: 'action', 
+                action: 'ressource_update', 
+                category: 'ressources',
+                message: `Modification de la ressource "${nom}"` 
+              });
               loadRessources();
               ressourcesCache = (await getDocs(collection(fb.db, 'ressources'))).docs.map(d => ({ id: d.id, ...d.data() }));
               alertModal({ title: 'Succès', message: 'Ressource modifiée avec succès.', type: 'success' });
@@ -1791,7 +1839,12 @@ export function viewVentes(root) {
           onConfirm: async () => {
             try {
               await deleteDoc(doc(fb.db, 'ressources', ressourceId));
-              await addLogEntry(fb, { type: 'action', action: 'ressource_delete', message: res.nom });
+              await addLogEntry(fb, { 
+                type: 'action', 
+                action: 'ressource_delete', 
+                category: 'ressources',
+                message: `Suppression de la ressource "${res.nom}"` 
+              });
               loadRessources();
               ressourcesCache = ressourcesCache.filter(r => r.id !== ressourceId);
               alertModal({ title: 'Succès', message: 'Ressource supprimée avec succès.', type: 'success' });
