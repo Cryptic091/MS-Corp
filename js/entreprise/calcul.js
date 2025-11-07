@@ -1,4 +1,4 @@
-import { html, mount, getCachedProfile, loadUserProfile, updateAvatar, isAuthenticated, alertModal } from '../utils.js';
+import { html, mount, getCachedProfile, loadUserProfile, updateAvatar, isAuthenticated, alertModal, updateNavPermissions } from '../utils.js';
 import { getFirebase, waitForFirebase, collection, getDocs, signOut } from '../firebase.js';
 import { addLogEntry } from '../firebase.js';
 
@@ -258,6 +258,9 @@ export function viewCalcul(root) {
         rb.textContent = (p.role === 'admin' ? 'Admin' : 'Employé');
         rb.className = 'badge-role ' + (p.role === 'admin' ? 'badge-admin' : 'badge-employe') + ' mt-2 inline-block text-xs';
       }
+
+      // Mettre à jour la navigation selon les permissions
+      await updateNavPermissions();
 
       // Charger les ressources
       const resSnap = await getDocs(collection(fb.db, 'ressources'));

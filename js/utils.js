@@ -121,18 +121,38 @@ export async function checkPermission(permission) {
     const profile = getCachedProfile();
     if (!profile) return false;
     
-    // Convertir le rôle du profil en nom de rôle Firestore
+    // Récupérer le rôle depuis le profil utilisateur
     let roleName = profile.role || 'employe';
-    if (roleName === 'admin') roleName = 'Admin';
-    else if (roleName === 'employe') roleName = 'Employé';
     
-    // Récupérer le rôle depuis Firestore (chercher par nom)
+    // Si le rôle est 'admin' ou 'employe', convertir en nom Firestore
+    // Sinon, utiliser le rôle tel quel (pour les rôles personnalisés)
+    if (roleName === 'admin') {
+      roleName = 'Admin';
+    } else if (roleName === 'employe') {
+      roleName = 'Employé';
+    }
+    // Pour les rôles personnalisés, roleName reste tel quel
+    
+    // Récupérer le rôle depuis Firestore (chercher par nom, insensible à la casse)
     const rolesQuery = query(collection(fb.db, 'roles'), where('name', '==', roleName));
     const rolesDocs = await getDocs(rolesQuery);
     
     if (rolesDocs.empty) {
-      // Si aucun rôle trouvé, pas d'accès
-      return false;
+      // Si aucun rôle trouvé avec le nom exact, essayer avec le nom en minuscules
+      // pour gérer les cas où le rôle est stocké différemment
+      const allRoles = await getDocs(collection(fb.db, 'roles'));
+      const matchingRole = allRoles.docs.find(doc => {
+        const docRoleName = doc.data().name || '';
+        return docRoleName.toLowerCase() === roleName.toLowerCase();
+      });
+      
+      if (!matchingRole) {
+        console.warn(`Rôle "${roleName}" non trouvé dans Firestore`);
+        return false;
+      }
+      
+      const roleData = matchingRole.data();
+      return Boolean(roleData.permissions?.[permission]);
     }
     
     const roleData = rolesDocs.docs[0].data();
@@ -166,31 +186,55 @@ export function formatDate(ts) {
 // Fonction pour masquer les liens de navigation selon les permissions
 export async function updateNavPermissions() {
   try {
+    const hasEntreprise = await checkPermission('entreprise');
     const hasEmployes = await checkPermission('employes');
     const hasRoles = await checkPermission('roles');
     const hasVentes = await checkPermission('ventes');
     const hasFinance = await checkPermission('finance');
     const hasLogs = await checkPermission('logs');
+    const hasCalcul = await checkPermission('entreprise'); // Calcul utilise la permission entreprise
     
     // Masquer les liens de navigation
     const navLinks = document.querySelectorAll('.nav-links a');
     navLinks.forEach(link => {
       const href = link.getAttribute('href');
       if (href === '#/entreprise' || href === '#/entreprise/employes') {
-        if (!hasEmployes) link.style.display = 'none';
-        else link.style.display = '';
+        // Le lien principal nécessite la permission 'entreprise' ET 'employes'
+        if (!hasEntreprise || !hasEmployes) {
+          link.style.display = 'none';
+        } else {
+          link.style.display = '';
+        }
       } else if (href === '#/entreprise/roles') {
-        if (!hasRoles) link.style.display = 'none';
-        else link.style.display = '';
+        if (!hasEntreprise || !hasRoles) {
+          link.style.display = 'none';
+        } else {
+          link.style.display = '';
+        }
       } else if (href === '#/entreprise/ventes') {
-        if (!hasVentes) link.style.display = 'none';
-        else link.style.display = '';
+        if (!hasEntreprise || !hasVentes) {
+          link.style.display = 'none';
+        } else {
+          link.style.display = '';
+        }
       } else if (href === '#/entreprise/finance') {
-        if (!hasFinance) link.style.display = 'none';
-        else link.style.display = '';
+        if (!hasEntreprise || !hasFinance) {
+          link.style.display = 'none';
+        } else {
+          link.style.display = '';
+        }
+      } else if (href === '#/entreprise/calcul') {
+        if (!hasEntreprise || !hasCalcul) {
+          link.style.display = 'none';
+        } else {
+          link.style.display = '';
+        }
       } else if (href === '#/entreprise/logs') {
-        if (!hasLogs) link.style.display = 'none';
-        else link.style.display = '';
+        if (!hasEntreprise || !hasLogs) {
+          link.style.display = 'none';
+        } else {
+          link.style.display = '';
+        }
       }
     });
   } catch (e) {

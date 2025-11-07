@@ -179,7 +179,11 @@ function generateTempPassword(length = 10) {
     list.forEach(u => {
       const tr = document.createElement('tr');
       const initials = getInitials(u.name || u.email);
-      const role = u.role || 'employe';
+      const roleValue = (u.role || 'employe').toLowerCase();
+      // Trouver le nom d'affichage du rôle depuis rolesCache
+      const roleDisplay = rolesCache.find(r => (r.name || '').toLowerCase() === roleValue)?.name || 
+                         (roleValue === 'admin' ? 'Administrateur' : 'Employé');
+      const roleBadgeClass = roleValue === 'admin' ? 'badge-admin' : 'badge-employe';
       const isActive = u.active !== false;
       tr.innerHTML = `
         <td>
@@ -201,7 +205,7 @@ function generateTempPassword(length = 10) {
           </div>
         </td>
         <td>
-          <span class="badge-role ${role === 'admin' ? 'badge-admin' : 'badge-employe'}">${role === 'admin' ? 'Administrateur' : 'Employé'}</span>
+          <span class="badge-role ${roleBadgeClass}">${roleDisplay}</span>
         </td>
         <td>
           <span class="badge-role ${isActive ? 'badge-actif' : 'badge-inactif'}">${isActive ? 'actif' : 'inactif'}</span>
@@ -221,8 +225,8 @@ function generateTempPassword(length = 10) {
     // Update stats
     document.getElementById('stat-total').textContent = String(cache.length);
     document.getElementById('stat-active').textContent = String(cache.filter(u => u.active !== false).length);
-    document.getElementById('stat-admin').textContent = String(cache.filter(u => (u.role || 'employe') === 'admin').length);
-    document.getElementById('stat-employe').textContent = String(cache.filter(u => (u.role || 'employe') === 'employe').length);
+    document.getElementById('stat-admin').textContent = String(cache.filter(u => (u.role || 'employe').toLowerCase() === 'admin').length);
+    document.getElementById('stat-employe').textContent = String(cache.filter(u => (u.role || 'employe').toLowerCase() !== 'admin').length);
   }
 
   function applyFilters() {
@@ -519,26 +523,55 @@ function generateTempPassword(length = 10) {
             alertModal({ title: 'Champs requis', message: 'Nom et email sont requis.', type: 'warning' });
             return;
           }
+          if (!role) {
+            alertModal({ title: 'Rôle requis', message: 'Veuillez sélectionner un rôle.', type: 'warning' });
+            return;
+          }
           try {
             await updateDoc(doc(fb.db, 'users', id), { name, email, phone: phone || null, role, active });
-            Object.assign(user, { name, email, phone, role, active });
-            renderRows(cache);
-            await addLogEntry(fb, { type: 'action', action: 'user_update', message: email });
+            // Recharger les données depuis Firestore pour s'assurer de la synchronisation
+            const snap = await getDocs(collection(fb.db, 'users'));
+            cache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            // Recharger aussi les rôles pour avoir les noms à jour
+            try {
+              const rs = await getDocs(collection(fb.db, 'roles'));
+              rolesCache = rs.docs.map(d => ({ id: d.id, ...d.data() }));
+            } catch (err) {
+              console.error('Erreur rechargement rôles:', err);
+            }
+            // Appliquer les filtres actuels pour réafficher avec les bonnes données
+            applyFilters();
+            await addLogEntry(fb, { type: 'action', action: 'user_update', message: `Modification de ${email} - Rôle: ${role}` });
             alertModal({ title: 'Succès', message: 'Utilisateur modifié avec succès.', type: 'success' });
-          } catch { 
-            alertModal({ title: 'Erreur', message: 'Erreur lors de la modification de l\'utilisateur.', type: 'danger' });
+          } catch (err) {
+            console.error('Erreur modification utilisateur:', err);
+            alertModal({ title: 'Erreur', message: `Erreur lors de la modification de l'utilisateur: ${err.message || 'Erreur inconnue'}`, type: 'danger' });
           }
         }
       });
-      // remplir rôles
-      const sel = document.getElementById('modal-edit-role');
-      if (sel) {
-        sel.innerHTML = rolesCache.map(r => {
-          const v = (r.name||'').toLowerCase();
-          const selected = v === (user.role||'employe');
-          return `<option value="${v}" ${selected ? 'selected' : ''}>${r.name}</option>`;
-        }).join('') || `<option value="${user.role||'employe'}" selected>${(user.role||'Employé')}</option>`;
-      }
+      // remplir rôles - s'assurer que rolesCache est chargé
+      // Utiliser setTimeout pour s'assurer que le DOM est mis à jour
+      setTimeout(async () => {
+        const sel = document.getElementById('modal-edit-role');
+        if (sel) {
+          // Si rolesCache est vide, le charger d'abord
+          if (!rolesCache || rolesCache.length === 0) {
+            try {
+              const rs = await getDocs(collection(fb.db, 'roles'));
+              rolesCache = rs.docs.map(d => ({ id: d.id, ...d.data() }));
+            } catch (err) {
+              console.error('Erreur chargement rôles:', err);
+            }
+          }
+          // Remplir le select avec les rôles disponibles
+          const currentRole = (user.role || 'employe').toLowerCase();
+          sel.innerHTML = rolesCache.map(r => {
+            const v = (r.name||'').toLowerCase();
+            const selected = v === currentRole;
+            return `<option value="${v}" ${selected ? 'selected' : ''}>${r.name}</option>`;
+          }).join('') || `<option value="${currentRole}" selected>${user.role === 'admin' ? 'Administrateur' : 'Employé'}</option>`;
+        }
+      }, 10);
       return;
     }
     if (btn.classList.contains('btn-delete')) {
