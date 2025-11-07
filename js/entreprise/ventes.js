@@ -1,4 +1,4 @@
-import { html, mount, createModal, getCachedProfile, loadUserProfile, updateNavPermissions, confirmModal, alertModal, updateAvatar, isAuthenticated } from '../utils.js';
+import { html, mount, createModal, getCachedProfile, loadUserProfile, updateNavPermissions, confirmModal, alertModal, updateAvatar, isAuthenticated, updateRoleBadge } from '../utils.js';
 import { getFirebase, waitForFirebase, collection, getDocs, query, orderBy, limit, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where, setDoc, getDoc, writeBatch, signOut, onSnapshot } from '../firebase.js';
 import { addLogEntry } from '../firebase.js';
 import { formatDate } from '../utils.js';
@@ -419,7 +419,8 @@ export function viewVentes(root) {
       const av = document.getElementById('sb-avatar'); updateAvatar(av, p);
       const nm = document.getElementById('sb-name'); if (nm) nm.textContent = p.name || 'Utilisateur';
       const em = document.getElementById('sb-email'); if (em) em.textContent = p.email || '';
-      const rb = document.getElementById('sb-role'); if (rb) { rb.textContent = (p.role === 'admin' ? 'Admin' : 'Employé'); rb.className = 'badge-role ' + (p.role === 'admin' ? 'badge-admin' : 'badge-employe') + ' mt-2 inline-block text-xs'; }
+      const rb = document.getElementById('sb-role'); 
+      if (rb) await updateRoleBadge(rb);
 
       // Mettre à jour la navigation selon les permissions
       await updateNavPermissions();

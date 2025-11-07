@@ -1,4 +1,4 @@
-import { html, mount, getCachedProfile, loadUserProfile, formatDate, checkPermission, createModal, alertModal, confirmModal } from './utils.js';
+import { html, mount, getCachedProfile, loadUserProfile, formatDate, checkPermission, createModal, alertModal, confirmModal, getRoleDisplayName } from './utils.js';
 import { getFirebase, waitForFirebase, collection, getDocs, query, where, doc, getDoc, addDoc, serverTimestamp, updateDoc, deleteDoc, ref, uploadBytes, getDownloadURL, deleteObject } from './firebase.js';
 
 function getInitials(name) {
@@ -329,8 +329,10 @@ export function viewProfile(root, context = 'entreprise') {
       if (profileEmail) profileEmail.textContent = profile.email || '—';
       const profileRoleBadge = document.getElementById('profile-role-badge');
       if (profileRoleBadge) {
-        profileRoleBadge.textContent = (profile.role === 'admin' ? 'Admin' : 'Employé');
-        profileRoleBadge.className = 'badge-role ' + (profile.role === 'admin' ? 'badge-admin' : 'badge-employe');
+        const roleDisplayName = await getRoleDisplayName(profile.role || 'employe');
+        profileRoleBadge.textContent = roleDisplayName;
+        const badgeClass = (profile.role || 'employe') === 'admin' ? 'badge-admin' : 'badge-employe';
+        profileRoleBadge.className = 'badge-role ' + badgeClass;
       }
       const profileStatusBadge = document.getElementById('profile-status-badge');
       if (profileStatusBadge) {

@@ -1,4 +1,4 @@
-import { html, mount, getCachedProfile, loadUserProfile, createModal, alertModal, updateAvatar, isAuthenticated } from './utils.js';
+import { html, mount, getCachedProfile, loadUserProfile, createModal, alertModal, updateAvatar, isAuthenticated, updateRoleBadge } from './utils.js';
 import { getFirebase, waitForFirebase, doc, getDoc, collection, getDocs, addDoc, serverTimestamp, query, orderBy, where, signOut } from './firebase.js';
 import { addLogEntry } from './firebase.js';
 import { formatDate } from './utils.js';
@@ -232,7 +232,8 @@ function viewVentesEmploye(root) {
       const av = document.getElementById('sb-avatar'); updateAvatar(av, p);
       const nm = document.getElementById('sb-name'); if (nm) nm.textContent = p.name || 'Utilisateur';
       const em = document.getElementById('sb-email'); if (em) em.textContent = p.email || '';
-      const rb = document.getElementById('sb-role'); if (rb) { rb.textContent = (p.role === 'admin' ? 'Admin' : 'Employé'); rb.className = 'badge-role ' + (p.role === 'admin' ? 'badge-admin' : 'badge-employe') + ' mt-2 inline-block text-xs'; }
+      const rb = document.getElementById('sb-role'); 
+      if (rb) await updateRoleBadge(rb);
 
       // Load ressources
       const resSnap = await getDocs(collection(fb.db, 'ressources'));
@@ -723,10 +724,7 @@ function viewCalculEmploye(root) {
       const em = document.getElementById('sb-email-calc');
       if (em) em.textContent = p.email || '';
       const rb = document.getElementById('sb-role-calc');
-      if (rb) {
-        rb.textContent = (p.role === 'admin' ? 'Admin' : 'Employé');
-        rb.className = 'badge-role ' + (p.role === 'admin' ? 'badge-admin' : 'badge-employe') + ' mt-2 inline-block text-xs';
-      }
+      if (rb) await updateRoleBadge(rb);
 
       // Charger les ressources
       const resSnap = await getDocs(collection(fb.db, 'ressources'));

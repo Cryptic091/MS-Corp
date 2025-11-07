@@ -94,6 +94,8 @@ export async function loadUserProfile() {
       }
     }
     localStorage.setItem('ms_user_profile', JSON.stringify(profile));
+    // Déclencher un événement pour mettre à jour les badges de rôle
+    window.dispatchEvent(new CustomEvent('profile:updated', { detail: { profile } }));
     return profile;
   } catch (e) {
     console.error('Erreur chargement profil:', e);
@@ -104,6 +106,63 @@ export async function loadUserProfile() {
 export function getCachedProfile() {
   try { return JSON.parse(localStorage.getItem('ms_user_profile') || 'null'); }
   catch { return null; }
+}
+
+// Fonction pour obtenir le nom d'affichage du rôle depuis Firestore
+export async function getRoleDisplayName(roleValue) {
+  if (!roleValue) return 'Employé';
+  
+  try {
+    const fb = getFirebase();
+    if (!fb || !fb.db) {
+      // Fallback si Firebase n'est pas disponible
+      return roleValue === 'admin' ? 'Administrateur' : 'Employé';
+    }
+    
+    // Convertir le rôle en nom Firestore
+    let roleName = roleValue;
+    if (roleName === 'admin') roleName = 'Admin';
+    else if (roleName === 'employe') roleName = 'Employé';
+    
+    // Récupérer tous les rôles et trouver celui qui correspond
+    const allRoles = await getDocs(collection(fb.db, 'roles'));
+    const matchingRole = allRoles.docs.find(doc => {
+      const docRoleName = doc.data().name || '';
+      return docRoleName.toLowerCase() === roleName.toLowerCase();
+    });
+    
+    if (matchingRole) {
+      return matchingRole.data().name || roleName;
+    }
+    
+    // Fallback si le rôle n'est pas trouvé
+    return roleValue === 'admin' ? 'Administrateur' : 'Employé';
+  } catch (e) {
+    console.error('Erreur récupération nom rôle:', e);
+    return roleValue === 'admin' ? 'Administrateur' : 'Employé';
+  }
+}
+
+// Fonction pour mettre à jour le badge de rôle dans la sidebar
+export async function updateRoleBadge(badgeElement) {
+  if (!badgeElement) return;
+  
+  try {
+    let profile = getCachedProfile();
+    if (!profile || !profile.role) {
+      // Recharger le profil si nécessaire
+      profile = await loadUserProfile() || {};
+    }
+    
+    const roleValue = profile.role || 'employe';
+    const roleDisplayName = await getRoleDisplayName(roleValue);
+    const badgeClass = roleValue === 'admin' ? 'badge-admin' : 'badge-employe';
+    
+    badgeElement.textContent = roleDisplayName;
+    badgeElement.className = `badge-role ${badgeClass} mt-2 inline-block text-xs`;
+  } catch (e) {
+    console.error('Erreur mise à jour badge rôle:', e);
+  }
 }
 
 export function hasRole(role) {

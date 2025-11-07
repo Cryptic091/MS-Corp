@@ -1,5 +1,5 @@
 import { initRouter } from './router.js';
-import { initAuthGuard, loadUserProfile, isAuthenticated } from './utils.js';
+import { initAuthGuard, loadUserProfile, isAuthenticated, updateRoleBadge } from './utils.js';
 import { initFirebaseIfReady } from './firebase.js';
 import { getFirebase, signOut } from './firebase.js';
 
@@ -106,6 +106,26 @@ window.addEventListener('auth:changed', async (e) => {
   } else {
     localStorage.removeItem('ms_user_profile');
     location.hash = '#/auth';
+  }
+});
+
+// Écouter les mises à jour de profil pour mettre à jour les badges de rôle
+window.addEventListener('profile:updated', async () => {
+  // Mettre à jour tous les badges de rôle dans les sidebars
+  const roleBadges = document.querySelectorAll('#sb-role, #sb-role-calc');
+  for (const badge of roleBadges) {
+    await updateRoleBadge(badge);
+  }
+  
+  // Mettre à jour le badge dans la card profile sur la page home
+  const profileCardBadge = document.getElementById('profile-card-badge');
+  if (profileCardBadge) {
+    const { getCachedProfile, getRoleDisplayName } = await import('./utils.js');
+    const profile = getCachedProfile();
+    if (profile && profile.role) {
+      const roleDisplayName = await getRoleDisplayName(profile.role);
+      profileCardBadge.textContent = roleDisplayName;
+    }
   }
 });
 

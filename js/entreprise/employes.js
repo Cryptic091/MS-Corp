@@ -1,4 +1,4 @@
-import { html, mount, createModal, getCachedProfile, loadUserProfile, updateNavPermissions, alertModal, updateAvatar, formatDate, isAuthenticated } from '../utils.js';
+import { html, mount, createModal, getCachedProfile, loadUserProfile, updateNavPermissions, alertModal, updateAvatar, formatDate, isAuthenticated, updateRoleBadge } from '../utils.js';
 import { getFirebase, waitForFirebase, collection, getDocs, query, where, setDoc, doc, updateDoc, deleteDoc, serverTimestamp, signOut, createUserWithEmailAndPassword, fetchSignInMethodsForEmail } from '../firebase.js';
 import { addLogEntry } from '../firebase.js';
 
@@ -529,6 +529,13 @@ function generateTempPassword(length = 10) {
           }
           try {
             await updateDoc(doc(fb.db, 'users', id), { name, email, phone: phone || null, role, active });
+            
+            // Si c'est l'utilisateur connecté qui a été modifié, invalider le cache du profil
+            const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+            if (authState?.uid === id) {
+              localStorage.removeItem('ms_user_profile');
+            }
+            
             // Recharger les données depuis Firestore pour s'assurer de la synchronisation
             const snap = await getDocs(collection(fb.db, 'users'));
             cache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -541,6 +548,19 @@ function generateTempPassword(length = 10) {
             }
             // Appliquer les filtres actuels pour réafficher avec les bonnes données
             applyFilters();
+            
+            // Si c'est l'utilisateur connecté qui a été modifié, recharger le profil et déclencher l'événement
+            if (authState?.uid === id) {
+              // Recharger le profil depuis Firestore
+              const updatedProfile = await loadUserProfile();
+              if (updatedProfile) {
+                // L'événement profile:updated sera déclenché automatiquement par loadUserProfile
+                // Mettre à jour le badge de rôle dans la sidebar
+                const rb = document.getElementById('sb-role');
+                if (rb) await updateRoleBadge(rb);
+              }
+            }
+            
             await addLogEntry(fb, { type: 'action', action: 'user_update', message: `Modification de ${email} - Rôle: ${role}` });
             alertModal({ title: 'Succès', message: 'Utilisateur modifié avec succès.', type: 'success' });
           } catch (err) {
@@ -613,7 +633,8 @@ function generateTempPassword(length = 10) {
       const av = document.getElementById('sb-avatar'); updateAvatar(av, p);
       const nm = document.getElementById('sb-name'); if (nm) nm.textContent = p.name || 'Utilisateur';
       const em = document.getElementById('sb-email'); if (em) em.textContent = p.email || '';
-      const rb = document.getElementById('sb-role'); if (rb) { rb.textContent = (p.role === 'admin' ? 'Admin' : 'Employé'); rb.className = 'badge-role ' + (p.role === 'admin' ? 'badge-admin' : 'badge-employe') + ' mt-2 inline-block text-xs'; }
+      const rb = document.getElementById('sb-role'); 
+      if (rb) await updateRoleBadge(rb);
 
       // Mettre à jour la navigation selon les permissions
       await updateNavPermissions();

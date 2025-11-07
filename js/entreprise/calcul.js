@@ -1,4 +1,4 @@
-import { html, mount, getCachedProfile, loadUserProfile, updateAvatar, isAuthenticated, alertModal, updateNavPermissions } from '../utils.js';
+import { html, mount, getCachedProfile, loadUserProfile, updateAvatar, isAuthenticated, alertModal, updateNavPermissions, updateRoleBadge } from '../utils.js';
 import { getFirebase, waitForFirebase, collection, getDocs, signOut } from '../firebase.js';
 import { addLogEntry } from '../firebase.js';
 
@@ -254,10 +254,7 @@ export function viewCalcul(root) {
       const em = document.getElementById('sb-email');
       if (em) em.textContent = p.email || '';
       const rb = document.getElementById('sb-role');
-      if (rb) {
-        rb.textContent = (p.role === 'admin' ? 'Admin' : 'Employé');
-        rb.className = 'badge-role ' + (p.role === 'admin' ? 'badge-admin' : 'badge-employe') + ' mt-2 inline-block text-xs';
-      }
+      if (rb) await updateRoleBadge(rb);
 
       // Mettre à jour la navigation selon les permissions
       await updateNavPermissions();

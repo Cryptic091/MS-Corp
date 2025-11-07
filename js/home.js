@@ -1,4 +1,4 @@
-import { html, mount, checkPermission } from './utils.js';
+import { html, mount, checkPermission, getCachedProfile, loadUserProfile, getRoleDisplayName } from './utils.js';
 
 export async function viewHome(root) {
   const content = html`
@@ -105,7 +105,7 @@ export async function viewHome(root) {
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>
               </div>
-              <div class="space-card-badge profile-badge">Profil</div>
+              <div id="profile-card-badge" class="space-card-badge profile-badge">Profil</div>
             </div>
             <div class="space-card-content">
               <h3 class="space-card-title">Mon Profil</h3>
@@ -167,6 +167,23 @@ export async function viewHome(root) {
       cardProfile.href = '#/employe/profile';
     }
   }
+  
+  // Afficher le rôle dans la card profile
+  (async () => {
+    try {
+      let profile = getCachedProfile();
+      if (!profile || !profile.role) {
+        profile = await loadUserProfile() || {};
+      }
+      const profileBadge = document.getElementById('profile-card-badge');
+      if (profileBadge && profile.role) {
+        const roleDisplayName = await getRoleDisplayName(profile.role);
+        profileBadge.textContent = roleDisplayName;
+      }
+    } catch (e) {
+      console.error('Erreur chargement rôle pour card profile:', e);
+    }
+  })();
 }
 
 
