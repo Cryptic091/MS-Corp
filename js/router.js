@@ -15,6 +15,7 @@ const routePermissions = {
   '#/entreprise/roles': 'roles',
   '#/entreprise/ventes': 'ventes',
   '#/entreprise/finance': 'finance',
+  '#/entreprise/flotte': 'entreprise',
   '#/entreprise/calcul': 'entreprise',
   '#/entreprise/logs': 'logs',
 };
@@ -98,6 +99,7 @@ async function render() {
     else if (key.includes('/roles')) permission = 'roles';
     else if (key.includes('/ventes')) permission = 'ventes';
     else if (key.includes('/finance')) permission = 'finance';
+    else if (key.includes('/flotte')) permission = 'entreprise';
     else if (key.includes('/calcul')) permission = 'entreprise';
     else if (key.includes('/logs')) permission = 'logs';
     

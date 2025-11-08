@@ -61,5 +61,14 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if isAuthed();
     }
+
+    // Collection: flotte
+    // Contient les véhicules de l'entreprise (type, modele, immatriculation, nombrePlaces, prixAchat, assuranceTier1-4, dateAchat, kilometrage, notes, createdAt)
+    // Lecture pour tous les utilisateurs authentifiés (employés et entreprise)
+    // Création, modification et suppression pour les utilisateurs authentifiés (espace entreprise)
+    match /flotte/{vehiculeId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed();
+    }
   }
 }

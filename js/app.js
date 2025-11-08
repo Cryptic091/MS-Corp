@@ -3,47 +3,24 @@ import { initAuthGuard, loadUserProfile, isAuthenticated, updateRoleBadge } from
 import { initFirebaseIfReady } from './firebase.js';
 import { getFirebase, signOut } from './firebase.js';
 
-// Thème
-const btnTheme = document.getElementById('btn-theme');
-const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
-const root = document.documentElement;
-
-function applyTheme(theme) {
-  if (theme === 'dark') document.documentElement.classList.add('dark');
-  else document.documentElement.classList.remove('dark');
-}
-
-function loadTheme() {
-  const t = localStorage.getItem('theme');
-  if (t) return applyTheme(t);
-  applyTheme(prefersDark.matches ? 'dark' : 'light');
-}
-
-btnTheme?.addEventListener('click', () => {
-  const isDark = document.documentElement.classList.contains('dark');
-  const next = isDark ? 'light' : 'dark';
-  localStorage.setItem('theme', next);
-  applyTheme(next);
-});
+// Thème - Forcer le thème sombre
+document.documentElement.classList.add('dark');
 
 document.getElementById('year').textContent = String(new Date().getFullYear());
 
 function updateNavByAuth() {
   const isAuth = Boolean(JSON.parse(localStorage.getItem('ms_auth_state') || 'null'));
   const btnLogout = document.getElementById('btn-logout');
-  const btnTheme = document.getElementById('btn-theme');
   const header = document.getElementById('site-header');
   const footer = document.getElementById('site-footer');
   const isAuthPage = location.hash === '#/auth' || location.hash === '';
   
   if (isAuth) {
     btnLogout?.classList.remove('hidden');
-    btnTheme?.classList.remove('hidden');
     header?.classList.add('hidden');
     footer?.classList.add('hidden');
   } else {
     btnLogout?.classList.add('hidden');
-    btnTheme?.classList.add('hidden');
     if (isAuthPage) {
       header?.classList.add('hidden');
       footer?.classList.remove('hidden');
@@ -90,7 +67,6 @@ function setupLogout() {
 setupLogout();
 
 // Initialisation
-loadTheme();
 initFirebaseIfReady();
 initAuthGuard();
 initRouter();

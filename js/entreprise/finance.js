@@ -30,6 +30,7 @@ export function viewFinance(root) {
             <a href="#/entreprise/roles" class="nav-item"><span class="nav-icon"></span>Rôle & Permission</a>
             <a href="#/entreprise/ventes" class="nav-item"><span class="nav-icon"></span>Gestion Vente</a>
             <a href="#/entreprise/finance" class="active nav-item"><span class="nav-icon"></span>Gestion Finance</a>
+            <a href="#/entreprise/flotte" class="nav-item"><span class="nav-icon"></span>Gestion Flotte</a>
             <a href="#/entreprise/calcul" class="nav-item"><span class="nav-icon"></span>Calculateur CA</a>
             <a href="#/entreprise/logs" class="nav-item"><span class="nav-icon"></span>Logs</a>
           </nav>
@@ -333,6 +334,7 @@ export function viewFinance(root) {
           if (date.toDateString() === now.toDateString()) today += montant;
         } else if (f.type === 'salaire' || f.type === 'depense') {
           // Si salaire ajouté manuellement => entrée (positif). Sinon (auto) => sortie (négatif)
+          // Les dépenses de flotte sont toujours des retraits
           const isManuel = (f.source === 'manuel');
           const delta = isManuel ? montant : -montant;
           total += delta;
@@ -412,6 +414,7 @@ export function viewFinance(root) {
       if (!finance.length) tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="4">Aucune transaction</td></tr>';
     } catch (e) { console.error(e); }
   }
+
 
   document.getElementById('filter-finance')?.addEventListener('change', (e) => {
     const filter = e.target.value;

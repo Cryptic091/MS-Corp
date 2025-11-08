@@ -29,6 +29,7 @@ export function viewRoles(root) {
             <a href="#/entreprise/roles" class="active nav-item"><span class="nav-icon"></span>Rôle & Permission</a>
             <a href="#/entreprise/ventes" class="nav-item"><span class="nav-icon"></span>Gestion Vente</a>
             <a href="#/entreprise/finance" class="nav-item"><span class="nav-icon"></span>Gestion Finance</a>
+            <a href="#/entreprise/flotte" class="nav-item"><span class="nav-icon"></span>Gestion Flotte</a>
             <a href="#/entreprise/calcul" class="nav-item"><span class="nav-icon"></span>Calculateur CA</a>
             <a href="#/entreprise/logs" class="nav-item"><span class="nav-icon"></span>Logs</a>
           </nav>
@@ -535,7 +536,7 @@ export function viewRoles(root) {
       
       // Mettre à jour la navigation selon les permissions
       await updateNavPermissions();
-      
+
       const snap = await getDocs(collection(fb.db, 'roles'));
       rolesCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       // Trier par ordre si disponible

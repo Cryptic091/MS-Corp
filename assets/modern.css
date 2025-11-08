@@ -102,7 +102,8 @@
 }
 .user-info { display: flex; align-items: center; gap: 0.75rem; }
 .user-details { display: flex; flex-direction: column; }
-.user-name { font-weight: 600; }
+.user-name { font-weight: 600; color: rgb(15,23,42); }
+.dark .user-name { color: rgba(248,250,252,0.95); }
 .user-handle { font-size: 0.875rem; color: rgb(100,116,139); }
 .dark .user-handle { color: rgba(248,250,252,0.7); }
 

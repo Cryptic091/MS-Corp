@@ -29,6 +29,7 @@ export function viewCalcul(root) {
             <a href="#/entreprise/roles" class="nav-item"><span class="nav-icon"></span>Rôle & Permission</a>
             <a href="#/entreprise/ventes" class="nav-item"><span class="nav-icon"></span>Gestion Vente</a>
             <a href="#/entreprise/finance" class="nav-item"><span class="nav-icon"></span>Gestion Finance</a>
+            <a href="#/entreprise/flotte" class="nav-item"><span class="nav-icon"></span>Gestion Flotte</a>
             <a href="#/entreprise/calcul" class="active nav-item"><span class="nav-icon"></span>Calculateur CA</a>
             <a href="#/entreprise/logs" class="nav-item"><span class="nav-icon"></span>Logs</a>
           </nav>

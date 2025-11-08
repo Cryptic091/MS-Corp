@@ -60,4 +60,29 @@ body { margin: 0; }
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Styles pour les boutons de toggle vue */
+.view-toggle-btn {
+  transition: all 0.2s ease;
+}
+
+.view-toggle-btn.active {
+  background: var(--bleuFr) !important;
+  color: white !important;
+  border-color: var(--bleuFr) !important;
+}
+
+.view-toggle-btn.active:hover {
+  background: #004080 !important;
+  filter: brightness(0.95);
+}
+
+.dark .view-toggle-btn.active {
+  background: var(--bleuFr) !important;
+  color: white !important;
+}
+
+.dark .view-toggle-btn.active:hover {
+  background: #0066cc !important;
+}
+
 
