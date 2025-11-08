@@ -17,6 +17,11 @@ export function viewEmploye(root) {
     return;
   }
   
+  if (hash === '#/employe/flotte') {
+    viewFlotteEmploye(root);
+    return;
+  }
+  
   // Par défaut, afficher la page des ventes
   viewVentesEmploye(root);
 }
@@ -37,8 +42,9 @@ function viewVentesEmploye(root) {
             <div id="sb-role" class="badge-role badge-employe mt-2 inline-block text-xs">Employé</div>
           </a>
           <div class="section-title">Employé</div>
-          <nav class="nav-links">
+            <nav class="nav-links">
             <a href="#/employe" id="nav-vente" class="nav-item"><span class="nav-icon"></span>Vente</a>
+            <a href="#/employe/flotte" id="nav-flotte" class="nav-item"><span class="nav-icon"></span>Flotte</a>
             <a href="#/employe/calcul" id="nav-calcul" class="nav-item"><span class="nav-icon"></span>Calculateur CA</a>
           </nav>
           <div class="nav-bottom">
@@ -181,13 +187,20 @@ function viewVentesEmploye(root) {
   // Gérer l'état actif des liens de navigation
   const hash = location.hash || '#/employe';
   const navVente = document.getElementById('nav-vente');
+  const navFlotte = document.getElementById('nav-flotte');
   const navCalcul = document.getElementById('nav-calcul');
-  if (navVente && navCalcul) {
+  if (navVente && navFlotte && navCalcul) {
     if (hash === '#/employe/calcul') {
       navCalcul.classList.add('active');
       navVente.classList.remove('active');
+      navFlotte.classList.remove('active');
+    } else if (hash === '#/employe/flotte') {
+      navFlotte.classList.add('active');
+      navVente.classList.remove('active');
+      navCalcul.classList.remove('active');
     } else {
       navVente.classList.add('active');
+      navFlotte.classList.remove('active');
       navCalcul.classList.remove('active');
     }
   }
@@ -507,6 +520,7 @@ function viewCalculEmploye(root) {
           <div class="section-title">Employé</div>
           <nav class="nav-links">
             <a href="#/employe" id="nav-vente-calc" class="nav-item"><span class="nav-icon"></span>Vente</a>
+            <a href="#/employe/flotte" id="nav-flotte-calc" class="nav-item"><span class="nav-icon"></span>Flotte</a>
             <a href="#/employe/calcul" id="nav-calcul-calc" class="active nav-item"><span class="nav-icon"></span>Calculateur CA</a>
           </nav>
           <div class="nav-bottom">
@@ -698,13 +712,20 @@ function viewCalculEmploye(root) {
   // Gérer l'état actif des liens de navigation
   const hash = location.hash || '#/employe/calcul';
   const navVente = document.getElementById('nav-vente-calc');
+  const navFlotte = document.getElementById('nav-flotte-calc');
   const navCalcul = document.getElementById('nav-calcul-calc');
-  if (navVente && navCalcul) {
+  if (navVente && navFlotte && navCalcul) {
     if (hash === '#/employe/calcul') {
       navCalcul.classList.add('active');
       navVente.classList.remove('active');
+      navFlotte.classList.remove('active');
+    } else if (hash === '#/employe/flotte') {
+      navFlotte.classList.add('active');
+      navVente.classList.remove('active');
+      navCalcul.classList.remove('active');
     } else {
       navVente.classList.add('active');
+      navFlotte.classList.remove('active');
       navCalcul.classList.remove('active');
     }
   }
@@ -807,5 +828,589 @@ function viewCalculEmploye(root) {
     document.getElementById('detail-quantite-emp').textContent = quantite.toLocaleString('fr-FR');
     document.getElementById('detail-ca-emp').textContent = formatAmount(caTotal) + ' €';
     document.getElementById('detail-ca-bourse-emp').textContent = formatAmount(caBourse) + ' €';
+  });
+}
+
+function viewFlotteEmploye(root) {
+  const content = html`
+    <section class="fade-in layout">
+      <aside class="sidebar">
+        <div class="sidebar-inner">
+          <a href="#/employe/profile" class="mb-4 p-3 rounded-lg bg-white/60 dark:bg-white/5 border border-slate-200 dark:border-white/10 block hover:bg-white/80 dark:hover:bg-white/10 transition-colors cursor-pointer">
+            <div class="user-info flex items-center gap-3">
+              <div id="sb-avatar-flotte" class="user-avatar w-9 h-9"></div>
+              <div class="user-details">
+                <div id="sb-name-flotte" class="user-name text-sm font-semibold">—</div>
+                <div id="sb-email-flotte" class="user-handle text-xs opacity-70">—</div>
+              </div>
+            </div>
+            <div id="sb-role-flotte" class="badge-role badge-employe mt-2 inline-block text-xs">Employé</div>
+          </a>
+          <div class="section-title">Employé</div>
+          <nav class="nav-links">
+            <a href="#/employe" id="nav-vente-flotte" class="nav-item"><span class="nav-icon"></span>Vente</a>
+            <a href="#/employe/flotte" id="nav-flotte-flotte" class="active nav-item"><span class="nav-icon"></span>Flotte</a>
+            <a href="#/employe/calcul" id="nav-calcul-flotte" class="nav-item"><span class="nav-icon"></span>Calculateur CA</a>
+          </nav>
+          <div class="nav-bottom">
+            <a href="#/home" class="home-card-link">
+              <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></span>
+              <span>Choix d'espace</span>
+            </a>
+            <a id="logout-link-emp-flotte" href="#/auth">Déconnexion</a>
+          </div>
+        </div>
+      </aside>
+      <div class="content">
+        <div class="page-card">
+          <div class="page-head">
+            <div>
+              <div class="page-title">Gestion de la Flotte</div>
+              <div class="page-sub">Consultez les véhicules de l'entreprise</div>
+            </div>
+          </div>
+
+          <!-- Statistiques -->
+          <div class="stats-grid mb-6">
+            <div class="stat-card">
+              <div class="stat-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 17H4a2 2 0 01-2-2V5a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2h-1"></path>
+                  <polygon points="12 15 17 21 7 21 12 15"></polygon>
+                </svg>
+              </div>
+              <div>
+                <div class="stat-label">Total véhicules</div>
+                <div id="stat-total-vehicules-emp" class="stat-value">0</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 00-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 010 7.75"></path>
+                </svg>
+              </div>
+              <div>
+                <div class="stat-label">Places totales</div>
+                <div id="stat-places-totales-emp" class="stat-value">0</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="2" x2="12" y2="22"></line>
+                  <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path>
+                </svg>
+              </div>
+              <div>
+                <div class="stat-label">Valeur totale</div>
+                <div id="stat-valeur-totale-emp" class="stat-value">0 €</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14.5 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7.5L14.5 2z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="12" y1="18" x2="12" y2="12"></line>
+                  <line x1="9" y1="15" x2="15" y2="15"></line>
+                </svg>
+              </div>
+              <div>
+                <div class="stat-label">Assurances actives</div>
+                <div id="stat-assurances-actives-emp" class="stat-value">0</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Toggle vue card/tableau -->
+          <div class="flex items-center justify-between mb-4 mt-6">
+            <h3 class="font-medium text-lg">Véhicules</h3>
+            <div class="flex items-center gap-2">
+              <button id="btn-view-table-emp" class="view-toggle-btn active flex items-center gap-2 px-3 py-1.5 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm hover:bg-slate-50 dark:hover:bg-white/10 transition-colors" title="Vue tableau">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="3" y1="9" x2="21" y2="9"></line>
+                  <line x1="9" y1="21" x2="9" y2="9"></line>
+                </svg>
+                Tableau
+              </button>
+              <button id="btn-view-card-emp" class="view-toggle-btn flex items-center gap-2 px-3 py-1.5 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm hover:bg-slate-50 dark:hover:bg-white/10 transition-colors" title="Vue cartes">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+                  <rect x="3" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="3" width="7" height="7"></rect>
+                  <rect x="14" y="14" width="7" height="7"></rect>
+                  <rect x="3" y="14" width="7" height="7"></rect>
+                </svg>
+                Cartes
+              </button>
+            </div>
+          </div>
+
+          <!-- Vue Tableau -->
+          <div id="flotte-table-view-emp" class="flotte-view">
+            <div class="user-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date d'achat</th>
+                    <th>Véhicule</th>
+                    <th>Prix véhicule</th>
+                    <th>Assurance</th>
+                    <th>Renouvellement</th>
+                    <th>Montant total</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="flotte-emp-tbody">
+                  <tr><td class="py-3 text-center" colspan="7">Chargement…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Vue Cartes -->
+          <div id="flotte-card-view-emp" class="flotte-view hidden">
+            <div id="flotte-empty-card-emp" class="py-10 text-center text-slate-500 dark:text-slate-400 border border-dashed border-slate-200 dark:border-white/10 rounded-lg">
+              Chargement…
+            </div>
+            <div id="flotte-cards-emp" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+  mount(root, content);
+
+  const logoutLink = document.getElementById('logout-link-emp-flotte');
+  if (logoutLink) {
+    logoutLink.addEventListener('click', async (e) => {
+      e.preventDefault();
+      let fb = getFirebase();
+      try {
+        if (!fb) {
+          fb = await waitForFirebase();
+        }
+        if (fb) {
+          await addLogEntry(fb, { 
+            type: 'logout', 
+            action: 'logout', 
+            category: 'authentification',
+            message: 'Déconnexion' 
+          });
+          if (fb.auth) {
+            await signOut(fb.auth);
+          }
+        }
+      } catch (err) {
+        console.error('Erreur déconnexion:', err);
+      }
+      localStorage.removeItem('ms_auth_state');
+      window.dispatchEvent(new CustomEvent('auth:changed', { detail: { user: null } }));
+      location.hash = '#/auth';
+    });
+  }
+
+  // Gérer l'état actif des liens de navigation
+  const hash = location.hash || '#/employe/flotte';
+  const navVente = document.getElementById('nav-vente-flotte');
+  const navFlotte = document.getElementById('nav-flotte-flotte');
+  const navCalcul = document.getElementById('nav-calcul-flotte');
+  if (navVente && navFlotte && navCalcul) {
+    if (hash === '#/employe/flotte') {
+      navFlotte.classList.add('active');
+      navVente.classList.remove('active');
+      navCalcul.classList.remove('active');
+    } else if (hash === '#/employe/calcul') {
+      navCalcul.classList.add('active');
+      navVente.classList.remove('active');
+      navFlotte.classList.remove('active');
+    } else {
+      navVente.classList.add('active');
+      navFlotte.classList.remove('active');
+      navCalcul.classList.remove('active');
+    }
+  }
+
+  let flotteCache = [];
+  let currentViewEmp = localStorage.getItem('flotte-view-emp') || 'table'; // 'table' ou 'card'
+
+  // Fonction pour formater les nombres avec espaces
+  function formatNumber(num) {
+    if (num === null || num === undefined || isNaN(num)) return '0';
+    return num.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  }
+
+  // Fonction pour formater les montants
+  function formatAmount(num) {
+    if (num === null || num === undefined || isNaN(num)) return '0,00';
+    const parts = num.toFixed(2).split('.');
+    const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    return integerPart + ',' + parts[1];
+  }
+
+  // Toggle vue card/tableau
+  function switchViewEmp(view) {
+    currentViewEmp = view;
+    localStorage.setItem('flotte-view-emp', view);
+    
+    const tableView = document.getElementById('flotte-table-view-emp');
+    const cardView = document.getElementById('flotte-card-view-emp');
+    const btnTable = document.getElementById('btn-view-table-emp');
+    const btnCard = document.getElementById('btn-view-card-emp');
+    
+    if (view === 'table') {
+      tableView?.classList.remove('hidden');
+      cardView?.classList.add('hidden');
+      btnTable?.classList.add('active');
+      btnCard?.classList.remove('active');
+    } else {
+      tableView?.classList.add('hidden');
+      cardView?.classList.remove('hidden');
+      btnTable?.classList.remove('active');
+      btnCard?.classList.add('active');
+      loadFlotteCardsEmp();
+    }
+  }
+
+  document.getElementById('btn-view-table-emp')?.addEventListener('click', () => switchViewEmp('table'));
+  document.getElementById('btn-view-card-emp')?.addEventListener('click', () => switchViewEmp('card'));
+  
+  // Initialiser la vue
+  switchViewEmp(currentViewEmp);
+
+  // Charger le profil et la flotte
+  (async () => {
+    try {
+      const fb = getFirebase();
+      if (!fb || !fb.db) return;
+      
+      // Charger le profil
+      let p = getCachedProfile();
+      if (!p || !p.name) {
+        p = await loadUserProfile() || {};
+      }
+      
+      // Sidebar profile
+      const av = document.getElementById('sb-avatar-flotte');
+      updateAvatar(av, p);
+      const nm = document.getElementById('sb-name-flotte');
+      if (nm) nm.textContent = p.name || 'Utilisateur';
+      const em = document.getElementById('sb-email-flotte');
+      if (em) em.textContent = p.email || '';
+      const rb = document.getElementById('sb-role-flotte');
+      if (rb) await updateRoleBadge(rb);
+
+      loadFlotte();
+      loadStats();
+    } catch (e) { 
+      console.error(e); 
+    }
+  })();
+
+  async function loadStats() {
+    try {
+      const fb = getFirebase();
+      if (!fb || !fb.db) return;
+
+      const snap = await getDocs(collection(fb.db, 'flotte'));
+      // Filtrer uniquement les véhicules achetés (Flotte MS Corp)
+      const vehicules = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(v => v.achete === true);
+
+      const totalVehicules = vehicules.length;
+      const placesTotales = vehicules.reduce((sum, v) => sum + (v.nombrePlaces || 0), 0);
+      const valeurTotale = vehicules.reduce((sum, v) => sum + (v.prixAchat || 0), 0);
+      const assurancesActives = vehicules.filter(v => 
+        v.assuranceTier1 || v.assuranceTier2 || v.assuranceTier3 || v.assuranceTier4
+      ).length;
+
+      document.getElementById('stat-total-vehicules-emp').textContent = formatNumber(totalVehicules);
+      document.getElementById('stat-places-totales-emp').textContent = formatNumber(placesTotales);
+      document.getElementById('stat-valeur-totale-emp').textContent = formatAmount(valeurTotale) + ' €';
+      document.getElementById('stat-assurances-actives-emp').textContent = formatNumber(assurancesActives);
+    } catch (e) { 
+      console.error('Erreur chargement stats:', e); 
+    }
+  }
+
+  async function loadFlotte() {
+    try {
+      const fb = getFirebase();
+      if (!fb || !fb.db) return;
+      
+      const snap = await getDocs(query(collection(fb.db, 'flotte'), orderBy('dateAchat', 'desc')));
+      const tbody = document.getElementById('flotte-emp-tbody');
+      if (!tbody) return;
+      
+      tbody.innerHTML = '';
+      
+      // Filtrer uniquement les véhicules achetés (Flotte MS Corp)
+      const vehiculesAchetes = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(v => v.achete === true);
+      
+      if (!vehiculesAchetes.length) {
+        tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="7">Aucun véhicule acheté</td></tr>';
+        flotteCache = [];
+        loadStats();
+        return;
+      }
+
+      flotteCache = vehiculesAchetes;
+      
+      vehiculesAchetes.forEach(v => {
+        const dateAchat = v.dateAchat ? 
+          (v.dateAchat.toDate ? v.dateAchat.toDate() : new Date(v.dateAchat)) : 
+          (v.dateAchatFinanciere?.toDate ? v.dateAchatFinanciere.toDate() : new Date());
+        
+        // Déterminer quel tier d'assurance
+        let assuranceTier = '—';
+        let assuranceMontant = 0;
+        if (v.assuranceTier1) {
+          assuranceTier = `Tier 1: ${formatAmount(v.assuranceTier1)} €`;
+          assuranceMontant = v.assuranceTier1;
+        } else if (v.assuranceTier2) {
+          assuranceTier = `Tier 2: ${formatAmount(v.assuranceTier2)} €`;
+          assuranceMontant = v.assuranceTier2;
+        } else if (v.assuranceTier3) {
+          assuranceTier = `Tier 3: ${formatAmount(v.assuranceTier3)} €`;
+          assuranceMontant = v.assuranceTier3;
+        } else if (v.assuranceTier4) {
+          assuranceTier = `Tier 4: ${formatAmount(v.assuranceTier4)} €`;
+          assuranceMontant = v.assuranceTier4;
+        }
+        
+        const montantTotal = (v.prixAchat || 0) + assuranceMontant;
+        
+        // Déterminer la date d'expiration de l'assurance
+        const dateExpirationAssurance = v.dateExpirationAssurance ? 
+          (v.dateExpirationAssurance.toDate ? v.dateExpirationAssurance.toDate() : new Date(v.dateExpirationAssurance)) : 
+          null;
+        
+        // Calculer le compte à rebours pour le renouvellement
+        let compteReboursHtml = '—';
+        if (dateExpirationAssurance) {
+          const maintenant = new Date();
+          maintenant.setHours(0, 0, 0, 0);
+          const expiration = new Date(dateExpirationAssurance);
+          expiration.setHours(0, 0, 0, 0);
+          const diffTime = expiration - maintenant;
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          if (diffDays < 0) {
+            compteReboursHtml = `<span style="color: #ef4444; font-weight: 700;">Expirée (${Math.abs(diffDays)}j)</span>`;
+          } else if (diffDays === 0) {
+            compteReboursHtml = `<span style="color: #f59e0b; font-weight: 700;">Aujourd'hui</span>`;
+          } else if (diffDays <= 7) {
+            compteReboursHtml = `<span style="color: #f59e0b; font-weight: 700;">${diffDays} jour${diffDays > 1 ? 's' : ''}</span>`;
+          } else {
+            compteReboursHtml = `<span style="color: #10b981; font-weight: 700;">${diffDays} jour${diffDays > 1 ? 's' : ''}</span>`;
+          }
+        }
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${dateAchat.toLocaleDateString('fr-FR')}</td>
+          <td>${v.type || '—'} ${v.modele || '—'} (${v.immatriculation || '—'})</td>
+          <td>${formatAmount(v.prixAchat || 0)} €</td>
+          <td>${assuranceTier}</td>
+          <td>${compteReboursHtml}</td>
+          <td class="font-medium text-red-600">-${formatAmount(montantTotal)} €</td>
+          <td>
+            <div class="action-buttons" data-vehicule-id="${v.id}">
+              <button class="action-btn btn-view" title="Voir"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></span></button>
+            </div>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+      
+      loadStats();
+      // Recharger les cartes si la vue card est active
+      if (currentViewEmp === 'card') {
+        loadFlotteCardsEmp();
+      }
+    } catch (e) { 
+      console.error(e); 
+    }
+  }
+
+  async function loadFlotteCardsEmp() {
+    try {
+      const cardsContainer = document.getElementById('flotte-cards-emp');
+      const emptyState = document.getElementById('flotte-empty-card-emp');
+      if (!cardsContainer || !emptyState) return;
+
+      cardsContainer.innerHTML = '';
+      
+      if (!flotteCache || flotteCache.length === 0) {
+        emptyState.textContent = 'Aucun véhicule';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+
+      flotteCache.forEach(vehicule => {
+        const dateAchat = vehicule.dateAchat ? 
+          (vehicule.dateAchat.toDate ? vehicule.dateAchat.toDate() : new Date(vehicule.dateAchat)) : 
+          null;
+        
+        const card = document.createElement('div');
+        card.className = 'p-5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 shadow-sm flex flex-col gap-4 hover:shadow-md transition-shadow';
+        
+        const hasAssurances = vehicule.assuranceTier1 || vehicule.assuranceTier2 || vehicule.assuranceTier3 || vehicule.assuranceTier4;
+        
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1">
+              <div class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1">${vehicule.type || '—'}</div>
+              <div class="text-xl font-semibold text-slate-900 dark:text-white mb-1">${vehicule.modele || '—'}</div>
+              <div class="text-sm text-slate-600 dark:text-slate-400">${vehicule.immatriculation || '—'}</div>
+            </div>
+            <div class="action-buttons" data-vehicule-id="${vehicule.id}">
+              <button class="action-btn btn-view" title="Voir"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></span></button>
+            </div>
+          </div>
+          
+          <div class="grid gap-3 grid-cols-2">
+            <div class="p-3 rounded-lg bg-slate-50 dark:bg-white/10">
+              <div class="text-xs uppercase text-slate-500 dark:text-slate-400 mb-1">Places</div>
+              <div class="text-lg font-semibold text-slate-900 dark:text-white">${formatNumber(vehicule.nombrePlaces || 0)}</div>
+            </div>
+            <div class="p-3 rounded-lg bg-slate-50 dark:bg-white/10">
+              <div class="text-xs uppercase text-slate-500 dark:text-slate-400 mb-1">Prix d'achat</div>
+              <div class="text-lg font-semibold text-blue-600 dark:text-blue-400">${formatAmount(vehicule.prixAchat || 0)} €</div>
+            </div>
+          </div>
+          
+          ${hasAssurances ? `
+          <div class="rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/10 p-3">
+            <div class="text-xs uppercase text-slate-500 dark:text-slate-400 mb-2">Assurances</div>
+            <div class="grid gap-2 grid-cols-2 text-xs">
+              ${vehicule.assuranceTier1 ? `<div><span class="text-slate-600 dark:text-slate-400">Tier 1:</span> <span class="font-semibold">${formatAmount(vehicule.assuranceTier1)} €</span></div>` : ''}
+              ${vehicule.assuranceTier2 ? `<div><span class="text-slate-600 dark:text-slate-400">Tier 2:</span> <span class="font-semibold">${formatAmount(vehicule.assuranceTier2)} €</span></div>` : ''}
+              ${vehicule.assuranceTier3 ? `<div><span class="text-slate-600 dark:text-slate-400">Tier 3:</span> <span class="font-semibold">${formatAmount(vehicule.assuranceTier3)} €</span></div>` : ''}
+              ${vehicule.assuranceTier4 ? `<div><span class="text-slate-600 dark:text-slate-400">Tier 4:</span> <span class="font-semibold">${formatAmount(vehicule.assuranceTier4)} €</span></div>` : ''}
+            </div>
+          </div>
+          ` : ''}
+          
+          ${dateAchat || vehicule.kilometrage !== null ? `
+          <div class="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-white/10">
+            ${dateAchat ? `<div>🛒 ${dateAchat.toLocaleDateString('fr-FR')}</div>` : ''}
+            ${vehicule.kilometrage !== null ? `<div>📏 ${formatNumber(vehicule.kilometrage)} km</div>` : ''}
+          </div>
+          ` : ''}
+        `;
+        
+        cardsContainer.appendChild(card);
+      });
+    } catch (e) {
+      console.error('Erreur chargement cartes:', e);
+    }
+  }
+
+  // Actions sur les véhicules (lecture seule pour les employés)
+  const page = document.querySelector('.page-card');
+  page.addEventListener('click', async (e) => {
+    const container = e.target.closest('.action-buttons');
+    if (!container) return;
+    const vehiculeId = container.getAttribute('data-vehicule-id');
+    if (!vehiculeId) return;
+    
+    const vehicule = flotteCache.find(v => v.id === vehiculeId);
+    if (!vehicule) return;
+
+    if (e.target.closest('.btn-view')) {
+      const dateAchat = vehicule.dateAchat ? 
+        (vehicule.dateAchat.toDate ? vehicule.dateAchat.toDate() : new Date(vehicule.dateAchat)) : 
+        null;
+      
+      const body = `
+        <div class="view-highlight">
+          <div class="view-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 1.5rem; height: 1.5rem;"><path d="M5 17H4a2 2 0 01-2-2V5a2 2 0 012-2h16a2 2 0 012 2v10a2 2 0 01-2 2h-1"></path><polygon points="12 15 17 21 7 21 12 15"></polygon></svg></div>
+          <div style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem;">${vehicule.type || '—'} ${vehicule.modele || '—'}</div>
+          <div style="color: rgb(100,116,139);">${vehicule.immatriculation || '—'}</div>
+        </div>
+        <div class="view-grid">
+          <div class="view-section">
+            <div class="view-section-title">Informations véhicule</div>
+            <div class="view-item">
+              <div class="view-item-label">Type</div>
+              <div class="view-item-value">${vehicule.type || '—'}</div>
+            </div>
+            <div class="view-item">
+              <div class="view-item-label">Modèle</div>
+              <div class="view-item-value">${vehicule.modele || '—'}</div>
+            </div>
+            <div class="view-item">
+              <div class="view-item-label">Immatriculation</div>
+              <div class="view-item-value">${vehicule.immatriculation || '—'}</div>
+            </div>
+            <div class="view-item">
+              <div class="view-item-label">Nombre de places</div>
+              <div class="view-item-value">${formatNumber(vehicule.nombrePlaces || 0)}</div>
+            </div>
+            <div class="view-item">
+              <div class="view-item-label">Prix d'achat</div>
+              <div class="view-item-value" style="font-size: 1.25rem; color: #0055A4;">${formatAmount(vehicule.prixAchat || 0)} €</div>
+            </div>
+          </div>
+          <div class="view-section">
+            <div class="view-section-title">Assurances</div>
+            <div class="view-item">
+              <div class="view-item-label">Assurance Tier 1</div>
+              <div class="view-item-value">${vehicule.assuranceTier1 ? formatAmount(vehicule.assuranceTier1) + ' €' : '—'}</div>
+            </div>
+            <div class="view-item">
+              <div class="view-item-label">Assurance Tier 2</div>
+              <div class="view-item-value">${vehicule.assuranceTier2 ? formatAmount(vehicule.assuranceTier2) + ' €' : '—'}</div>
+            </div>
+            <div class="view-item">
+              <div class="view-item-label">Assurance Tier 3</div>
+              <div class="view-item-value">${vehicule.assuranceTier3 ? formatAmount(vehicule.assuranceTier3) + ' €' : '—'}</div>
+            </div>
+            <div class="view-item">
+              <div class="view-item-label">Assurance Tier 4</div>
+              <div class="view-item-value">${vehicule.assuranceTier4 ? formatAmount(vehicule.assuranceTier4) + ' €' : '—'}</div>
+            </div>
+          </div>
+          ${dateAchat || vehicule.kilometrage !== null || vehicule.notes ? `
+          <div class="view-section">
+            <div class="view-section-title">Détails supplémentaires</div>
+            ${dateAchat ? `
+            <div class="view-item">
+              <div class="view-item-label">Date d'achat</div>
+              <div class="view-item-value">${dateAchat.toLocaleDateString('fr-FR')}</div>
+            </div>
+            ` : ''}
+            ${vehicule.kilometrage !== null ? `
+            <div class="view-item">
+              <div class="view-item-label">Kilométrage</div>
+              <div class="view-item-value">${formatNumber(vehicule.kilometrage)} km</div>
+            </div>
+            ` : ''}
+            ${vehicule.notes ? `
+            <div class="view-item">
+              <div class="view-item-label">Notes</div>
+              <div class="view-item-value">${vehicule.notes}</div>
+            </div>
+            ` : ''}
+          </div>
+          ` : ''}
+        </div>
+      `;
+      createModal({ 
+        title: 'Détails véhicule', 
+        body, 
+        confirmText: 'Fermer', 
+        onConfirm: () => {}, 
+        isView: true 
+      });
+    }
   });
 }
