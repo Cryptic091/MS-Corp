@@ -1,5 +1,5 @@
 import { html, mount, getCachedProfile, loadUserProfile, createModal, alertModal, updateAvatar, isAuthenticated, updateRoleBadge, updateNavPermissions, applyPagePermissions } from './utils.js';
-import { getFirebase, waitForFirebase, doc, getDoc, collection, getDocs, addDoc, serverTimestamp, query, orderBy, where, signOut } from './firebase.js';
+import { getFirebase, waitForFirebase, doc, getDoc, collection, getDocs, addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, where, signOut } from './firebase.js';
 import { addLogEntry } from './firebase.js';
 import { formatDate } from './utils.js';
 
@@ -17,13 +17,23 @@ export function viewEmploye(root) {
     return;
   }
   
+  if (hash === '#/employe/centrale') {
+    location.hash = '#/employe/suivi-effectif';
+    return;
+  }
+  
   if (hash === '#/employe/calculatrice') {
     viewCalculatriceEmploye(root);
     return;
   }
-  
+
   if (hash === '#/employe/flotte') {
     viewFlotteEmploye(root);
+    return;
+  }
+
+  if (hash === '#/employe/suivi-effectif') {
+    viewSuiviEffectifEmploye(root);
     return;
   }
   
@@ -44,11 +54,20 @@ function viewVentesEmploye(root) {
                 <div id="sb-email" class="user-handle text-xs opacity-70">—</div>
               </div>
             </div>
-            <div id="sb-role" class="badge-role badge-employe mt-2 inline-block text-xs">Employé</div>
+            <div
+              id="sb-role"
+              class="badge-role badge-employe mt-2 inline-block text-xs"
+              data-role-field="roleEmploye"
+              data-default-label="Sans rôle"
+              data-empty-label="Sans rôle"
+              data-role-class="badge-employe"
+            >Employé</div>
           </a>
           <div class="section-title">Employé</div>
             <nav class="nav-links">
             <a href="#/employe" id="nav-vente" class="nav-item"><span class="nav-icon"></span>Vente</a>
+            <a href="#/employe/centrale" id="nav-centrale" class="nav-item" style="display:none;"><span class="nav-icon"></span>Prise de service</a>
+            <a href="#/employe/suivi-effectif" id="nav-suivi-effectif" class="nav-item"><span class="nav-icon"></span>Suivi effectif</a>
             <a href="#/employe/flotte" id="nav-flotte" class="nav-item"><span class="nav-icon"></span>Flotte</a>
             <a href="#/employe/calcul" id="nav-calcul" class="nav-item"><span class="nav-icon"></span>Calculateur CA</a>
             <a href="#/employe/calculatrice" id="nav-calculatrice" class="nav-item"><span class="nav-icon"></span>Calculatrice</a>
@@ -196,20 +215,26 @@ function viewVentesEmploye(root) {
   const navVente = document.getElementById('nav-vente');
   const navFlotte = document.getElementById('nav-flotte');
   const navCalcul = document.getElementById('nav-calcul');
-  if (navVente && navFlotte && navCalcul) {
-    if (hash === '#/employe/calcul') {
-      navCalcul.classList.add('active');
-      navVente.classList.remove('active');
-      navFlotte.classList.remove('active');
-    } else if (hash === '#/employe/flotte') {
-      navFlotte.classList.add('active');
-      navVente.classList.remove('active');
-      navCalcul.classList.remove('active');
-    } else {
-      navVente.classList.add('active');
-      navFlotte.classList.remove('active');
-      navCalcul.classList.remove('active');
-    }
+  const navCalculatrice = document.getElementById('nav-calculatrice');
+  const navSuiviEffectif = document.getElementById('nav-suivi-effectif');
+  const navItems = [navVente, navFlotte, navCalcul, navCalculatrice, navSuiviEffectif].filter(Boolean);
+  navItems.forEach(item => item.classList.remove('active'));
+  switch (hash) {
+    case '#/employe/flotte':
+      navFlotte?.classList.add('active');
+      break;
+    case '#/employe/calcul':
+      navCalcul?.classList.add('active');
+      break;
+    case '#/employe/calculatrice':
+      navCalculatrice?.classList.add('active');
+      break;
+    case '#/employe/suivi-effectif':
+      navSuiviEffectif?.classList.add('active');
+      break;
+    default:
+      navVente?.classList.add('active');
+      break;
   }
 
   let ressourcesCache = [];
@@ -532,13 +557,23 @@ function viewCalculEmploye(root) {
                 <div id="sb-email-calc" class="user-handle text-xs opacity-70">—</div>
               </div>
             </div>
-            <div id="sb-role-calc" class="badge-role badge-employe mt-2 inline-block text-xs">Employé</div>
+            <div
+              id="sb-role-calc"
+              class="badge-role badge-employe mt-2 inline-block text-xs"
+              data-role-field="roleEmploye"
+              data-default-label="Sans rôle"
+              data-empty-label="Sans rôle"
+              data-role-class="badge-employe"
+            >Employé</div>
           </a>
           <div class="section-title">Employé</div>
           <nav class="nav-links">
             <a href="#/employe" id="nav-vente-calc" class="nav-item"><span class="nav-icon"></span>Vente</a>
+            <a href="#/employe/centrale" id="nav-centrale-calc" class="nav-item" style="display:none;"><span class="nav-icon"></span>Prise de service</a>
+            <a href="#/employe/suivi-effectif" id="nav-suivi-effectif-calc" class="nav-item"><span class="nav-icon"></span>Suivi effectif</a>
             <a href="#/employe/flotte" id="nav-flotte-calc" class="nav-item"><span class="nav-icon"></span>Flotte</a>
             <a href="#/employe/calcul" id="nav-calcul-calc" class="active nav-item"><span class="nav-icon"></span>Calculateur CA</a>
+            <a href="#/employe/calculatrice" id="nav-calculatrice-calc" class="nav-item"><span class="nav-icon"></span>Calculatrice</a>
             <a href="#/public" class="nav-item" style="border-top: 1px solid rgba(226,232,240,1); margin-top: 0.5rem; padding-top: 0.75rem;"><span class="nav-icon"></span>Site Public</a>
           </nav>
           <div class="nav-bottom">
@@ -732,20 +767,26 @@ function viewCalculEmploye(root) {
   const navVente = document.getElementById('nav-vente-calc');
   const navFlotte = document.getElementById('nav-flotte-calc');
   const navCalcul = document.getElementById('nav-calcul-calc');
-  if (navVente && navFlotte && navCalcul) {
-    if (hash === '#/employe/calcul') {
-      navCalcul.classList.add('active');
-      navVente.classList.remove('active');
-      navFlotte.classList.remove('active');
-    } else if (hash === '#/employe/flotte') {
-      navFlotte.classList.add('active');
-      navVente.classList.remove('active');
-      navCalcul.classList.remove('active');
-    } else {
-      navVente.classList.add('active');
-      navFlotte.classList.remove('active');
-      navCalcul.classList.remove('active');
-    }
+  const navCalculatrice = document.getElementById('nav-calculatrice-calc');
+  const navSuiviEffectif = document.getElementById('nav-suivi-effectif-calc');
+  const navItems = [navVente, navFlotte, navCalcul, navCalculatrice, navSuiviEffectif].filter(Boolean);
+  navItems.forEach(item => item.classList.remove('active'));
+  switch (hash) {
+    case '#/employe/flotte':
+      navFlotte?.classList.add('active');
+      break;
+    case '#/employe/calculatrice':
+      navCalculatrice?.classList.add('active');
+      break;
+    case '#/employe/suivi-effectif':
+      navSuiviEffectif?.classList.add('active');
+      break;
+    case '#/employe/calcul':
+      navCalcul?.classList.add('active');
+      break;
+    default:
+      navVente?.classList.add('active');
+      break;
   }
 
   let ressourcesCache = [];
@@ -862,13 +903,23 @@ function viewFlotteEmploye(root) {
                 <div id="sb-email-flotte" class="user-handle text-xs opacity-70">—</div>
               </div>
             </div>
-            <div id="sb-role-flotte" class="badge-role badge-employe mt-2 inline-block text-xs">Employé</div>
+            <div
+              id="sb-role-flotte"
+              class="badge-role badge-employe mt-2 inline-block text-xs"
+              data-role-field="roleEmploye"
+              data-default-label="Sans rôle"
+              data-empty-label="Sans rôle"
+              data-role-class="badge-employe"
+            >Employé</div>
           </a>
           <div class="section-title">Employé</div>
           <nav class="nav-links">
             <a href="#/employe" id="nav-vente-flotte" class="nav-item"><span class="nav-icon"></span>Vente</a>
+            <a href="#/employe/centrale" id="nav-centrale-flotte" class="nav-item" style="display:none;"><span class="nav-icon"></span>Prise de service</a>
+            <a href="#/employe/suivi-effectif" id="nav-suivi-effectif-flotte" class="nav-item"><span class="nav-icon"></span>Suivi effectif</a>
             <a href="#/employe/flotte" id="nav-flotte-flotte" class="active nav-item"><span class="nav-icon"></span>Flotte</a>
             <a href="#/employe/calcul" id="nav-calcul-flotte" class="nav-item"><span class="nav-icon"></span>Calculateur CA</a>
+            <a href="#/employe/calculatrice" id="nav-calculatrice-flotte" class="nav-item"><span class="nav-icon"></span>Calculatrice</a>
             <a href="#/public" class="nav-item" style="border-top: 1px solid rgba(226,232,240,1); margin-top: 0.5rem; padding-top: 0.75rem;"><span class="nav-icon"></span>Site Public</a>
           </nav>
           <div class="nav-bottom">
@@ -1331,20 +1382,30 @@ function viewFlotteEmploye(root) {
   const navVente = document.getElementById('nav-vente-flotte');
   const navFlotte = document.getElementById('nav-flotte-flotte');
   const navCalcul = document.getElementById('nav-calcul-flotte');
-  if (navVente && navFlotte && navCalcul) {
-    if (hash === '#/employe/flotte') {
-      navFlotte.classList.add('active');
-      navVente.classList.remove('active');
-      navCalcul.classList.remove('active');
-    } else if (hash === '#/employe/calcul') {
-      navCalcul.classList.add('active');
-      navVente.classList.remove('active');
-      navFlotte.classList.remove('active');
-    } else {
-      navVente.classList.add('active');
-      navFlotte.classList.remove('active');
-      navCalcul.classList.remove('active');
-    }
+  const navCalculatrice = document.getElementById('nav-calculatrice-flotte');
+  const navCentrale = document.getElementById('nav-centrale-flotte');
+  const navSuiviEffectif = document.getElementById('nav-suivi-effectif-flotte');
+  const navItems = [navVente, navFlotte, navCalcul, navCalculatrice, navCentrale, navSuiviEffectif].filter(Boolean);
+  navItems.forEach(item => item.classList.remove('active'));
+  switch (hash) {
+    case '#/employe/flotte':
+      navFlotte?.classList.add('active');
+      break;
+    case '#/employe/calcul':
+      navCalcul?.classList.add('active');
+      break;
+    case '#/employe/calculatrice':
+      navCalculatrice?.classList.add('active');
+      break;
+    case '#/employe/centrale':
+      navCentrale?.classList.add('active');
+      break;
+    case '#/employe/suivi-effectif':
+      navSuiviEffectif?.classList.add('active');
+      break;
+    default:
+      navVente?.classList.add('active');
+      break;
   }
 
   let flotteCache = [];
@@ -2336,11 +2397,20 @@ function viewCalculatriceEmploye(root) {
                 <div id="sb-email-calc" class="user-handle text-xs opacity-70">—</div>
               </div>
             </div>
-            <div id="sb-role-calc" class="badge-role badge-employe mt-2 inline-block text-xs">Employé</div>
+            <div
+              id="sb-role-calc"
+              class="badge-role badge-employe mt-2 inline-block text-xs"
+              data-role-field="roleEmploye"
+              data-default-label="Sans rôle"
+              data-empty-label="Sans rôle"
+              data-role-class="badge-employe"
+            >Employé</div>
           </a>
           <div class="section-title">Employé</div>
           <nav class="nav-links">
             <a href="#/employe" id="nav-vente-calc" class="nav-item"><span class="nav-icon"></span>Vente</a>
+            <a href="#/employe/centrale" id="nav-centrale-calc" class="nav-item" style="display:none;"><span class="nav-icon"></span>Prise de service</a>
+            <a href="#/employe/suivi-effectif" id="nav-suivi-effectif-calc" class="nav-item"><span class="nav-icon"></span>Suivi effectif</a>
             <a href="#/employe/flotte" id="nav-flotte-calc" class="nav-item"><span class="nav-icon"></span>Flotte</a>
             <a href="#/employe/calcul" id="nav-calcul-calc" class="nav-item"><span class="nav-icon"></span>Calculateur CA</a>
             <a href="#/employe/calculatrice" id="nav-calculatrice-calc" class="active nav-item"><span class="nav-icon"></span>Calculatrice</a>
@@ -2608,4 +2678,1260 @@ function viewCalculatriceEmploye(root) {
       location.hash = '#/auth';
     });
   }
+}
+
+function viewCentraleEmploye(root) {
+  if (!isAuthenticated()) {
+    localStorage.removeItem('ms_auth_state');
+    location.hash = '#/auth';
+    return;
+  }
+
+  const content = html`
+    <section class="fade-in layout">
+      <aside class="sidebar">
+        <div class="sidebar-inner">
+          <a href="#/employe/profile" class="mb-4 p-3 rounded-lg bg-white/60 dark:bg-white/5 border border-slate-200 dark:border-white/10 block hover:bg-white/80 dark:hover:bg-white/10 transition-colors cursor-pointer">
+            <div class="user-info flex items-center gap-3">
+              <div id="sb-avatar" class="user-avatar w-9 h-9"></div>
+              <div class="user-details">
+                <div id="sb-name" class="user-name text-sm font-semibold">—</div>
+                <div id="sb-email" class="user-handle text-xs opacity-70">—</div>
+              </div>
+            </div>
+            <div
+              id="sb-role"
+              class="badge-role badge-employe mt-2 inline-block text-xs"
+              data-role-field="roleEmploye"
+              data-default-label="Sans rôle"
+              data-empty-label="Sans rôle"
+              data-role-class="badge-employe"
+            >Employé</div>
+          </a>
+          <div class="section-title">Employé</div>
+          <nav class="nav-links">
+            <a href="#/employe" id="nav-vente" class="nav-item"><span class="nav-icon"></span>Vente</a>
+            <a href="#/employe/centrale" id="nav-centrale" class="nav-item active"><span class="nav-icon"></span>Prise de service</a>
+            <a href="#/employe/suivi-effectif" id="nav-suivi-effectif" class="nav-item"><span class="nav-icon"></span>Suivi effectif</a>
+            <a href="#/employe/flotte" id="nav-flotte" class="nav-item"><span class="nav-icon"></span>Flotte</a>
+            <a href="#/employe/calcul" id="nav-calcul" class="nav-item"><span class="nav-icon"></span>Calculateur CA</a>
+            <a href="#/employe/calculatrice" id="nav-calculatrice" class="nav-item"><span class="nav-icon"></span>Calculatrice</a>
+            <a href="#/public" class="nav-item" style="border-top: 1px solid rgba(226,232,240,1); margin-top: 0.5rem; padding-top: 0.75rem;"><span class="nav-icon"></span>Site Public</a>
+          </nav>
+          <div class="nav-bottom">
+            <a href="#/home" class="home-card-link">
+              <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></span>
+              <span>Choix d'espace</span>
+            </a>
+            <a id="logout-link-emp-centrale" href="#/auth">Déconnexion</a>
+          </div>
+        </div>
+      </aside>
+      <div class="content">
+        <div class="page-card">
+          <div class="page-head">
+            <div>
+              <div class="page-title">Prise de service</div>
+              <div class="page-sub">Gérez votre prise de service et consultez les collègues en service</div>
+            </div>
+            <div class="flex gap-2 flex-wrap justify-end">
+              <button id="btn-refresh-service" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-sm flex items-center gap-2">
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0115-6.7L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 01-15 6.7L3 16"></path><path d="M8 16H3v5"></path></svg></span>
+                Actualiser
+              </button>
+              <button id="btn-my-service-action" class="btn-primary flex items-center gap-2">
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7h-1l-1-2h-8l-1 2H6a2 2 0 00-2 2v9a2 2 0 002 2h13a2 2 0 002-2V9a2 2 0 00-2-2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg></span>
+                <span id="service-action-text">Prendre mon service</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="card mt-4">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-medium text-lg">État du service</h3>
+              <div id="service-status-summary" class="text-sm text-slate-500 dark:text-slate-400">Chargement...</div>
+            </div>
+
+            <div id="my-service-status" class="p-4 rounded-md bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 mb-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="font-medium">Mon statut</div>
+                  <div class="text-sm text-slate-600 dark:text-slate-300" id="my-service-detail">Chargement...</div>
+                </div>
+                <div id="my-service-badge" class="px-3 py-1 rounded-full text-sm font-medium bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                  Chargement...
+                </div>
+              </div>
+            </div>
+
+            <div class="user-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Employé</th>
+                    <th>Contact</th>
+                    <th>Prise de service</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="service-employees-tbody">
+                  <tr><td colspan="4" class="py-3 text-center">Chargement…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+
+  mount(root, content);
+
+  // Gestion du logout
+  const logoutLink = document.getElementById('logout-link-emp-centrale');
+  if (logoutLink) {
+    logoutLink.addEventListener('click', async (e) => {
+      e.preventDefault();
+      let fb = getFirebase();
+      try {
+        if (!fb) {
+          fb = await waitForFirebase();
+        }
+        if (fb) {
+          await addLogEntry(fb, {
+            type: 'logout',
+            action: 'logout',
+            category: 'authentification',
+            message: 'Déconnexion'
+          });
+          const { signOut } = await import('./firebase.js');
+          await signOut(fb.auth);
+        }
+      } catch (err) {
+        console.error('Erreur déconnexion:', err);
+      }
+      localStorage.removeItem('ms_auth_state');
+      window.dispatchEvent(new CustomEvent('auth:changed', { detail: { user: null } }));
+      location.hash = '#/auth';
+    });
+  }
+
+  let currentUser = null;
+  let serviceEmployees = [];
+  let serviceEmployeIds = new Set();
+  let myServiceStatus = null;
+
+  function renderServiceTable() {
+    const tbody = document.getElementById('service-employees-tbody');
+    const summaryEl = document.getElementById('service-status-summary');
+    if (summaryEl) {
+      summaryEl.textContent = `${serviceEmployees.length} employé${serviceEmployees.length > 1 ? 's' : ''} en service`;
+    }
+    if (!tbody) return;
+
+    if (!serviceEmployees.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-slate-500 dark:text-slate-400">Aucun employé n\'est actuellement en service.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = '';
+    serviceEmployees.forEach(emp => {
+      const contactParts = [];
+      if (emp.phone) {
+        contactParts.push(`<span class="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="M22 16.92V21a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2 4.18 2 2 0 0 1 4 2h4.09a2 2 0 0 1 2 1.72c.12.86.37 1.7.72 2.49a2 2 0 0 1-.45 2.11L9.91 9.91a16 16 0 0 0 6.18 6.18l1.59-1.59a2 2 0 0 1 2.11-.45c.79.35 1.63.6 2.49.72a2 2 0 0 1 1.72 2z"></path></svg>${emp.phone}</span>`);
+      }
+      if (emp.email) {
+        contactParts.push(`<span class="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>${emp.email}</span>`);
+      }
+      const contactHtml = contactParts.length ? contactParts.join('<br>') : '—';
+      const startedAt = emp.startedAt ? emp.startedAt.toLocaleString('fr-FR') : '—';
+
+      const isCurrentUser = emp.uid === currentUser?.uid;
+      const canEndService = isCurrentUser || false; // Pour l'instant, seulement l'utilisateur peut terminer son propre service
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${emp.name || emp.uid || '—'} ${isCurrentUser ? '<span class="text-xs text-blue-600 dark:text-blue-400">(Vous)</span>' : ''}</td>
+        <td>${contactHtml}</td>
+        <td>${startedAt}</td>
+        <td>
+          ${canEndService ? `
+            <div class="action-buttons" data-service-uid="${emp.uid}">
+              <button class="action-btn btn-stop-service" title="Mettre fin au service" style="background: #dc2626; color: white;">
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg></span>
+              </button>
+            </div>
+          ` : '—'}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function renderMyServiceStatus() {
+    const detailEl = document.getElementById('my-service-detail');
+    const badgeEl = document.getElementById('my-service-badge');
+    const actionBtn = document.getElementById('btn-my-service-action');
+    const actionText = document.getElementById('service-action-text');
+
+    if (!myServiceStatus) {
+      if (detailEl) detailEl.textContent = 'Hors service';
+      if (badgeEl) {
+        badgeEl.textContent = 'Hors service';
+        badgeEl.className = 'px-3 py-1 rounded-full text-sm font-medium bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300';
+      }
+      if (actionText) actionText.textContent = 'Prendre mon service';
+      if (actionBtn) actionBtn.style.display = 'inline-flex';
+    } else {
+      const startedAt = myServiceStatus.startedAt ? myServiceStatus.startedAt.toLocaleString('fr-FR') : '—';
+      if (detailEl) detailEl.textContent = `En service depuis ${startedAt}`;
+      if (badgeEl) {
+        badgeEl.textContent = 'En service';
+        badgeEl.className = 'px-3 py-1 rounded-full text-sm font-medium bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300';
+      }
+      if (actionText) actionText.textContent = 'Terminer mon service';
+      if (actionBtn) actionBtn.style.display = 'inline-flex';
+    }
+  }
+
+  async function loadServiceEmployees() {
+    try {
+      const fb = getFirebase();
+      if (!fb || !fb.db) return;
+      const snap = await getDocs(query(collection(fb.db, 'centraleServices'), where('active', '==', true)));
+      const mapped = snap.docs.map(docSnap => {
+        const data = docSnap.data() || {};
+        const uid = data.uid || docSnap.id;
+        const startedAt = data.startedAt?.toDate ? data.startedAt.toDate() : (data.startedAt ? new Date(data.startedAt) : null);
+        return {
+          id: docSnap.id,
+          uid,
+          name: data.name || uid,
+          email: data.email || '',
+          phone: data.phone || '',
+          startedAt,
+          raw: data
+        };
+      });
+      mapped.sort((a, b) => {
+        const timeA = a.startedAt ? a.startedAt.getTime() : 0;
+        const timeB = b.startedAt ? b.startedAt.getTime() : 0;
+        if (timeA === timeB) {
+          return (a.name || '').localeCompare(b.name || '');
+        }
+        return timeA - timeB;
+      });
+      serviceEmployees = mapped;
+      serviceEmployeIds = new Set(mapped.map(emp => emp.uid));
+
+      // Mettre à jour le statut de l'utilisateur actuel
+      myServiceStatus = mapped.find(emp => emp.uid === currentUser?.uid) || null;
+
+      renderServiceTable();
+      renderMyServiceStatus();
+    } catch (e) {
+      console.error('Erreur chargement employés en service:', e);
+      serviceEmployees = [];
+      serviceEmployeIds = new Set();
+      myServiceStatus = null;
+      renderServiceTable();
+      renderMyServiceStatus();
+    }
+  }
+
+  async function toggleMyService() {
+    try {
+      const fb = getFirebase();
+      if (!fb || !fb.db || !currentUser) return;
+
+      if (myServiceStatus) {
+        // Terminer le service
+        await setDoc(doc(fb.db, 'centraleServices', currentUser.uid), {
+          active: false,
+          endedAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        await addLogEntry(fb, {
+          type: 'action',
+          action: 'centrale_service_end',
+          category: 'centrale',
+          message: `Fin de service pour ${currentUser.name || currentUser.email || currentUser.uid}`
+        });
+
+        alertModal({ title: 'Succès', message: 'Votre fin de service a été enregistrée.', type: 'success' });
+      } else {
+        // Prendre le service
+        const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+        await setDoc(doc(fb.db, 'centraleServices', currentUser.uid), {
+          uid: currentUser.uid,
+          name: currentUser.name || currentUser.email || currentUser.uid,
+          email: currentUser.email || '',
+          phone: currentUser.phone || '',
+          active: true,
+          startedAt: serverTimestamp(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          createdBy: authState?.uid || null
+        }, { merge: true });
+
+        await addLogEntry(fb, {
+          type: 'action',
+          action: 'centrale_service_start',
+          category: 'centrale',
+          message: `Prise de service par ${currentUser.name || currentUser.email || currentUser.uid}`
+        });
+
+        alertModal({ title: 'Succès', message: 'Votre prise de service a été enregistrée.', type: 'success' });
+      }
+
+      await loadServiceEmployees();
+    } catch (e) {
+      console.error('Erreur gestion service:', e);
+      alertModal({ title: 'Erreur', message: 'Impossible de modifier votre statut de service.', type: 'danger' });
+    }
+  }
+
+  async function endServiceForEmployee(uid) {
+    try {
+      const fb = getFirebase();
+      if (!fb || !fb.db) return;
+
+      await setDoc(doc(fb.db, 'centraleServices', uid), {
+        active: false,
+        endedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      const emp = serviceEmployees.find(e => e.uid === uid);
+      await addLogEntry(fb, {
+        type: 'action',
+        action: 'centrale_service_end',
+        category: 'centrale',
+        message: `Fin de service enregistrée pour ${emp?.name || uid}`
+      });
+
+      await loadServiceEmployees();
+      alertModal({ title: 'Succès', message: `Fin de service enregistrée pour ${emp?.name || 'l\'employé'}.`, type: 'success' });
+    } catch (e) {
+      console.error('Erreur fin de service:', e);
+      alertModal({ title: 'Erreur', message: 'Impossible d\'enregistrer la fin de service.', type: 'danger' });
+    }
+  }
+
+  // Gestion des événements
+  document.getElementById('btn-refresh-service')?.addEventListener('click', loadServiceEmployees);
+  document.getElementById('btn-my-service-action')?.addEventListener('click', toggleMyService);
+
+  document.addEventListener('click', async (e) => {
+    const stopBtn = e.target.closest('.btn-stop-service');
+    if (stopBtn) {
+      const container = stopBtn.closest('.action-buttons');
+      const uid = container?.getAttribute('data-service-uid');
+      if (uid === currentUser?.uid) {
+        createModal({
+          title: 'Mettre fin au service',
+          body: `<p>Confirmez-vous la fin de votre service ?</p>`,
+          confirmText: 'Mettre fin',
+          cancelText: 'Annuler',
+          confirmStyle: 'background: #dc2626; color: white;',
+          onConfirm: async () => {
+            await endServiceForEmployee(uid);
+          }
+        });
+      }
+      return;
+    }
+
+    const actionContainer = e.target.closest('.action-buttons');
+    if (actionContainer && actionContainer.hasAttribute('data-entry-id')) {
+      const entryId = actionContainer.getAttribute('data-entry-id');
+      const entry = centraleEntries.find(ent => ent.id === entryId);
+      if (!entry) {
+        return;
+      }
+
+      if (e.target.closest('.btn-edit')) {
+        openAffectationModal(entry);
+        return;
+      }
+
+      if (e.target.closest('.btn-delete')) {
+        createModal({
+          title: 'Supprimer l'affectation',
+          body: `<p>Souhaitez-vous supprimer <strong>${entry.affectation || 'cette affectation'}</strong> ?</p><p class="text-sm text-slate-500 mt-2">Cette action est irréversible.</p>`,
+          confirmText: 'Supprimer',
+          cancelText: 'Annuler',
+          confirmStyle: 'background: #dc2626; color: white;',
+          onConfirm: async () => {
+            try {
+              const fb = getFirebase();
+              if (!fb || !fb.db) return;
+              await deleteDoc(doc(fb.db, 'centraleEffectif', entryId));
+              await addLogEntry(fb, {
+                type: 'action',
+                action: 'centrale_delete',
+                category: 'centrale',
+                message: `Suppression affectation ${entry.affectation || entryId}`
+              });
+              centraleEntries = centraleEntries.filter(ent => ent.id !== entryId);
+              renderCentraleTable();
+              alertModal({ title: 'Succès', message: 'Affectation supprimée.', type: 'success' });
+            } catch (err) {
+              console.error('Erreur suppression affectation centrale (employé):', err);
+              alertModal({ title: 'Erreur', message: 'Impossible de supprimer cette affectation.', type: 'danger' });
+            }
+          }
+        });
+        return;
+      }
+    }
+  });
+
+  // Initialisation
+  (async () => {
+    try {
+      const fb = getFirebase();
+      if (!fb || !fb.db) {
+        await waitForFirebase();
+      }
+
+      let profile = getCachedProfile();
+      if (!profile || !profile.name) {
+        profile = await loadUserProfile() || {};
+      }
+
+      // Récupérer l'utilisateur actuel
+      const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+      if (authState && authState.uid) {
+        currentUser = {
+          uid: authState.uid,
+          name: profile.name || profile.email || authState.uid,
+          email: profile.email || '',
+          phone: profile.phone || ''
+        };
+      }
+
+      const avatar = document.getElementById('sb-avatar');
+      updateAvatar(avatar, profile);
+
+      const nameEl = document.getElementById('sb-name');
+      if (nameEl) nameEl.textContent = profile.name || 'Utilisateur';
+      const emailEl = document.getElementById('sb-email');
+      if (emailEl) emailEl.textContent = profile.email || '';
+      const roleBadge = document.getElementById('sb-role');
+      if (roleBadge) await updateRoleBadge(roleBadge);
+
+      await updateNavPermissions();
+      await applyPagePermissions({
+        create: 'centrale',
+        edit: 'centrale'
+      });
+
+      await loadServiceEmployees();
+    } catch (e) {
+      console.error('Erreur initialisation centrale employé:', e);
+      alertModal({ title: 'Erreur', message: 'Impossible de charger la prise de service.', type: 'danger' });
+    }
+  })();
+
+  function renderServiceStatus() {
+    const statusEl = document.getElementById('service-status');
+    const statusTextEl = document.getElementById('service-status-text');
+    const startedEl = document.getElementById('service-started');
+
+    if (!serviceStatus) {
+      if (statusEl) statusEl.textContent = 'Hors service';
+      if (statusTextEl) statusTextEl.textContent = 'Hors service';
+      if (startedEl) startedEl.textContent = '—';
+    } else {
+      if (statusEl) statusEl.textContent = 'En service';
+      if (statusTextEl) statusTextEl.textContent = 'En service';
+      if (startedEl) startedEl.textContent = serviceStatus.startedAt ? serviceStatus.startedAt.toLocaleString('fr-FR') : '—';
+    }
+
+    renderMyServiceStatus();
+  }
+}
+
+function viewSuiviEffectifEmploye(root) {
+  if (!isAuthenticated()) {
+    localStorage.removeItem('ms_auth_state');
+    location.hash = '#/auth';
+    return;
+  }
+
+  const content = html`
+    <section class="fade-in layout">
+      <aside class="sidebar">
+        <div class="sidebar-inner">
+          <a href="#/employe/profile" class="mb-4 p-3 rounded-lg bg-white/60 dark:bg-white/5 border border-slate-200 dark:border-white/10 block hover:bg-white/80 dark:hover:bg-white/10 transition-colors cursor-pointer">
+            <div class="user-info flex items-center gap-3">
+              <div id="sb-avatar" class="user-avatar w-9 h-9"></div>
+              <div class="user-details">
+                <div id="sb-name" class="user-name text-sm font-semibold">—</div>
+                <div id="sb-email" class="user-handle text-xs opacity-70">—</div>
+              </div>
+            </div>
+            <div
+              id="sb-role"
+              class="badge-role badge-employe mt-2 inline-block text-xs"
+              data-role-field="roleEmploye"
+              data-default-label="Sans rôle"
+              data-empty-label="Sans rôle"
+              data-role-class="badge-employe"
+            >Employé</div>
+          </a>
+          <div class="section-title">Employé</div>
+          <nav class="nav-links">
+            <a href="#/employe" id="nav-vente" class="nav-item"><span class="nav-icon"></span>Vente</a>
+            <a href="#/employe/centrale" id="nav-centrale" class="nav-item"><span class="nav-icon"></span>Prise de service</a>
+            <a href="#/employe/suivi-effectif" id="nav-suivi-effectif" class="nav-item active"><span class="nav-icon"></span>Suivi effectif</a>
+            <a href="#/employe/flotte" id="nav-flotte" class="nav-item"><span class="nav-icon"></span>Flotte</a>
+            <a href="#/employe/calcul" id="nav-calcul" class="nav-item"><span class="nav-icon"></span>Calculateur CA</a>
+            <a href="#/employe/calculatrice" id="nav-calculatrice" class="nav-item"><span class="nav-icon"></span>Calculatrice</a>
+            <a href="#/public" class="nav-item" style="border-top: 1px solid rgba(226,232,240,1); margin-top: 0.5rem; padding-top: 0.75rem;"><span class="nav-icon"></span>Site Public</a>
+          </nav>
+          <div class="nav-bottom">
+            <a href="#/home" class="home-card-link">
+              <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></span>
+              <span>Choix d'espace</span>
+            </a>
+            <a id="logout-link-emp-suivi" href="#/auth">Déconnexion</a>
+          </div>
+        </div>
+      </aside>
+      <div class="content">
+        <div class="page-card effectif-page">
+          <div class="page-head">
+            <div>
+              <div class="page-title">Suivi des effectifs</div>
+              <div class="page-sub">Organisez les équipes en service et suivez les affectations</div>
+            </div>
+            <div class="flex gap-2 flex-wrap justify-end">
+              <button id="btn-manage-status-emp" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-sm flex items-center gap-2">
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06A1.65 1.65 0 0015 19.4"></path><path d="M15 4.6A1.65 1.65 0 0015 3a2 2 0 10-2.94 1.76 1.65 1.65 0 00-1.42.84L10.37 7"></path><path d="M6.34 7a1.65 1.65 0 00-1.82-.33l-.06.06a2 2 0 102.83 2.83l.06-.06A1.65 1.65 0 007 9.66"></path></svg></span>
+                Gérer les statuts
+              </button>
+              <button id="btn-new-affectation-emp" class="btn-primary flex items-center gap-2">
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span>
+                Nouvelle affectation
+              </button>
+            </div>
+          </div>
+
+          <div class="tabs-container mt-4">
+            <div class="tabs-list">
+              <button class="tab-item effectif-tab active" data-tab="affectations">Mes affectations</button>
+              <button class="tab-item effectif-tab" data-tab="service">Mon service</button>
+            </div>
+          </div>
+
+          <div id="tab-affectations" class="tab-content active">
+            <div class="card mt-4">
+              <div class="user-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Affectation</th>
+                      <th>Véhicule</th>
+                      <th>Équipe</th>
+                      <th>Statut</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="affectations-tbody">
+                    <tr><td colspan="5" class="py-3 text-center">Chargement…</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div id="tab-service" class="tab-content hidden">
+            <div class="card mt-4">
+              <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                <div>
+                  <h3 class="font-medium text-lg">Mon statut de service</h3>
+                  <div id="service-status" class="text-sm text-slate-500 dark:text-slate-400">—</div>
+                </div>
+                <div class="flex gap-2 flex-wrap justify-end">
+                  <button id="btn-refresh-service" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-sm flex items-center gap-2">
+                    <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0115-6.7L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 01-15 6.7L3 16"></path><path d="M8 16H3v5"></path></svg></span>
+                    Actualiser
+                  </button>
+                  <button id="btn-my-service-action" class="btn-primary flex items-center gap-2">
+                    <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7h-1l-1-2h-8l-1 2H6a2 2 0 00-2 2v9a2 2 0 002 2h13a2 2 0 002-2V9a2 2 0 00-2-2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg></span>
+                    <span id="service-action-text">Prendre mon service</span>
+                  </button>
+                </div>
+              </div>
+              <div id="service-details" class="space-y-3">
+                <div class="p-4 rounded-md bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                  <div class="text-sm text-slate-600 dark:text-slate-300">Statut : <span id="service-status-text">Chargement...</span></div>
+                  <div class="text-sm text-slate-600 dark:text-slate-300 mt-1">Depuis : <span id="service-started">—</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+
+  mount(root, content);
+
+  // Gestion du logout
+  const logoutLink = document.getElementById('logout-link-emp-suivi');
+  if (logoutLink) {
+    logoutLink.addEventListener('click', async (e) => {
+      e.preventDefault();
+      let fb = getFirebase();
+      try {
+        if (!fb) {
+          fb = await waitForFirebase();
+        }
+        if (fb) {
+          await addLogEntry(fb, {
+            type: 'logout',
+            action: 'logout',
+            category: 'authentification',
+            message: 'Déconnexion'
+          });
+          const { signOut } = await import('./firebase.js');
+          await signOut(fb.auth);
+        }
+      } catch (err) {
+        console.error('Erreur déconnexion:', err);
+      }
+      localStorage.removeItem('ms_auth_state');
+      window.dispatchEvent(new CustomEvent('auth:changed', { detail: { user: null } }));
+      location.hash = '#/auth';
+    });
+  }
+
+  let currentUser = null;
+  let centraleEntries = [];
+  let serviceStatus = null;
+  let vehiculeOptions = [];
+  let employeOptions = [];
+  let statutOptions = ['Disponible', 'En service', 'En intervention', 'En maintenance', 'Indisponible'];
+
+  function renderAffectationsTable() {
+    const tbody = document.getElementById('affectations-tbody');
+    if (!tbody) return;
+
+    if (!centraleEntries.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-slate-500 dark:text-slate-400">Aucune affectation active pour le moment.</td></tr>';
+      return;
+    }
+
+    // Filtrer les affectations où l'utilisateur actuel est présent
+    const userAffectations = centraleEntries.filter(entry =>
+      Array.isArray(entry.employes) &&
+      entry.employes.some(emp => emp && emp.uid === currentUser.uid)
+    );
+
+    if (!userAffectations.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-slate-500 dark:text-slate-400">Vous n\'êtes affecté à aucune équipe pour le moment.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = '';
+    userAffectations.forEach(entry => {
+      const employes = Array.isArray(entry.employes) ? entry.employes.filter(Boolean) : [];
+      const mappedEmployes = employes.map(emp => {
+        const empOption = employeOptions.find(e => e.uid === emp.uid);
+        const name = empOption?.name || emp.name || empOption?.email || emp.email || emp.uid || '—';
+        const inService = emp.uid ? serviceEmployeIds.has(emp.uid) : false;
+        return {
+          ...emp,
+          name,
+          inService
+        };
+      });
+
+      const autres = mappedEmployes.filter(emp => emp.uid !== currentUser.uid);
+      const equipeHtml = autres.length
+        ? autres.map(emp => {
+            const badgeClass = emp.inService
+              ? 'bg-blue-50 dark:bg-white/10 text-blue-600 dark:text-blue-300'
+              : 'bg-slate-200/70 dark:bg-white/10 text-slate-600 dark:text-slate-300';
+            const statusSuffix = emp.inService ? '' : '<span class="ml-1 text-[10px] uppercase tracking-wide text-red-500 dark:text-red-400">hors service</span>';
+            return `<span class="inline-flex items-center gap-2 rounded-full px-2 py-1 text-xs font-medium ${badgeClass}">${emp.name}${statusSuffix}</span>`;
+          }).join(' ')
+        : '<span class="text-xs text-slate-400">Aucun équipier</span>';
+
+      const myBadge = mappedEmployes.find(emp => emp.uid === currentUser.uid);
+      const myStatusSuffix = myBadge && !myBadge.inService ? '<span class="ml-1 text-[10px] uppercase tracking-wide text-red-500 dark:text-red-400">hors service</span>' : '';
+      const myLabel = myBadge ? `${myBadge.name}${myStatusSuffix}` : '—';
+
+      const statutLabel = entry.statut || '—';
+      const statutColor = getStatusColor(statutLabel);
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${entry.affectation || '—'}</td>
+        <td>${entry.vehiculeLabel || getVehiculeLabelById(entry.vehiculeId) || '—'}</td>
+        <td class="space-y-1">
+          <div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Vous : ${myLabel}</div>
+          <div class="space-x-1 space-y-1">${equipeHtml}</div>
+        </td>
+        <td><span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold" style="background:${statutColor.bg}; color:${statutColor.fg};">${statutLabel}</span></td>
+        <td>
+          <div class="action-buttons" data-entry-id="${entry.id}">
+            <button class="action-btn btn-edit" title="Modifier"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg></span></button>
+            <button class="action-btn btn-delete" title="Supprimer"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2"></path></svg></span></button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function getStatusColor(statut) {
+    const normalized = (statut || '').toLowerCase();
+    if (normalized.includes('dispo')) {
+      return { bg: 'rgba(16, 185, 129, 0.15)', fg: '#047857' };
+    }
+    if (normalized.includes('intervention') || normalized.includes('service') || normalized.includes('renfort')) {
+      return { bg: 'rgba(59,130,246,0.15)', fg: '#1d4ed8' };
+    }
+    if (normalized.includes('maintenance') || normalized.includes('pause')) {
+      return { bg: 'rgba(251,191,36,0.15)', fg: '#b45309' };
+    }
+    if (normalized.includes('indisp') || normalized.includes('incident')) {
+      return { bg: 'rgba(239,68,68,0.15)', fg: '#b91c1c' };
+    }
+    return { bg: 'rgba(148, 163, 184, 0.2)', fg: '#475569' };
+  }
+
+  function getVehiculeLabelById(id) {
+    const vehicule = vehiculeOptions.find(v => v.id === id);
+    return vehicule?.label || '—';
+  }
+
+  function getEmployeeOption(uid) {
+    return employeOptions.find(e => e.uid === uid);
+  }
+
+  function renderServiceStatus() {
+    const statusEl = document.getElementById('service-status');
+    const statusTextEl = document.getElementById('service-status-text');
+    const startedEl = document.getElementById('service-started');
+
+    if (!serviceStatus) {
+      if (statusEl) statusEl.textContent = 'Hors service';
+      if (statusTextEl) statusTextEl.textContent = 'Hors service';
+      if (startedEl) startedEl.textContent = '—';
+    } else {
+      if (statusEl) statusEl.textContent = 'En service';
+      if (statusTextEl) statusTextEl.textContent = 'En service';
+      if (startedEl) startedEl.textContent = serviceStatus.startedAt ? serviceStatus.startedAt.toLocaleString('fr-FR') : '—';
+    }
+
+    renderMyServiceStatus();
+  }
+
+  async function loadStatuts() {
+    try {
+      const fb = getFirebase();
+      if (!fb || !fb.db) return;
+      const configDoc = await getDoc(doc(fb.db, 'centraleConfig', 'settings'));
+      if (configDoc.exists()) {
+        const data = configDoc.data() || {};
+        if (Array.isArray(data.statuts) && data.statuts.length) {
+          statutOptions = Array.from(new Set(data.statuts.map(s => String(s || '').trim()).filter(Boolean)));
+          return;
+        }
+      }
+      statutOptions = ['Disponible', 'En service', 'En intervention', 'En maintenance', 'Indisponible'];
+    } catch (e) {
+      console.error('Erreur chargement statuts centrale:', e);
+      statutOptions = ['Disponible', 'En service', 'En intervention', 'En maintenance', 'Indisponible'];
+    }
+  }
+
+  async function loadVehiculesAchetes() {
+    try {
+      const fbFlotte = getFlotteFirebase();
+      if (!fbFlotte || !fbFlotte.db) return;
+      const snap = await getDocs(query(collection(fbFlotte.db, 'flotte'), where('achete', '==', true)));
+      vehiculeOptions = snap.docs.map(d => {
+        const data = d.data() || {};
+        const type = data.type || '';
+        const modele = data.modele || '';
+        const immat = data.immatriculation || '';
+        const labelParts = [type, modele].filter(Boolean);
+        const baseLabel = labelParts.length ? labelParts.join(' ') : 'Véhicule';
+        const label = immat ? `${baseLabel} (${immat})` : baseLabel;
+        return {
+          id: d.id,
+          label,
+          meta: {
+            type,
+            modele,
+            immatriculation: immat,
+            nombrePlaces: data.nombrePlaces || null
+          }
+        };
+      }).sort((a, b) => a.label.localeCompare(b.label));
+    } catch (e) {
+      console.error('Erreur chargement véhicules achetés:', e);
+      vehiculeOptions = [];
+    }
+  }
+
+  function buildUserDisplayName(user) {
+    const { prenom, nom, name, email } = user;
+    if (prenom || nom) {
+      return [prenom, nom].filter(Boolean).join(' ') || name || email || user.uid || '—';
+    }
+    return name || email || user.uid || '—';
+  }
+
+  async function loadEmployeOptions() {
+    try {
+      const fb = getFirebase();
+      if (!fb || !fb.db) return;
+      const snap = await getDocs(collection(fb.db, 'users'));
+      employeOptions = snap.docs.map(d => ({ uid: d.id, ...d.data() }))
+        .filter(u => !!u.roleEntreprise && !!u.roleEmploye)
+        .map(u => ({
+          uid: u.uid || u.id || u.userId || d.id,
+          name: buildUserDisplayName({ ...u, uid: d.id }),
+          email: u.email || '',
+          phone: u.phone || '',
+          avatar: u.photoUrl || ''
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    } catch (e) {
+      console.error('Erreur chargement employés centrale:', e);
+      employeOptions = [];
+    }
+  }
+
+  async function loadCentraleEntries() {
+    try {
+      const fb = getFirebase();
+      if (!fb || !fb.db) return;
+      const snap = await getDocs(collection(fb.db, 'centraleEffectif'));
+      centraleEntries = snap.docs.map(d => ({ id: d.id, ...d.data() || {} }));
+      renderAffectationsTable();
+    } catch (e) {
+      console.error('Erreur chargement affectations:', e);
+      centraleEntries = [];
+      renderAffectationsTable();
+    }
+  }
+
+  async function loadServiceStatus() {
+    try {
+      const fb = getFirebase();
+      if (!fb || !fb.db || !currentUser) return;
+      const docSnap = await getDoc(doc(fb.db, 'centraleServices', currentUser.uid));
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.active) {
+          serviceStatus = {
+            ...data,
+            startedAt: data.startedAt?.toDate ? data.startedAt.toDate() : (data.startedAt ? new Date(data.startedAt) : null)
+          };
+        } else {
+          serviceStatus = null;
+        }
+      } else {
+        serviceStatus = null;
+      }
+      renderServiceStatus();
+    } catch (e) {
+      console.error('Erreur chargement statut service:', e);
+      serviceStatus = null;
+      renderServiceStatus();
+    }
+  }
+
+  async function startService() {
+    try {
+      const fb = getFirebase();
+      if (!fb || !fb.db || !currentUser) return;
+
+      const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+      await setDoc(doc(fb.db, 'centraleServices', currentUser.uid), {
+        uid: currentUser.uid,
+        name: currentUser.name || currentUser.email || currentUser.uid,
+        email: currentUser.email || '',
+        phone: currentUser.phone || '',
+        active: true,
+        startedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: authState?.uid || null
+      }, { merge: true });
+
+      await addLogEntry(fb, {
+        type: 'action',
+        action: 'centrale_service_start',
+        category: 'centrale',
+        message: `Prise de service par ${currentUser.name || currentUser.email || currentUser.uid}`
+      });
+
+      await loadServiceStatus();
+      renderAffectationsTable();
+      alertModal({ title: 'Succès', message: 'Votre prise de service a été enregistrée.', type: 'success' });
+    } catch (e) {
+      console.error('Erreur prise de service:', e);
+      alertModal({ title: 'Erreur', message: 'Impossible d\'enregistrer la prise de service.', type: 'danger' });
+    }
+  }
+
+  async function endService() {
+    try {
+      const fb = getFirebase();
+      if (!fb || !fb.db || !currentUser) return;
+
+      await setDoc(doc(fb.db, 'centraleServices', currentUser.uid), {
+        active: false,
+        endedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      await addLogEntry(fb, {
+        type: 'action',
+        action: 'centrale_service_end',
+        category: 'centrale',
+        message: `Fin de service pour ${currentUser.name || currentUser.email || currentUser.uid}`
+      });
+
+      await loadServiceStatus();
+      renderAffectationsTable();
+      alertModal({ title: 'Succès', message: 'Votre fin de service a été enregistrée.', type: 'success' });
+    } catch (e) {
+      console.error('Erreur fin de service:', e);
+      alertModal({ title: 'Erreur', message: 'Impossible d\'enregistrer la fin de service.', type: 'danger' });
+    }
+  }
+
+  function openStatusManager() {
+    const statusListHtml = statutOptions.length
+      ? statutOptions.map(stat => `<span class="inline-flex items-center rounded-full bg-slate-100 dark:bg-white/10 px-2 py-1 text-xs font-medium text-slate-700 dark:text-slate-200">${stat}</span>`).join(' ')
+      : '<span class="text-xs text-slate-500">Aucun statut enregistré.</span>';
+
+    createModal({
+      title: 'Gérer les statuts',
+      body: `
+        <div class="space-y-4">
+          <div>
+            <div class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-2">Statuts disponibles</div>
+            <div class="flex flex-wrap gap-2">${statusListHtml}</div>
+          </div>
+          <div class="modal-field">
+            <label>Nouveau statut</label>
+            <input id="modal-new-status" type="text" placeholder="Ex: En renfort" />
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400">Ajoutez un statut personnalisé pour vos équipes. Les statuts seront disponibles dans les prochaines affectations.</p>
+        </div>
+      `,
+      confirmText: 'Ajouter',
+      cancelText: 'Fermer',
+      onConfirm: async () => {
+        const input = document.getElementById('modal-new-status');
+        const value = input ? input.value.trim() : '';
+        if (!value) {
+          alertModal({ title: 'Information', message: 'Veuillez saisir un libellé de statut.', type: 'info' });
+          return;
+        }
+        if (statutOptions.some(opt => opt.toLowerCase() === value.toLowerCase())) {
+          alertModal({ title: 'Information', message: 'Ce statut est déjà disponible.', type: 'info' });
+          return;
+        }
+        try {
+          const fb = getFirebase();
+          if (!fb || !fb.db) return;
+          statutOptions.push(value);
+          await setDoc(doc(fb.db, 'centraleConfig', 'settings'), { statuts: statutOptions }, { merge: true });
+          alertModal({ title: 'Succès', message: `Le statut "${value}" a été ajouté.`, type: 'success' });
+        } catch (e) {
+          console.error('Erreur ajout statut centrale:', e);
+          alertModal({ title: 'Erreur', message: 'Impossible d\'ajouter ce statut.', type: 'danger' });
+        }
+      }
+    });
+  }
+
+  function buildEmployeeSelectOptions(selectedUid) {
+    const options = ['<option value="">— Aucun —</option>'];
+    const sortedService = [...employeOptions];
+    sortedService.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    sortedService.forEach(emp => {
+      const selected = emp.uid === selectedUid ? 'selected' : '';
+      const label = emp.name || emp.email || emp.uid;
+      options.push(`<option value="${emp.uid}" ${selected}>${label}</option>`);
+    });
+    if (selectedUid && !employeOptions.some(emp => emp.uid === selectedUid)) {
+      const fallback = employeOptions.find(emp => emp.uid === selectedUid);
+      if (fallback) {
+        const label = `${fallback.name || fallback.email || fallback.uid}`;
+        options.push(`<option value="${fallback.uid}" selected>${label}</option>`);
+      }
+    }
+    return options.join('');
+  }
+
+  function buildVehiculeSelectOptions(selectedId) {
+    const options = ['<option value="">— Sélectionner —</option>'];
+    vehiculeOptions.forEach(veh => {
+      const selected = veh.id === selectedId ? 'selected' : '';
+      options.push(`<option value="${veh.id}" ${selected}>${veh.label}</option>`);
+    });
+    return options.join('');
+  }
+
+  function buildStatutSelectOptions(selectedStatut) {
+    const options = ['<option value="">— Sélectionner —</option>'];
+    statutOptions.forEach(stat => {
+      const selected = stat === selectedStatut ? 'selected' : '';
+      options.push(`<option value="${stat}" ${selected}>${stat}</option>`);
+    });
+    return options.join('');
+  }
+
+  async function openAffectationModal(entry = null) {
+    await loadVehiculesAchetes();
+    await loadEmployeOptions();
+
+    const isEdit = !!entry;
+    const employes = entry?.employes && Array.isArray(entry.employes) ? entry.employes : [];
+
+    const body = `
+      <div class="space-y-4">
+        <div class="modal-field">
+          <label>Affectation *</label>
+          <select id="modal-affectation" required>
+            <option value="">— Sélectionner —</option>
+            <option value="Alpha" ${'Alpha' === entry?.affectation ? 'selected' : ''}>Alpha</option>
+            <option value="Bravo" ${'Bravo' === entry?.affectation ? 'selected' : ''}>Bravo</option>
+            <option value="Charlie" ${'Charlie' === entry?.affectation ? 'selected' : ''}>Charlie</option>
+            <option value="Delta" ${'Delta' === entry?.affectation ? 'selected' : ''}>Delta</option>
+            <option value="Echo" ${'Echo' === entry?.affectation ? 'selected' : ''}>Echo</option>
+            <option value="Foxtrot" ${'Foxtrot' === entry?.affectation ? 'selected' : ''}>Foxtrot</option>
+            <option value="Golf" ${'Golf' === entry?.affectation ? 'selected' : ''}>Golf</option>
+            <option value="Hotel" ${'Hotel' === entry?.affectation ? 'selected' : ''}>Hotel</option>
+            <option value="India" ${'India' === entry?.affectation ? 'selected' : ''}>India</option>
+            <option value="Juliett" ${'Juliett' === entry?.affectation ? 'selected' : ''}>Juliett</option>
+            <option value="Kilo" ${'Kilo' === entry?.affectation ? 'selected' : ''}>Kilo</option>
+            <option value="Lima" ${'Lima' === entry?.affectation ? 'selected' : ''}>Lima</option>
+            <option value="Mike" ${'Mike' === entry?.affectation ? 'selected' : ''}>Mike</option>
+            <option value="November" ${'November' === entry?.affectation ? 'selected' : ''}>November</option>
+            <option value="Oscar" ${'Oscar' === entry?.affectation ? 'selected' : ''}>Oscar</option>
+            <option value="Papa" ${'Papa' === entry?.affectation ? 'selected' : ''}>Papa</option>
+            <option value="Quebec" ${'Quebec' === entry?.affectation ? 'selected' : ''}>Quebec</option>
+            <option value="Romeo" ${'Romeo' === entry?.affectation ? 'selected' : ''}>Romeo</option>
+            <option value="Sierra" ${'Sierra' === entry?.affectation ? 'selected' : ''}>Sierra</option>
+            <option value="Tango" ${'Tango' === entry?.affectation ? 'selected' : ''}>Tango</option>
+            <option value="Uniform" ${'Uniform' === entry?.affectation ? 'selected' : ''}>Uniform</option>
+            <option value="Victor" ${'Victor' === entry?.affectation ? 'selected' : ''}>Victor</option>
+            <option value="Whiskey" ${'Whiskey' === entry?.affectation ? 'selected' : ''}>Whiskey</option>
+            <option value="X-ray" ${'X-ray' === entry?.affectation ? 'selected' : ''}>X-ray</option>
+            <option value="Yankee" ${'Yankee' === entry?.affectation ? 'selected' : ''}>Yankee</option>
+            <option value="Zulu" ${'Zulu' === entry?.affectation ? 'selected' : ''}>Zulu</option>
+          </select>
+        </div>
+
+        <div class="modal-field">
+          <label>Véhicule *</label>
+          <select id="modal-vehicule" required>
+            ${buildVehiculeSelectOptions(entry?.vehiculeId || '')}
+          </select>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          ${[1, 2, 3, 4].map(index => {
+            const current = employes[index - 1];
+            return `
+              <div class="modal-field">
+                <label>Employé ${index}</label>
+                <select id="modal-employe-${index}">
+                  ${buildEmployeeSelectOptions(current?.uid || '')}
+                </select>
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <div class="modal-field">
+          <label>Statut *</label>
+          <select id="modal-statut" required>
+            ${buildStatutSelectOptions(entry?.statut || '')}
+          </select>
+        </div>
+      </div>
+    `;
+
+    createModal({
+      title: isEdit ? 'Modifier l\'affectation' : 'Nouvelle affectation',
+      body,
+      confirmText: isEdit ? 'Enregistrer' : 'Créer',
+      cancelText: 'Annuler',
+      onConfirm: async () => {
+        const affectation = document.getElementById('modal-affectation')?.value.trim();
+        const vehiculeId = document.getElementById('modal-vehicule')?.value.trim();
+        const statut = document.getElementById('modal-statut')?.value.trim();
+
+        if (!affectation) {
+          alertModal({ title: 'Champs requis', message: 'Veuillez sélectionner une affectation.', type: 'warning' });
+          return;
+        }
+        if (!vehiculeId) {
+          alertModal({ title: 'Champs requis', message: 'Veuillez sélectionner un véhicule.', type: 'warning' });
+          return;
+        }
+        if (!statut) {
+          alertModal({ title: 'Champs requis', message: 'Veuillez sélectionner un statut.', type: 'warning' });
+          return;
+        }
+
+        const vehiculeLabel = getVehiculeLabelById(vehiculeId);
+
+        const employeSelections = [1, 2, 3, 4].map(index => {
+          const value = document.getElementById(`modal-employe-${index}`)?.value?.trim();
+          if (!value) return null;
+          const option = getEmployeeOption(value);
+          return option ? { uid: option.uid, name: option.name || option.email || option.uid } : { uid: value, name: value };
+        }).filter((emp, idx, self) => {
+          if (!emp) return false;
+          return self.findIndex(e => e.uid === emp.uid) === idx;
+        });
+
+        const now = serverTimestamp();
+
+        const payload = {
+          affectation,
+          vehiculeId,
+          vehiculeLabel,
+          employes: employeSelections,
+          statut,
+          updatedAt: now
+        };
+
+        try {
+          const fb = getFirebase();
+          if (!fb || !fb.db) {
+            alertModal({ title: 'Erreur', message: 'Base de données indisponible.', type: 'danger' });
+            return;
+          }
+
+          if (isEdit) {
+            await updateDoc(doc(fb.db, 'centraleEffectif', entry.id), payload);
+            await addLogEntry(fb, {
+              type: 'action',
+              action: 'centrale_update',
+              category: 'centrale',
+              message: `Mise à jour affectation ${affectation} (${vehiculeLabel})`
+            });
+          } else {
+            await addDoc(collection(fb.db, 'centraleEffectif'), {
+              ...payload,
+              createdAt: now
+            });
+            await addLogEntry(fb, {
+              type: 'action',
+              action: 'centrale_create',
+              category: 'centrale',
+              message: `Création affectation ${affectation} (${vehiculeLabel})`
+            });
+          }
+
+          await loadCentraleEntries();
+          alertModal({ title: 'Succès', message: 'Affectation enregistrée avec succès.', type: 'success' });
+        } catch (e) {
+          console.error('Erreur sauvegarde affectation centrale:', e);
+          alertModal({ title: 'Erreur', message: 'Impossible d\'enregistrer cette affectation.', type: 'danger' });
+        }
+      }
+    });
+  }
+
+  // Gestion des tabs
+  document.querySelectorAll('.effectif-tab').forEach(tabBtn => {
+    tabBtn.addEventListener('click', () => {
+      document.querySelectorAll('.effectif-tab').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active', 'hidden'));
+
+      tabBtn.classList.add('active');
+      const target = document.getElementById(`tab-${tabBtn.dataset.tab}`);
+      if (target) {
+        target.classList.add('active');
+        target.classList.remove('hidden');
+      }
+
+      // Recharger les données selon le tab
+      if (tabBtn.dataset.tab === 'affectations') {
+        loadCentraleEntries();
+      } else if (tabBtn.dataset.tab === 'service') {
+        loadServiceStatus();
+      }
+    });
+  });
+
+  // Gestion des boutons de service
+  document.getElementById('btn-start-service')?.addEventListener('click', startService);
+  document.getElementById('btn-end-service')?.addEventListener('click', endService);
+
+  // Gestion des boutons de gestion
+  document.getElementById('btn-manage-status-emp')?.addEventListener('click', openStatusManager);
+  document.getElementById('btn-new-affectation-emp')?.addEventListener('click', () => openAffectationModal());
+
+  // Initialisation
+  (async () => {
+    try {
+      const fb = getFirebase();
+      if (!fb || !fb.db) {
+        await waitForFirebase();
+      }
+
+      let profile = getCachedProfile();
+      if (!profile || !profile.name) {
+        profile = await loadUserProfile() || {};
+      }
+
+      // Récupérer l'utilisateur actuel
+      const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+      if (authState && authState.uid) {
+        currentUser = {
+          uid: authState.uid,
+          name: profile.name || profile.email || authState.uid,
+          email: profile.email || '',
+          phone: profile.phone || ''
+        };
+      }
+
+      const avatar = document.getElementById('sb-avatar');
+      updateAvatar(avatar, profile);
+
+      const nameEl = document.getElementById('sb-name');
+      if (nameEl) nameEl.textContent = profile.name || 'Utilisateur';
+      const emailEl = document.getElementById('sb-email');
+      if (emailEl) emailEl.textContent = profile.email || '';
+      const roleBadge = document.getElementById('sb-role');
+      if (roleBadge) await updateRoleBadge(roleBadge);
+
+      await updateNavPermissions();
+      await applyPagePermissions({
+        create: 'centrale',
+        edit: 'centrale',
+        delete: 'centrale',
+        read: 'centrale'
+      });
+
+      await loadStatuts();
+      await loadVehiculesAchetes();
+      await loadEmployeOptions();
+      await loadCentraleEntries();
+      await loadServiceStatus();
+    } catch (e) {
+      console.error('Erreur initialisation suivi effectif:', e);
+      alertModal({ title: 'Erreur', message: 'Impossible de charger le suivi d\'effectif.', type: 'danger' });
+    }
+  })();
 }

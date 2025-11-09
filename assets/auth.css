@@ -27,52 +27,54 @@ html, body {
 }
 
 .header-logo-icon {
-  width: 42px;
-  height: 42px;
-  background: linear-gradient(135deg, #0055A4 0%, #3b82f6 100%);
-  border-radius: 11px;
+  width: 52px;
+  height: 52px;
+  padding: 6px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 4px rgba(0, 85, 164, 0.2);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow:
+    0 8px 16px -6px rgba(15, 23, 42, 0.25),
+    0 2px 6px -2px rgba(15, 23, 42, 0.15);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
   position: relative;
   overflow: hidden;
+  backdrop-filter: blur(10px);
 }
 
 .header-logo-icon::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s ease;
-}
-
-.header-logo-icon:hover::before {
-  left: 100%;
+  display: none;
 }
 
 .dark .header-logo-icon {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+  background: rgba(15, 23, 42, 0.7);
+  border-color: rgba(148, 163, 184, 0.4);
+  box-shadow:
+    0 8px 16px -6px rgba(15, 23, 42, 0.6),
+    0 2px 6px -2px rgba(15, 23, 42, 0.4);
 }
 
 .header-logo-icon:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 85, 164, 0.3);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow:
+    0 12px 24px -10px rgba(15, 23, 42, 0.35),
+    0 4px 10px -3px rgba(15, 23, 42, 0.25);
 }
 
 .dark .header-logo-icon:hover {
-  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+  box-shadow:
+    0 12px 24px -10px rgba(15, 23, 42, 0.7),
+    0 4px 10px -3px rgba(15, 23, 42, 0.5);
 }
 
-.header-logo-icon svg {
-  width: 22px;
-  height: 22px;
-  color: white;
+.header-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 10px;
   position: relative;
   z-index: 1;
 }
@@ -236,33 +238,26 @@ html, body {
 }
 
 .auth-logo-icon-simple {
-  width: 56px;
-  height: 56px;
-  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-  border-radius: 14px;
+  width: 88px;
+  height: 88px;
+  padding: 10px;
+  border-radius: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #e2e8f0;
-  box-shadow: 
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow:
+    0 12px 22px -10px rgba(15, 23, 42, 0.25),
+    0 6px 12px -8px rgba(15, 23, 42, 0.2);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
   position: relative;
   overflow: hidden;
+  backdrop-filter: blur(14px);
 }
 
 .auth-logo-icon-simple::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-  transform: rotate(45deg);
-  animation: shine 3s infinite;
+  display: none;
 }
 
 @keyframes shine {
@@ -275,35 +270,27 @@ html, body {
 }
 
 .auth-logo-icon-simple:hover {
-  transform: translateY(-2px) rotate(5deg);
-  box-shadow: 
-    0 8px 12px -2px rgba(0, 85, 164, 0.2),
-    0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transform: translateY(-3px) scale(1.03);
+  box-shadow:
+    0 16px 28px -12px rgba(15, 23, 42, 0.3),
+    0 6px 16px -10px rgba(15, 23, 42, 0.25);
 }
 
 .dark .auth-logo-icon-simple {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
-  border-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 
-    0 4px 6px -1px rgba(0, 0, 0, 0.3),
-    0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  background: rgba(15, 23, 42, 0.75);
+  border-color: rgba(148, 163, 184, 0.35);
+  box-shadow:
+    0 12px 24px -10px rgba(15, 23, 42, 0.6),
+    0 6px 12px -8px rgba(15, 23, 42, 0.45);
 }
 
-.auth-logo-icon-simple svg {
-  width: 28px;
-  height: 28px;
-  color: #0055A4;
+.auth-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 16px;
   position: relative;
   z-index: 1;
-  transition: all 0.3s ease;
-}
-
-.auth-logo-icon-simple:hover svg {
-  transform: scale(1.1);
-}
-
-.dark .auth-logo-icon-simple svg {
-  color: #3b82f6;
 }
 
 .auth-title {

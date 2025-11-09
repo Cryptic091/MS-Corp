@@ -1,5 +1,5 @@
 // Import des SDK Firebase (CDN modulaire) - exactement comme Firebase le montre
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js';
+import { initializeApp, getApp } from 'https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js';
 import { getAnalytics } from 'https://www.gstatic.com/firebasejs/12.5.0/firebase-analytics.js';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, fetchSignInMethodsForEmail } from 'https://www.gstatic.com/firebasejs/12.5.0/firebase-auth.js';
 import { getFirestore, collection, getDocs, getDoc, doc, query, where, orderBy, limit, setDoc, addDoc, serverTimestamp, updateDoc, deleteDoc, increment, writeBatch, onSnapshot } from 'https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js';
@@ -16,6 +16,9 @@ let appRef2 = null;
 let dbRef2 = null;
 let authRef2 = null;
 let storageRef2 = null;
+
+let adminAppRef = null;
+let adminAuthRef = null;
 
 export function initFirebaseIfReady() {
   if (appRef) return { app: appRef, auth: authRef, db: dbRef, storage: storageRef, analytics: analyticsRef };
@@ -86,6 +89,30 @@ export function initFirebaseSecondary() {
 // Fonction pour obtenir la deuxième base de données
 export function getFirebaseSecondary() {
   return initFirebaseSecondary();
+}
+
+export function getAdminFirebaseAuth() {
+  if (adminAppRef && adminAuthRef) {
+    return { app: adminAppRef, auth: adminAuthRef };
+  }
+  if (!window.firebaseConfig) return null;
+  try {
+    adminAppRef = initializeApp(window.firebaseConfig, 'admin');
+  } catch (error) {
+    if (error?.code === 'app/duplicate-app') {
+      adminAppRef = getApp('admin');
+    } else {
+      console.error('❌ Erreur initialisation Firebase admin:', error);
+      return null;
+    }
+  }
+  try {
+    adminAuthRef = getAuth(adminAppRef);
+  } catch (error) {
+    console.error('❌ Erreur récupération auth admin:', error);
+    return null;
+  }
+  return { app: adminAppRef, auth: adminAuthRef };
 }
 
 // Fonction helper pour obtenir la base de données de la flotte (utilise la deuxième base)

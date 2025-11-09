@@ -1,5 +1,5 @@
-import { html, mount, getCachedProfile, loadUserProfile, createModal, updateNavPermissions, alertModal, updateAvatar, isAuthenticated, updateRoleBadge, applyPagePermissions } from '../utils.js';
-import { getFirebase, waitForFirebase, collection, getDocs, query, orderBy, limit, where, addDoc, serverTimestamp, signOut, doc, getDoc } from '../firebase.js';
+import { html, mount, getCachedProfile, loadUserProfile, createModal, updateNavPermissions, alertModal, confirmModal, updateAvatar, isAuthenticated, updateRoleBadge, applyPagePermissions } from '../utils.js';
+import { getFirebase, waitForFirebase, collection, getDocs, query, orderBy, limit, where, addDoc, serverTimestamp, signOut, doc, getDoc, deleteDoc } from '../firebase.js';
 import { addLogEntry } from '../firebase.js';
 import { formatDate } from '../utils.js';
 
@@ -22,11 +22,19 @@ export function viewFinance(root) {
                 <div id="sb-email" class="user-handle text-xs opacity-70">—</div>
               </div>
             </div>
-            <div id="sb-role" class="badge-role badge-employe mt-2 inline-block text-xs">Employé</div>
+            <div
+              id="sb-role"
+              class="badge-role badge-employe mt-2 inline-block text-xs"
+              data-role-field="roleEntreprise"
+              data-default-label="Sans rôle"
+              data-empty-label="Sans rôle"
+              data-role-class="badge-employe"
+            >Employé</div>
           </a>
           <div class="section-title">Entreprise</div>
           <nav class="nav-links">
             <a href="#/entreprise" class="nav-item"><span class="nav-icon"></span>Gestion Employé</a>
+            <a href="#/entreprise/centrale" class="nav-item"><span class="nav-icon"></span>Suivi Effectif</a>
             <a href="#/entreprise/ventes" class="nav-item"><span class="nav-icon"></span>Gestion Vente</a>
             <a href="#/entreprise/finance" class="active nav-item"><span class="nav-icon"></span>Gestion Finance</a>
             <a href="#/entreprise/flotte" class="nav-item"><span class="nav-icon"></span>Gestion Flotte</a>
@@ -50,6 +58,12 @@ export function viewFinance(root) {
             <div>
               <div class="page-title">Gestion Finance</div>
               <div class="page-sub">Suivi des bénéfices et finances de l'entreprise</div>
+            </div>
+            <div class="flex gap-2 flex-wrap justify-end">
+              <button id="btn-clear-finance" class="btn-danger flex items-center gap-2">
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6l1-2h4l1 2"></path></svg></span>
+                Réinitialiser les transactions
+              </button>
             </div>
           </div>
           <div class="stats-grid mt-4">
@@ -194,6 +208,7 @@ export function viewFinance(root) {
 
   // Tab switching
   const card = document.querySelector('.page-card');
+  const btnClearFinance = document.getElementById('btn-clear-finance');
   document.querySelectorAll('.tab-item').forEach(btn => {
     btn.addEventListener('click', () => {
       const tabId = btn.getAttribute('data-tab');
@@ -263,6 +278,91 @@ export function viewFinance(root) {
       }
     });
   });
+
+  if (btnClearFinance) {
+    btnClearFinance.addEventListener('click', () => {
+      confirmModal({
+        title: 'Réinitialiser les finances',
+        message: 'Cette action supprimera toutes les transactions (historique et ajouts de salaire). Voulez-vous continuer ?',
+        confirmText: 'Réinitialiser',
+        cancelText: 'Annuler',
+        type: 'danger',
+        onConfirm: async () => {
+          let fb = getFirebase();
+          if (!fb) {
+            fb = await waitForFirebase();
+          }
+          if (!fb || !fb.db) {
+            alertModal({ title: 'Erreur', message: 'Firebase n’est pas initialisé.', type: 'danger' });
+            return;
+          }
+          if (!fb.auth || !fb.auth.currentUser) {
+            alertModal({ title: 'Erreur', message: 'Vous devez être connecté pour réinitialiser les finances.', type: 'danger' });
+            return;
+          }
+
+          btnClearFinance.disabled = true;
+
+          try {
+            const BATCH_SIZE = 100;
+            let totalDeleted = 0;
+            let hasMore = true;
+            let safetyCounter = 0;
+            const MAX_ATTEMPTS = 500;
+
+            while (hasMore && safetyCounter < MAX_ATTEMPTS) {
+              safetyCounter++;
+              const batchQuery = query(collection(fb.db, 'finance'), limit(BATCH_SIZE));
+              const batchSnap = await getDocs(batchQuery);
+
+              if (batchSnap.empty) {
+                hasMore = false;
+                break;
+              }
+
+              for (const docSnapshot of batchSnap.docs) {
+                await deleteDoc(docSnapshot.ref);
+                totalDeleted++;
+                await new Promise(resolve => setTimeout(resolve, 10));
+              }
+
+              if (batchSnap.size < BATCH_SIZE) {
+                hasMore = false;
+              } else {
+                await new Promise(resolve => setTimeout(resolve, 100));
+              }
+            }
+
+            if (totalDeleted > 0) {
+              await addLogEntry(fb, {
+                type: 'action',
+                action: 'finance_clear',
+                category: 'finance',
+                message: `Réinitialisation des transactions finance (${totalDeleted} supprimées)`
+              });
+              alertModal({ title: 'Succès', message: `${totalDeleted} transaction(s) supprimée(s).`, type: 'success' });
+            } else {
+              alertModal({ title: 'Information', message: 'Aucune transaction à supprimer.', type: 'info' });
+            }
+
+            loadFinance();
+            if (currentTab === 'ajout-salaire') {
+              loadTransactions();
+            }
+          } catch (e) {
+            const errorMsg = e.message || e.code || (e.toString ? e.toString() : 'Erreur inconnue');
+            alertModal({
+              title: 'Erreur',
+              message: `Impossible de réinitialiser les finances. Vérifiez les règles Firestore. Erreur: ${errorMsg}`,
+              type: 'danger'
+            });
+          } finally {
+            btnClearFinance.disabled = false;
+          }
+        }
+      });
+    });
+  }
 
   async function loadTransactions() {
     try {
@@ -340,11 +440,15 @@ export function viewFinance(root) {
           total += montant;
           if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) month += montant;
           if (date.toDateString() === now.toDateString()) today += montant;
-        } else if (f.type === 'salaire' || f.type === 'depense') {
+        } else if (f.type === 'salaire') {
           // Si salaire ajouté manuellement => entrée (positif). Sinon (auto) => sortie (négatif)
-          // Les dépenses de flotte sont toujours des retraits
           const isManuel = (f.source === 'manuel');
           const delta = isManuel ? montant : -montant;
+          total += delta;
+          if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) month += delta;
+          if (date.toDateString() === now.toDateString()) today += delta;
+        } else if (f.type === 'depense') {
+          const delta = -montant;
           total += delta;
           if (date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()) month += delta;
           if (date.toDateString() === now.toDateString()) today += delta;

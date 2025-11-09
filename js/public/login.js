@@ -13,12 +13,9 @@ export function viewPublicLogin(root) {
       <div class="auth-container w-full max-w-md">
         <div class="auth-card bg-white dark:bg-white/5 rounded-2xl shadow-xl border border-slate-200 dark:border-white/10 p-8">
           <div class="auth-header text-center mb-8">
-            <div class="auth-logo-simple inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 mb-4 mx-auto">
-              <div class="auth-logo-icon-simple text-white">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                  <circle cx="12" cy="7" r="4"></circle>
-                </svg>
+            <div class="auth-logo-simple inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-4 mx-auto">
+              <div class="auth-logo-icon-simple">
+                <img src="images/MScorp.png" alt="Logo MS Corp" class="auth-logo-img">
               </div>
             </div>
             <h2 class="auth-title text-2xl font-bold text-slate-900 dark:text-white mb-2">MS Corp</h2>

@@ -1,5 +1,5 @@
 import { html, mount, createModal, getCachedProfile, loadUserProfile, updateNavPermissions, alertModal, updateAvatar, formatDate, isAuthenticated, updateRoleBadge, applyPagePermissions, hasStoredPermission, checkPermission } from '../utils.js';
-import { getFirebase, waitForFirebase, collection, getDocs, query, where, setDoc, doc, updateDoc, deleteDoc, serverTimestamp, signOut, createUserWithEmailAndPassword, fetchSignInMethodsForEmail, addDoc } from '../firebase.js';
+import { getFirebase, getAdminFirebaseAuth, waitForFirebase, collection, getDocs, query, where, setDoc, doc, updateDoc, deleteDoc, serverTimestamp, signOut, createUserWithEmailAndPassword, fetchSignInMethodsForEmail, addDoc } from '../firebase.js';
 import { addLogEntry } from '../firebase.js';
 
 function getInitials(name) {
@@ -54,6 +54,7 @@ export function viewEmployes(root) {
           <div class="section-title">Entreprise</div>
           <nav class="nav-links">
             <a href="#/entreprise" class="active nav-item"><span class="nav-icon"></span>Gestion Employé</a>
+            <a href="#/entreprise/centrale" class="nav-item"><span class="nav-icon"></span>Suivi Effectif</a>
             <a href="#/entreprise/ventes" class="nav-item"><span class="nav-icon"></span>Gestion Vente</a>
             <a href="#/entreprise/finance" class="nav-item"><span class="nav-icon"></span>Gestion Finance</a>
             <a href="#/entreprise/flotte" class="nav-item"><span class="nav-icon"></span>Gestion Flotte</a>
@@ -705,6 +706,12 @@ function buildRoleOptions(roles, { includeNoAccess = true, includeEmpty = true, 
             return;
           }
 
+          const adminFb = getAdminFirebaseAuth();
+          if (!adminFb || !adminFb.auth) {
+            alertModal({ title: 'Service indisponible', message: 'Impossible d’ouvrir la session administrative de création. Réessayez plus tard.', type: 'danger' });
+            return;
+          }
+
           if (tempPassword.length < 6) {
             alertModal({ title: 'Mot de passe trop court', message: 'Le mot de passe doit contenir au moins 6 caractères.', type: 'warning' });
             return;
@@ -744,7 +751,7 @@ function buildRoleOptions(roles, { includeNoAccess = true, includeEmpty = true, 
           const roleEntrepriseId = typeof roleEntrepriseValue === 'string' ? roleEntrepriseValue : '';
           const roleEmployeId = typeof roleEmployeValue === 'string' ? roleEmployeValue : roleEmployeValue === '' ? '' : null;
           
-          const cred = await createUserWithEmailAndPassword(fbInstance.auth, email, tempPassword);
+          const cred = await createUserWithEmailAndPassword(adminFb.auth, email, tempPassword);
           await setDoc(doc(fbInstance.db, 'users', cred.user.uid), {
             name,
             email,
@@ -777,6 +784,12 @@ function buildRoleOptions(roles, { includeNoAccess = true, includeEmpty = true, 
             category: 'utilisateurs',
             message: `Création de l'utilisateur "${name || email}" (${email}) - Entreprise: ${entrepriseLabel} | Employé: ${employeLabel}` 
           });
+
+          try {
+            await signOut(adminFb.auth);
+          } catch (signOutError) {
+            console.warn('Impossible de fermer la session secondaire de création:', signOutError);
+          }
           alertModal({ title: 'Succès', message: `Utilisateur créé avec succès.<br><strong>Mot de passe :</strong> ${tempPassword}`, type: 'success' });
         } catch (e) { 
           let message = 'Erreur lors de la création de l\'utilisateur.';

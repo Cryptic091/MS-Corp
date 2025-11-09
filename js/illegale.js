@@ -49,7 +49,14 @@ function viewPointsIllegaux(root) {
                 <div id="sb-email-illegale" class="user-handle text-xs opacity-70">—</div>
               </div>
             </div>
-            <div id="sb-role-illegale" class="badge-role badge-employe mt-2 inline-block text-xs">Illégale</div>
+            <div
+              id="sb-role-illegale"
+              class="badge-role badge-employe mt-2 inline-block text-xs"
+              data-role-field="roleIllegale"
+              data-default-label="Sans rôle"
+              data-empty-label="Sans rôle"
+              data-role-class="badge-employe"
+            >Illégale</div>
           </a>
           <div class="section-title">Illégale</div>
           <nav class="nav-links">
@@ -442,7 +449,14 @@ function viewPacksArmes(root) {
                 <div id="sb-email-armes" class="user-handle text-xs opacity-70">—</div>
               </div>
             </div>
-            <div id="sb-role-armes" class="badge-role badge-employe mt-2 inline-block text-xs">Illégale</div>
+            <div
+              id="sb-role-armes"
+              class="badge-role badge-employe mt-2 inline-block text-xs"
+              data-role-field="roleIllegale"
+              data-default-label="Sans rôle"
+              data-empty-label="Sans rôle"
+              data-role-class="badge-employe"
+            >Illégale</div>
           </a>
           <div class="section-title">Illégale</div>
           <nav class="nav-links">
@@ -1280,7 +1294,14 @@ function viewGestionPointsIllegaux(root) {
                 <div id="sb-email-gestion-points" class="user-handle text-xs opacity-70">—</div>
               </div>
             </div>
-            <div id="sb-role-gestion-points" class="badge-role badge-employe mt-2 inline-block text-xs">Illégale</div>
+            <div
+              id="sb-role-gestion-points"
+              class="badge-role badge-employe mt-2 inline-block text-xs"
+              data-role-field="roleIllegale"
+              data-default-label="Sans rôle"
+              data-empty-label="Sans rôle"
+              data-role-class="badge-employe"
+            >Illégale</div>
           </a>
           <div class="section-title">Illégale</div>
           <nav class="nav-links">
@@ -1471,7 +1492,14 @@ function viewGestionPointsIllegaux(root) {
       }
       
       tbody.innerHTML = typesCache.map(t => {
-        const imageHtml = t.imageUrl ? `<a href="${t.imageUrl}" target="_blank" rel="noopener noreferrer" style="color: #0055A4; text-decoration: underline;">Voir image</a>` : '—';
+        const images = Array.isArray(t.imageUrls) ? t.imageUrls : (t.imageUrl ? [t.imageUrl] : []);
+        const imageHtml = images.length
+          ? images.map((url, idx) => {
+              const safeUrl = (url || '').replace(/"/g, '&quot;');
+              const label = images.length > 1 ? `Image ${idx + 1}` : 'Voir image';
+              return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color: #0055A4; text-decoration: underline;">${label}</a>`;
+            }).join('<br/>')
+          : '—';
         return `
         <tr>
           <td>${t.nomPoint || t.nom || '—'}</td>
@@ -1508,8 +1536,9 @@ function viewGestionPointsIllegaux(root) {
         <div class="text-xs text-slate-500 mt-1">7 chiffres exactement</div>
       </div>
       <div class="modal-field">
-        <label>Lien de l'image</label>
-        <input id="modal-image-url" type="url" placeholder="https://exemple.com/image.jpg" />
+        <label>Liens d'images (un par ligne)</label>
+        <textarea id="modal-images-urls" placeholder="https://exemple.com/image-1.jpg\nhttps://exemple.com/image-2.jpg"></textarea>
+        <div class="text-xs text-slate-500 mt-1">Laissez vide si aucune image n'est disponible.</div>
       </div>
       <div class="modal-field">
         <label>Prix unitaire (€) *</label>
@@ -1528,7 +1557,8 @@ function viewGestionPointsIllegaux(root) {
         const fb = getFirebase();
         const nomPoint = document.getElementById('modal-nom-point').value.trim();
         const coordonnees = document.getElementById('modal-coordonnees').value.trim();
-        const imageUrl = document.getElementById('modal-image-url').value.trim();
+        const imagesRaw = document.getElementById('modal-images-urls').value.trim();
+        const imageUrls = imagesRaw ? imagesRaw.split(/\n+/).map(url => url.trim()).filter(Boolean) : [];
         const prixUnitaire = parseFloat(document.getElementById('modal-prix-points').value);
         const description = document.getElementById('modal-desc-points').value.trim();
         
@@ -1547,7 +1577,8 @@ function viewGestionPointsIllegaux(root) {
           await addDoc(collection(fb.db, 'typesPointsIllegaux'), {
             nomPoint,
             coordonnees,
-            imageUrl: imageUrl || '',
+            imageUrl: imageUrls[0] || '',
+            imageUrls,
             prixUnitaire,
             description: description || '',
             createdAt: serverTimestamp()
@@ -1579,6 +1610,11 @@ function viewGestionPointsIllegaux(root) {
     const type = typesCache.find(t => t.id === typeId);
     if (!type) return;
     
+    const existingImages = Array.isArray(type.imageUrls) ? type.imageUrls : (type.imageUrl ? [type.imageUrl] : []);
+    const imagesValueEscaped = existingImages
+      .map(url => (url || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'))
+      .join('&#10;');
+
     const body = `
       <div class="modal-field">
         <label>Nom du point illégal *</label>
@@ -1590,8 +1626,9 @@ function viewGestionPointsIllegaux(root) {
         <div class="text-xs text-slate-500 mt-1">7 chiffres exactement</div>
       </div>
       <div class="modal-field">
-        <label>Lien de l'image</label>
-        <input id="modal-edit-image-url" type="url" placeholder="https://exemple.com/image.jpg" value="${(type.imageUrl || '').replace(/"/g, '&quot;')}" />
+        <label>Liens d'images (un par ligne)</label>
+        <textarea id="modal-edit-images-urls" placeholder="https://exemple.com/image-1.jpg&#10;https://exemple.com/image-2.jpg">${imagesValueEscaped}</textarea>
+        <div class="text-xs text-slate-500 mt-1">Laissez vide si aucune image n'est disponible.</div>
       </div>
       <div class="modal-field">
         <label>Prix unitaire (€) *</label>
@@ -1610,7 +1647,8 @@ function viewGestionPointsIllegaux(root) {
         const fb = getFirebase();
         const nomPoint = document.getElementById('modal-edit-nom-point').value.trim();
         const coordonnees = document.getElementById('modal-edit-coordonnees').value.trim();
-        const imageUrl = document.getElementById('modal-edit-image-url').value.trim();
+        const imagesRaw = document.getElementById('modal-edit-images-urls').value.trim();
+        const imageUrls = imagesRaw ? imagesRaw.split(/\n+/).map(url => url.trim()).filter(Boolean) : [];
         const prixUnitaire = parseFloat(document.getElementById('modal-edit-prix-points').value);
         const description = document.getElementById('modal-edit-desc-points').value.trim();
         
@@ -1629,7 +1667,8 @@ function viewGestionPointsIllegaux(root) {
           await updateDoc(doc(fb.db, 'typesPointsIllegaux', typeId), {
             nomPoint,
             coordonnees,
-            imageUrl: imageUrl || '',
+            imageUrl: imageUrls[0] || '',
+            imageUrls,
             prixUnitaire,
             description: description || ''
           });
@@ -1638,7 +1677,7 @@ function viewGestionPointsIllegaux(root) {
             type: 'action', 
             action: 'type_points_illegaux_update', 
             category: 'illegale',
-            message: `Modification du type de points illégaux "${nom}"` 
+            message: `Modification du type de points illégaux "${nomPoint}"` 
           });
           
           loadTypesPoints();
@@ -1702,7 +1741,14 @@ function viewGestionPacksArmes(root) {
                 <div id="sb-email-gestion-armes" class="user-handle text-xs opacity-70">—</div>
               </div>
             </div>
-            <div id="sb-role-gestion-armes" class="badge-role badge-employe mt-2 inline-block text-xs">Illégale</div>
+            <div
+              id="sb-role-gestion-armes"
+              class="badge-role badge-employe mt-2 inline-block text-xs"
+              data-role-field="roleIllegale"
+              data-default-label="Sans rôle"
+              data-empty-label="Sans rôle"
+              data-role-class="badge-employe"
+            >Illégale</div>
           </a>
           <div class="section-title">Illégale</div>
           <nav class="nav-links">
@@ -2232,7 +2278,14 @@ function viewComparateurArmement(root) {
                 <div id="sb-email-comparateur" class="user-handle text-xs opacity-70">—</div>
               </div>
             </div>
-            <div id="sb-role-comparateur" class="badge-role badge-employe mt-2 inline-block text-xs">Illégale</div>
+            <div
+              id="sb-role-comparateur"
+              class="badge-role badge-employe mt-2 inline-block text-xs"
+              data-role-field="roleIllegale"
+              data-default-label="Sans rôle"
+              data-empty-label="Sans rôle"
+              data-role-class="badge-employe"
+            >Illégale</div>
           </a>
           <div class="section-title">Illégale</div>
           <nav class="nav-links">

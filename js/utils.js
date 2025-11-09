@@ -109,37 +109,79 @@ export function getCachedProfile() {
 }
 
 // Fonction pour obtenir le nom d'affichage du rôle depuis Firestore
-export async function getRoleDisplayName(roleValue) {
-  if (!roleValue) return 'Employé';
-  
+export async function getRoleDisplayName(roleValue, options = {}) {
+  const {
+    defaultLabel = 'Employé',
+    emptyLabel = 'Sans rôle'
+  } = options;
+
+  if (roleValue === '' || roleValue === null || roleValue === undefined) {
+    return roleValue === '' ? emptyLabel : defaultLabel;
+  }
+
+  const normalizeFallback = (value) => {
+    if (value === 'admin') return 'Administrateur';
+    if (value === 'employe') return 'Employé';
+    return null;
+  };
+
+  const looksLikeFirestoreId = (value) => (
+    typeof value === 'string' &&
+    value.length >= 20 &&
+    !value.includes(' ')
+  );
+
   try {
     const fb = getFirebase();
+    const fallback = normalizeFallback(roleValue) || defaultLabel;
+
     if (!fb || !fb.db) {
-      // Fallback si Firebase n'est pas disponible
-      return roleValue === 'admin' ? 'Administrateur' : 'Employé';
+      return fallback;
     }
-    
-    // Convertir le rôle en nom Firestore
-    let roleName = roleValue;
-    if (roleName === 'admin') roleName = 'Admin';
-    else if (roleName === 'employe') roleName = 'Employé';
-    
-    // Récupérer tous les rôles et trouver celui qui correspond
-    const allRoles = await getDocs(collection(fb.db, 'roles'));
-    const matchingRole = allRoles.docs.find(doc => {
-      const docRoleName = doc.data().name || '';
-      return docRoleName.toLowerCase() === roleName.toLowerCase();
-    });
-    
-    if (matchingRole) {
-      return matchingRole.data().name || roleName;
+
+    // Si la valeur ressemble à un ID Firestore, tenter la récupération directe
+    if (looksLikeFirestoreId(roleValue)) {
+      try {
+        const snap = await getDoc(doc(fb.db, 'roles', roleValue));
+        if (snap.exists()) {
+          return snap.data().name || fallback;
+        }
+      } catch (idErr) {
+        console.warn('Erreur récupération rôle par ID:', idErr);
+      }
     }
-    
-    // Fallback si le rôle n'est pas trouvé
-    return roleValue === 'admin' ? 'Administrateur' : 'Employé';
+
+    let roleName = normalizeFallback(roleValue) || roleValue;
+
+    if (typeof roleName === 'string') {
+      // Recherche exacte (sensible à la casse)
+      try {
+        const exactQuery = query(collection(fb.db, 'roles'), where('name', '==', roleName));
+        const exactDocs = await getDocs(exactQuery);
+        if (!exactDocs.empty) {
+          return exactDocs.docs[0].data().name || roleName;
+        }
+      } catch (exactErr) {
+        console.warn('Erreur recherche exacte du rôle:', exactErr);
+      }
+
+      // Recherche insensible à la casse
+      const allRoles = await getDocs(collection(fb.db, 'roles'));
+      const matchingRole = allRoles.docs.find(docSnap => {
+        const docRoleName = docSnap.data().name || '';
+        return docRoleName.toLowerCase() === roleName.toLowerCase();
+      });
+
+      if (matchingRole) {
+        return matchingRole.data().name || roleName;
+      }
+    }
+
+    return fallback;
   } catch (e) {
     console.error('Erreur récupération nom rôle:', e);
-    return roleValue === 'admin' ? 'Administrateur' : 'Employé';
+    const fallback = normalizeFallback(roleValue) || defaultLabel;
+    return fallback;
   }
 }
 
@@ -149,14 +191,40 @@ export async function updateRoleBadge(badgeElement) {
   
   try {
     let profile = getCachedProfile();
-    if (!profile || !profile.role) {
+    const dataset = badgeElement.dataset || {};
+    const roleField = dataset.roleField || null;
+    const defaultLabel = dataset.defaultLabel || (roleField ? 'Sans rôle' : 'Employé');
+    const emptyLabel = dataset.emptyLabel || 'Sans rôle';
+    const customClass = dataset.roleClass || null;
+
+    const ensureProfileField = () => {
+      if (!profile) return false;
+      if (roleField) return profile.hasOwnProperty(roleField);
+      return Boolean(profile.role);
+    };
+
+    if (!profile || !ensureProfileField()) {
       // Recharger le profil si nécessaire
       profile = await loadUserProfile() || {};
     }
     
-    const roleValue = profile.role || 'employe';
-    const roleDisplayName = await getRoleDisplayName(roleValue);
-    const badgeClass = roleValue === 'admin' ? 'badge-admin' : 'badge-employe';
+    let roleValue = null;
+    if (roleField) {
+      roleValue = profile[roleField];
+    } else {
+      roleValue = profile.role;
+    }
+
+    const roleDisplayName = await getRoleDisplayName(roleValue, {
+      defaultLabel,
+      emptyLabel
+    });
+
+    let badgeClass = customClass;
+    if (!badgeClass) {
+      const normalizedRole = typeof roleValue === 'string' ? roleValue.toLowerCase() : '';
+      badgeClass = normalizedRole === 'admin' ? 'badge-admin' : 'badge-employe';
+    }
     
     badgeElement.textContent = roleDisplayName;
     badgeElement.className = `badge-role ${badgeClass} mt-2 inline-block text-xs`;
@@ -209,6 +277,7 @@ export async function checkPermission(permission) {
       'ventes': 'roleEntreprise',
       'finance': 'roleEntreprise',
       'flotte': 'roleEntreprise',
+      'centrale': 'roleEntreprise',
       'calcul': 'roleEntreprise',
       'calculatrice': 'roleEntreprise',
       'logs': 'roleEntreprise',
@@ -217,6 +286,8 @@ export async function checkPermission(permission) {
       'employe-flotte': 'roleEmploye',
       'employe-calcul': 'roleEmploye',
       'employe-calculatrice': 'roleEmploye',
+      'employe-centrale': 'roleEmploye',
+      'employe-suivi-effectif': 'roleEmploye',
       // Permissions de l'espace Illégale
       'illegale-points': 'roleIllegale',
       'illegale-armes': 'roleIllegale',
@@ -353,6 +424,7 @@ export async function updateNavPermissions() {
     const hasFinance = await checkPermission('finance');
     const hasFlotte = await checkPermission('flotte');
     const hasCalcul = await checkPermission('calcul');
+    const hasCentrale = await checkPermission('centrale');
     const hasCalculatrice = await checkPermission('calculatrice');
     const hasLogs = await checkPermission('logs');
     
@@ -362,6 +434,8 @@ export async function updateNavPermissions() {
     const hasEmployeFlotte = await checkPermission('employe-flotte');
     const hasEmployeCalcul = await checkPermission('employe-calcul');
     const hasEmployeCalculatrice = await checkPermission('employe-calculatrice');
+    const hasEmployeCentrale = await checkPermission('employe-centrale');
+    const hasEmployeSuiviEffectif = await checkPermission('employe-suivi-effectif');
     
     // Permissions Espace Illégale
     const hasIllegale = await checkPermission('illegale');
@@ -387,6 +461,8 @@ export async function updateNavPermissions() {
         link.style.display = (hasEntreprise && hasVentes) ? '' : 'none';
       } else if (href === '#/entreprise/finance') {
         link.style.display = (hasEntreprise && hasFinance) ? '' : 'none';
+      } else if (href === '#/entreprise/centrale') {
+        link.style.display = (hasEntreprise && hasCentrale) ? '' : 'none';
       } else if (href === '#/entreprise/flotte') {
         link.style.display = (hasEntreprise && hasFlotte) ? '' : 'none';
       } else if (href === '#/entreprise/calcul') {
@@ -405,6 +481,10 @@ export async function updateNavPermissions() {
         link.style.display = (hasEmploye && hasEmployeCalcul) ? '' : 'none';
       } else if (href === '#/employe/calculatrice') {
         link.style.display = (hasEmploye && hasEmployeCalculatrice) ? '' : 'none';
+      } else if (href === '#/employe/centrale') {
+        link.style.display = (hasEmploye && hasEmployeCentrale) ? '' : 'none';
+      } else if (href === '#/employe/suivi-effectif') {
+        link.style.display = (hasEmploye && hasEmployeSuiviEffectif) ? '' : 'none';
       }
       // Navigation Espace Illégale
       else if (href === '#/illegale' || href === '#/illegale/points') {

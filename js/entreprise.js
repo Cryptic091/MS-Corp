@@ -6,12 +6,15 @@ import { viewCalcul } from './entreprise/calcul.js';
 import { viewCalculatrice } from './entreprise/calculatrice.js';
 import { viewLogs } from './entreprise/logs.js';
 import { viewProfile } from './profile.js';
+import { viewCentrale } from './entreprise/centrale.js';
 
 export function viewEntreprise(root) {
   const hash = location.hash || '#/entreprise';
   
   if (hash === '#/entreprise' || hash.startsWith('#/entreprise/employes')) {
     viewEmployes(root);
+  } else if (hash === '#/entreprise/centrale') {
+    viewCentrale(root);
   } else if (hash === '#/entreprise/ventes') {
     viewVentes(root);
   } else if (hash === '#/entreprise/finance') {

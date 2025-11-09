@@ -34,6 +34,7 @@ export function viewFlotte(root) {
           <nav class="nav-links">
             <a href="#/entreprise" class="nav-item"><span class="nav-icon"></span>Gestion Employé</a>
             <a href="#/entreprise/ventes" class="nav-item"><span class="nav-icon"></span>Gestion Vente</a>
+            <a href="#/entreprise/centrale" class="nav-item"><span class="nav-icon"></span>Suivi Effectif</a>
             <a href="#/entreprise/finance" class="nav-item"><span class="nav-icon"></span>Gestion Finance</a>
             <a href="#/entreprise/flotte" class="active nav-item"><span class="nav-icon"></span>Gestion Flotte</a>
             <a href="#/entreprise/calcul" class="nav-item"><span class="nav-icon"></span>Calculateur CA</a>

@@ -41,6 +41,7 @@ export function viewVentes(root) {
           <div class="section-title">Entreprise</div>
           <nav class="nav-links">
             <a href="#/entreprise" class="nav-item"><span class="nav-icon"></span>Gestion Employé</a>
+            <a href="#/entreprise/centrale" class="nav-item"><span class="nav-icon"></span>Suivi Effectif</a>
             <a href="#/entreprise/ventes" class="active nav-item"><span class="nav-icon"></span>Gestion Vente</a>
             <a href="#/entreprise/finance" class="nav-item"><span class="nav-icon"></span>Gestion Finance</a>
             <a href="#/entreprise/flotte" class="nav-item"><span class="nav-icon"></span>Gestion Flotte</a>
@@ -170,18 +171,54 @@ export function viewVentes(root) {
           <!-- Tabs -->
           <div class="tabs-container">
             <div class="tabs-list">
-              <button class="tab-item active" data-tab="ventes">Gestion Ventes</button>
-              <button class="tab-item" data-tab="ventes-employe">Gestion Ventes Employé</button>
+              <button class="tab-item active" data-tab="historique">Historique Ventes</button>
+              <button class="tab-item" data-tab="ventes">Gestion Ventes</button>
               <button class="tab-item" data-tab="traitement">Traitement</button>
+              <button class="tab-item" data-tab="stockage-prive">Stockage Privé</button>
+              <button class="tab-item" data-tab="ventes-employe">Gestion Ventes Employé</button>
               <button class="tab-item" data-tab="stockage">Gestion Stockage</button>
               <button class="tab-item" data-tab="ressources">Gestion Ressources</button>
             </div>
           </div>
 
-          <!-- Tab 1: Gestion Ventes -->
-          <div id="tab-ventes" class="tab-content active">
+          <!-- Tab 1: Historique Ventes -->
+          <div id="tab-historique" class="tab-content active">
             <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
-              <h3 class="font-medium text-lg">Liste complète des ventes</h3>
+              <div>
+                <h3 class="font-medium text-lg">Historique de toutes les ventes</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Retrouvez chaque vente avec son statut et ses montants.</p>
+              </div>
+              <button id="btn-refresh-historique" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-sm flex items-center gap-2">
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0114.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0020.49 15"></path></svg></span> Actualiser
+              </button>
+            </div>
+            <div class="user-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Ressource</th>
+                    <th>Quantité</th>
+                    <th>Montant vente</th>
+                    <th>Employé</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="historique-tbody">
+                  <tr><td class="py-3 text-center" colspan="7">Chargement…</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div id="historique-empty" class="hidden py-10 text-center text-slate-500 dark:text-slate-400 border border-dashed border-slate-200 dark:border-white/10 rounded-lg">
+              Aucune vente enregistrée pour le moment.
+            </div>
+          </div>
+
+          <!-- Tab 2: Gestion Ventes -->
+          <div id="tab-ventes" class="tab-content">
+            <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+              <h3 class="font-medium text-lg">Ventes à valider</h3>
               <div class="flex items-center gap-2 flex-wrap">
                 <button id="btn-new-vente" class="btn-primary flex items-center gap-2">
                   <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span> Nouvelle vente
@@ -210,7 +247,85 @@ export function viewVentes(root) {
             </div>
           </div>
 
-          <!-- Tab 2: Gestion Ventes Employé -->
+          <!-- Tab 3: Traitement -->
+          <div id="tab-traitement" class="tab-content">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="font-medium text-lg">Ventes en traitement</h3>
+              <button id="btn-refresh-traitement" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-sm flex items-center gap-2">
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0114.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0020.49 15"></path></svg></span> Actualiser
+              </button>
+            </div>
+            <div class="user-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type ressource</th>
+                    <th>Quantité</th>
+                    <th>Employé</th>
+                    <th>Montant</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="traitement-tbody">
+                  <tr><td class="py-3 text-center" colspan="6">Chargement…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Tab 4: Stockage Privé -->
+          <div id="tab-stockage-prive" class="tab-content">
+            <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+              <div>
+                <h3 class="font-medium text-lg">Stockage privé</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Historique des ventes traitées transférées en stockage privé.</p>
+              </div>
+              <button id="btn-refresh-stockage-prive" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-sm flex items-center gap-2">
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0114.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0020.49 15"></path></svg></span> Actualiser
+              </button>
+            </div>
+            <div id="stockage-prive-summary" class="hidden mb-4 grid gap-3 lg:grid-cols-3 xl:grid-cols-4">
+              <div class="p-4 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5">
+                <div class="text-xs uppercase text-slate-500 dark:text-slate-400">Entrées totales</div>
+                <div id="stockage-prive-total" class="text-2xl font-semibold mt-1">0</div>
+              </div>
+              <div class="p-4 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5">
+                <div class="text-xs uppercase text-slate-500 dark:text-slate-400">Quantité totale</div>
+                <div id="stockage-prive-quantite" class="text-2xl font-semibold mt-1">0</div>
+              </div>
+              <div class="p-4 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5">
+                <div class="text-xs uppercase text-slate-500 dark:text-slate-400">Bénéfice bourse</div>
+                <div id="stockage-prive-benefice" class="text-2xl font-semibold mt-1">0 €</div>
+              </div>
+              <div class="p-4 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5">
+                <div class="text-xs uppercase text-slate-500 dark:text-slate-400">Dernière entrée</div>
+                <div id="stockage-prive-last" class="text-2xl font-semibold mt-1 text-blue-600 dark:text-blue-400">—</div>
+              </div>
+            </div>
+            <div class="user-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date stockage</th>
+                    <th>Ressource</th>
+                    <th>Quantité</th>
+                    <th>Employé</th>
+                    <th>Bénéfice bourse</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="stockage-prive-tbody">
+                  <tr><td class="py-3 text-center" colspan="6">Chargement…</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div id="stockage-prive-empty" class="hidden py-10 text-center text-slate-500 dark:text-slate-400 border border-dashed border-slate-200 dark:border-white/10 rounded-lg">
+              Aucune vente stockée pour le moment.
+            </div>
+          </div>
+
+          <!-- Tab 5: Gestion Ventes Employé -->
           <div id="tab-ventes-employe" class="tab-content">
             <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
               <div>
@@ -248,34 +363,7 @@ export function viewVentes(root) {
             <div id="ventes-emp-cards" class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3"></div>
           </div>
 
-          <!-- Tab 3: Traitement -->
-          <div id="tab-traitement" class="tab-content">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="font-medium text-lg">Ventes en traitement</h3>
-              <button id="btn-refresh-traitement" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-sm flex items-center gap-2">
-                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0114.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0020.49 15"></path></svg></span> Actualiser
-              </button>
-            </div>
-            <div class="user-table">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Type ressource</th>
-                    <th>Quantité</th>
-                    <th>Employé</th>
-                    <th>Montant</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="traitement-tbody">
-                  <tr><td class="py-3 text-center" colspan="6">Chargement…</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Tab 3: Gestion Stockage -->
+          <!-- Tab 6: Gestion Stockage -->
           <div id="tab-stockage" class="tab-content">
             <div class="flex items-center justify-between mb-4">
               <h3 class="font-medium text-lg">État du stockage</h3>
@@ -311,7 +399,7 @@ export function viewVentes(root) {
             <div id="stockage-cards" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"></div>
           </div>
 
-          <!-- Tab 3: Gestion Ressources -->
+          <!-- Tab 7: Gestion Ressources -->
           <div id="tab-ressources" class="tab-content">
           <div class="flex items-center justify-between mb-4">
             <h3 class="font-medium text-lg">Types de ressources</h3>
@@ -372,12 +460,13 @@ export function viewVentes(root) {
     });
   }
 
-  let currentTab = 'ventes';
+  let currentTab = 'historique';
   let ventesCache = [];
   let ventesLoading = true;
   let ressourcesCache = [];
   let usersCache = [];
   const ventesHistoryCache = new Map();
+  const stockagePriveCache = new Map();
 
   // Formattage des statuts (majuscule/minuscule correctes)
   function formatStatus(raw) {
@@ -417,7 +506,9 @@ export function viewVentes(root) {
         }
       }
       else if (tabId === 'traitement') loadTraitement();
+      else if (tabId === 'historique') loadHistorique();
       else if (tabId === 'stockage') loadStockage();
+      else if (tabId === 'stockage-prive') loadStockagePrive();
       else if (tabId === 'ressources') loadRessources();
     });
   });
@@ -460,7 +551,9 @@ export function viewVentes(root) {
 
       loadStats();
       loadVentes();
+      loadHistorique();
       startVentesListener();
+      loadStockagePrive();
     } catch (e) { console.error(e); }
   })();
 
@@ -508,29 +601,21 @@ export function viewVentes(root) {
       const traitees = allVentes.filter(v => v.statut === 'traite').length;
       const annulees = allVentes.filter(v => v.statut === 'annule').length;
 
-      // Calculer le bénéfice employé total (somme des bénéfices des ventes traitées de tous les employés)
+      // Récupérer les écritures financières pour calculer les salaires et bénéfices réellement versés
       let caTotal = 0;
-      allVentes.forEach(v => {
-        if (v.statut === 'traite') {
-          const ressource = ressourcesCache.find(r => r.id === v.typeRessourceId);
-          if (ressource) {
-            const prixBourse = ressource.prixBourse || 0;
-            caTotal += prixBourse * (v.quantite || 0);
-          }
-        }
-      });
-
-      // Calculer les bénéfices totaux (somme des bénéfices des ventes traitées)
       let beneficesTotal = 0;
-      allVentes.forEach(v => {
-        if (v.statut === 'traite') {
-          const ressource = ressourcesCache.find(r => r.id === v.typeRessourceId);
-          if (ressource) {
-            const prixBourse = ressource.prixBourse || 0;
-            beneficesTotal += prixBourse * (v.quantite || 0);
-          }
-        }
-      });
+      try {
+        const financeSnap = await getDocs(collection(fb.db, 'finance'));
+        const financeEntries = financeSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        caTotal = financeEntries
+          .filter(entry => (entry.type || '').toLowerCase() === 'salaire')
+          .reduce((sum, entry) => sum + (Number(entry.montant) || 0), 0);
+        beneficesTotal = financeEntries
+          .filter(entry => (entry.type || '').toLowerCase() === 'benefice')
+          .reduce((sum, entry) => sum + (Number(entry.montant) || 0), 0);
+      } catch (e) {
+        console.warn('Impossible de charger les écritures financières pour les stats:', e);
+      }
 
       // Calculer le stock disponible (en tenant compte de la taille des objets)
       let stockDispo = 0;
@@ -662,13 +747,11 @@ export function viewVentes(root) {
       let totalCA = 0;
       let lastDate = null;
       ventes.forEach(v => {
-        // Calculer les bénéfices totaux de l'employé (seulement les ventes traitées)
-        if (v.statut === 'traite') {
-          const ressource = ressourcesCache.find(r => r.id === v.typeRessourceId);
-          if (ressource) {
-            const prixBourse = ressource.prixBourse || 0;
-            totalCA += prixBourse * (v.quantite || 0);
-          }
+        const ressource = ressourcesCache.find(r => r.id === v.typeRessourceId);
+        const prixEntreprise = ressource ? (ressource.prixVente || ressource.prix || 0) : 0;
+        const statut = (v.statut || 'en attente').toLowerCase();
+        if (prixEntreprise > 0 && (statut === 'valide' || statut === 'traite')) {
+          totalCA += prixEntreprise * (v.quantite || 0);
         }
         const currentDate = v.dateVente ? (v.dateVente.toDate ? v.dateVente.toDate() : new Date(v.dateVente)) : null;
         if (currentDate && (!lastDate || currentDate > lastDate)) {
@@ -883,6 +966,12 @@ export function viewVentes(root) {
     if (e.target.closest('#btn-refresh-ventes-emp')) {
       loadVentesEmploye();
     }
+    if (e.target.closest('#btn-refresh-historique')) {
+      loadHistorique();
+    }
+    if (e.target.closest('#btn-refresh-stockage-prive')) {
+      loadStockagePrive();
+    }
   });
 
   async function loadVentes(options = {}) {
@@ -905,13 +994,15 @@ export function viewVentes(root) {
         return;
       }
 
-      if (!ventesCache.length) {
-        tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="6">Aucune vente</td></tr>';
+      const ventesEnAttente = ventesCache.filter(v => (v.statut || 'en attente') === 'en attente');
+
+      if (!ventesEnAttente.length) {
+        tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="6">Aucune vente en attente de validation</td></tr>';
         return;
       }
 
       tbody.innerHTML = '';
-      ventesCache.forEach(v => {
+      ventesEnAttente.forEach(v => {
         const date = v.dateVente ? (v.dateVente.toDate ? v.dateVente.toDate() : new Date(v.dateVente)) : new Date();
         const ressource = ressourcesCache.find(r => r.id === v.typeRessourceId) || {};
         const tr = document.createElement('tr');
@@ -937,12 +1028,70 @@ export function viewVentes(root) {
     } catch (e) { console.error(e); }
   }
 
+  function loadHistorique() {
+    const tbody = document.getElementById('historique-tbody');
+    const emptyState = document.getElementById('historique-empty');
+    if (!tbody || !emptyState) return;
+
+    if (ventesLoading) {
+      tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="7">Chargement…</td></tr>';
+      emptyState.classList.add('hidden');
+      return;
+    }
+
+    const sorted = ventesCache
+      .slice()
+      .sort((a, b) => {
+        const ad = a.dateVente ? (a.dateVente.toDate ? a.dateVente.toDate().getTime() : new Date(a.dateVente).getTime()) : (a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0);
+        const bd = b.dateVente ? (b.dateVente.toDate ? b.dateVente.toDate().getTime() : new Date(b.dateVente).getTime()) : (b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0);
+        return bd - ad;
+      });
+
+    if (!sorted.length) {
+      tbody.innerHTML = '';
+      emptyState.classList.remove('hidden');
+      return;
+    }
+
+    emptyState.classList.add('hidden');
+    tbody.innerHTML = '';
+
+    sorted.forEach(v => {
+      const date = v.dateVente ? (v.dateVente.toDate ? v.dateVente.toDate() : new Date(v.dateVente)) : (v.createdAt?.toDate ? v.createdAt.toDate() : new Date());
+      const ressource = ressourcesCache.find(r => r.id === v.typeRessourceId) || {};
+      const prixVente = ressource.prixVente || ressource.prix || 0;
+      const montantTotal = prixVente * (v.quantite || 0);
+      const statut = v.statut || 'en attente';
+      let badgeClass = 'badge-employe';
+      if (statut === 'valide') badgeClass = 'badge-actif';
+      else if (statut === 'annule') badgeClass = 'badge-inactif';
+      else if (statut === 'traite') badgeClass = 'badge-admin';
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${date.toLocaleDateString('fr-FR')}</td>
+        <td>${ressource.nom || '—'}</td>
+        <td>${v.quantite || 0}</td>
+        <td>${formatAmount(montantTotal)} €</td>
+        <td>${(v.prenom || '')} ${(v.nom || '')}${v.telephone ? ' — ' + v.telephone : ''}</td>
+        <td><span class="badge-role ${badgeClass}">${formatStatus(statut)}</span></td>
+        <td>
+          <div class="action-buttons" data-vente-id="${v.id}">
+            <button class="action-btn btn-view" title="Voir"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></span></button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
   function startVentesListener() {
     try {
       const fb = getFirebase();
       if (!fb || !fb.db) {
         ventesLoading = false;
         loadVentes();
+        loadHistorique();
         return;
       }
 
@@ -957,6 +1106,7 @@ export function viewVentes(root) {
         ventesLoading = false;
         loadVentes();
         loadStats();
+        loadHistorique();
         if (currentTab === 'traitement') {
           loadTraitement();
         }
@@ -968,6 +1118,12 @@ export function viewVentes(root) {
         }
         if (currentTab === 'stockage') {
           loadStockage();
+        }
+        if (currentTab === 'historique') {
+          loadHistorique();
+        }
+        if (currentTab === 'stockage-prive') {
+          loadStockagePrive();
         }
       }, (error) => {
         console.error('Erreur flux ventes:', error);
@@ -1229,6 +1385,105 @@ export function viewVentes(root) {
     }
   }
 
+  async function loadStockagePrive() {
+    try {
+      const fb = getFirebase();
+      const tbody = document.getElementById('stockage-prive-tbody');
+      const emptyState = document.getElementById('stockage-prive-empty');
+      const summary = document.getElementById('stockage-prive-summary');
+      const totalEl = document.getElementById('stockage-prive-total');
+      const quantiteEl = document.getElementById('stockage-prive-quantite');
+      const beneficeEl = document.getElementById('stockage-prive-benefice');
+      const lastEl = document.getElementById('stockage-prive-last');
+      if (!fb || !fb.db || !tbody || !emptyState || !summary || !totalEl || !quantiteEl || !beneficeEl || !lastEl) return;
+
+      tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="6">Chargement…</td></tr>';
+      emptyState.classList.add('hidden');
+      summary.classList.add('hidden');
+      stockagePriveCache.clear();
+
+      if (!ressourcesCache || !ressourcesCache.length) {
+        try {
+          const resSnap = await getDocs(collection(fb.db, 'ressources'));
+          ressourcesCache = resSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        } catch (e) {
+          console.warn('Impossible de charger les ressources pour le stockage privé:', e);
+        }
+      }
+
+      const stockageSnap = await getDocs(collection(fb.db, 'stockagePrive'));
+      const entries = stockageSnap.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+
+      if (!entries.length) {
+        tbody.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        totalEl.textContent = '0';
+        quantiteEl.textContent = '0';
+        beneficeEl.textContent = '0 €';
+        lastEl.textContent = '—';
+        return;
+      }
+
+      entries.sort((a, b) => {
+        const dateA = a.dateStockage?.toDate ? a.dateStockage.toDate().getTime() : (a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0);
+        const dateB = b.dateStockage?.toDate ? b.dateStockage.toDate().getTime() : (b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0);
+        return dateB - dateA;
+      });
+
+      const totalEntries = entries.length;
+      const totalQuantite = entries.reduce((sum, entry) => sum + (entry.quantite || 0), 0);
+      const totalBenefice = entries.reduce((sum, entry) => sum + (Number(entry.beneficeBourse || entry.benefice || 0) || 0), 0);
+      const latest = entries[0];
+      const latestDate = latest?.dateStockage?.toDate ? latest.dateStockage.toDate() : (latest?.createdAt?.toDate ? latest.createdAt.toDate() : null);
+
+      totalEl.textContent = formatNumber(totalEntries);
+      quantiteEl.textContent = formatNumber(totalQuantite);
+      beneficeEl.textContent = `${formatAmount(totalBenefice)} €`;
+      lastEl.textContent = latestDate ? latestDate.toLocaleDateString('fr-FR') : '—';
+      summary.classList.remove('hidden');
+
+      tbody.innerHTML = '';
+      entries.forEach(entry => {
+        const tr = document.createElement('tr');
+        const dateStockage = entry.dateStockage?.toDate ? entry.dateStockage.toDate() : (entry.createdAt?.toDate ? entry.createdAt.toDate() : null);
+        const ressource = ressourcesCache?.find(r => r.id === entry.typeRessourceId) || {};
+        const ressourceNom = entry.ressourceNom || ressource.nom || 'Ressource';
+        const employeLabel = entry.employeNom || `${entry.prenom || ''} ${entry.nom || ''}`.trim() || '—';
+        const telephone = entry.telephone ? ` — ${entry.telephone}` : '';
+        const benefice = Number(entry.beneficeBourse || entry.benefice || 0) || 0;
+
+        stockagePriveCache.set(entry.id, entry);
+
+        tr.innerHTML = `
+          <td>${dateStockage ? dateStockage.toLocaleDateString('fr-FR') : '—'}</td>
+          <td>${ressourceNom}</td>
+          <td>${formatNumber(entry.quantite || 0)}</td>
+          <td>${employeLabel}${telephone}</td>
+          <td>${formatAmount(benefice)} €</td>
+          <td>
+            <div class="action-buttons" data-stockage-id="${entry.id}">
+              <button class="action-btn btn-view-stockage" title="Voir">
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></span>
+              </button>
+              <button class="action-btn btn-sell-stockage" title="Vendre à l'entreprise">
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg></span>
+              </button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (e) {
+      console.error('Erreur chargement stockage privé:', e);
+      const tbody = document.getElementById('stockage-prive-tbody');
+      const emptyState = document.getElementById('stockage-prive-empty');
+      const summary = document.getElementById('stockage-prive-summary');
+      if (summary) summary.classList.add('hidden');
+      if (tbody) tbody.innerHTML = '<tr><td class="py-3 text-center text-rose-500" colspan="6">Erreur lors du chargement du stockage privé.</td></tr>';
+      if (emptyState) emptyState.classList.add('hidden');
+    }
+  }
+
   async function loadRessources() {
     try {
       const fb = getFirebase();
@@ -1382,6 +1637,7 @@ export function viewVentes(root) {
           });
           loadStats();
           loadVentes();
+          loadHistorique();
           loadStockage(); // Recharger le stockage pour mettre à jour le stock disponible
           alertModal({ title: 'Succès', message: 'Vente créée avec succès.', type: 'success' });
         } catch (e) { 
@@ -1499,6 +1755,7 @@ export function viewVentes(root) {
 
               loadStats();
               loadVentes();
+              loadHistorique();
               loadStockage();
               if (currentTab === 'ventes-employe') {
                 const selectEmployeTab = document.getElementById('select-employe');
@@ -1687,7 +1944,127 @@ export function viewVentes(root) {
     const fb = getFirebase();
     const venteId = container.getAttribute('data-vente-id');
     const ressourceId = container.getAttribute('data-ressource-id');
+    const stockageId = container.getAttribute('data-stockage-id');
     
+    if (stockageId) {
+      const entry = stockagePriveCache.get(stockageId);
+      if (!entry) return;
+      const dateStockage = entry.dateStockage?.toDate ? entry.dateStockage.toDate() : (entry.createdAt?.toDate ? entry.createdAt.toDate() : null);
+      const ressource = ressourcesCache.find(r => r.id === entry.typeRessourceId) || {};
+      const ressourceNom = entry.ressourceNom || ressource.nom || 'Ressource';
+      const quantite = entry.quantite || 0;
+      const prixBourse = entry.prixBourse ?? ressource.prixBourse ?? 0;
+      const prixEntreprise = entry.prixEntreprise ?? ressource.prixVente ?? ressource.prix ?? 0;
+      const benefice = Number(entry.beneficeBourse || entry.benefice || 0) || 0;
+      const employeNom = entry.employeNom || `${entry.prenom || ''} ${entry.nom || ''}`.trim() || '—';
+      const telephone = entry.telephone || '—';
+
+      if (e.target.closest('.btn-sell-stockage')) {
+        const montantBenefice = (quantite || 0) * prixBourse;
+        confirmModal({
+          title: 'Vendre depuis le stockage privé',
+          message: `Confirmez-vous la vente de ${formatNumber(quantite)} × ${ressourceNom} à l'entreprise pour ${formatAmount(montantBenefice)} € (prix bourse) ?`,
+          confirmText: 'Vendre',
+          cancelText: 'Annuler',
+          type: 'warning',
+          onConfirm: async () => {
+            try {
+              let fbInstance = fb;
+              if (!fbInstance || !fbInstance.db) {
+                fbInstance = await waitForFirebase();
+              }
+              if (!fbInstance || !fbInstance.db) {
+                alertModal({ title: 'Erreur', message: 'Firebase n\'est pas initialisé.', type: 'danger' });
+                return;
+              }
+              const montant = Number(montantBenefice) || 0;
+              if (montant > 0) {
+                await addDoc(collection(fbInstance.db, 'finance'), {
+                  type: 'benefice',
+                  montant,
+                  venteId: entry.venteId || null,
+                  stockageId,
+                  source: 'stockage',
+                  date: serverTimestamp(),
+                  description: `Vente stockage: ${ressourceNom} x${quantite}`
+                });
+              }
+
+              await deleteDoc(doc(fbInstance.db, 'stockagePrive', stockageId));
+              stockagePriveCache.delete(stockageId);
+
+              await addLogEntry(fbInstance, {
+                type: 'action',
+                action: 'stockage_sell',
+                category: 'ventes',
+                message: `Vente depuis stockage privé (${ressourceNom} x${quantite})`
+              });
+
+              loadStockagePrive();
+              loadStats();
+              alertModal({ title: 'Succès', message: 'Vente enregistrée et stockage mis à jour.', type: 'success' });
+            } catch (error) {
+              console.error(error);
+              alertModal({ title: 'Erreur', message: 'Impossible de finaliser la vente depuis le stockage privé.', type: 'danger' });
+            }
+          }
+        });
+        return;
+      }
+
+      if (e.target.closest('.btn-view-stockage')) {
+        const body = `
+          <div class="view-highlight">
+            <div class="view-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 1.5rem; height: 1.5rem;"><polyline points="6 9 12 15 18 9"></polyline></svg></div>
+            <div style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem;">${formatAmount(benefice)} €</div>
+            <div style="color: rgb(100,116,139);">Stockage enregistré${dateStockage ? ' le ' + dateStockage.toLocaleDateString('fr-FR') : ''}</div>
+          </div>
+          <div class="view-grid">
+            <div class="view-section">
+              <div class="view-section-title">Informations</div>
+              <div class="view-item">
+                <div class="view-item-label">Ressource</div>
+                <div class="view-item-value">${ressourceNom}</div>
+              </div>
+              <div class="view-item">
+                <div class="view-item-label">Quantité</div>
+                <div class="view-item-value">${formatNumber(quantite)}</div>
+              </div>
+              <div class="view-item">
+                <div class="view-item-label">Prix bourse</div>
+                <div class="view-item-value">${formatAmount(prixBourse)} €</div>
+              </div>
+              <div class="view-item">
+                <div class="view-item-label">Prix entreprise</div>
+                <div class="view-item-value">${formatAmount(prixEntreprise)} €</div>
+              </div>
+            </div>
+            <div class="view-section">
+              <div class="view-section-title">Employé</div>
+              <div class="view-item">
+                <div class="view-item-label">Nom</div>
+                <div class="view-item-value">${employeNom}</div>
+              </div>
+              <div class="view-item">
+                <div class="view-item-label">Téléphone</div>
+                <div class="view-item-value">${telephone}</div>
+              </div>
+              <div class="view-item">
+                <div class="view-item-label">Vente d'origine</div>
+                <div class="view-item-value">${entry.venteId || '—'}</div>
+              </div>
+              <div class="view-item">
+                <div class="view-item-label">Date vente</div>
+                <div class="view-item-value">${entry.dateVente?.toDate ? entry.dateVente.toDate().toLocaleDateString('fr-FR') : '—'}</div>
+              </div>
+            </div>
+          </div>
+        `;
+        createModal({ title: 'Détails du stockage privé', body, confirmText: 'Fermer', onConfirm: () => {}, isView: true });
+      }
+      return;
+    }
+
     if (venteId) {
       const vente = ventesCache.find(v => v.id === venteId) || {};
       if (e.target.closest('.btn-view')) {
@@ -1794,6 +2171,7 @@ export function viewVentes(root) {
               });
               loadStats();
               loadVentes();
+              loadHistorique();
               alertModal({ title: 'Succès', message: 'Vente modifiée avec succès.', type: 'success' });
             } catch { 
               alertModal({ title: 'Erreur', message: 'Erreur lors de la modification de la vente.', type: 'danger' });
@@ -1809,33 +2187,37 @@ export function viewVentes(root) {
       if (e.target.closest('.btn-validate')) {
         confirmModal({
           title: 'Valider la vente',
-          message: 'Cette vente sera déplacée en traitement et le salaire de l\'employé sera enregistré.',
+          message: 'Cette vente sera déplacée en traitement.',
           type: 'warning',
           confirmText: 'Valider',
           cancelText: 'Annuler',
           onConfirm: async () => {
         try {
           const ressource = ressourcesCache.find(r => r.id === vente.typeRessourceId) || {};
-          const salaire = (ressource.prixVente || ressource.prix || 0) * (vente.quantite || 0);
+          const prixEntreprise = ressource.prixVente || ressource.prix || 0;
+          const salaire = prixEntreprise * (vente.quantite || 0);
           await updateDoc(doc(fb.db, 'ventes', venteId), { 
             statut: 'valide',
             updatedAt: serverTimestamp()
           });
-          await addDoc(collection(fb.db, 'finance'), {
-            type: 'salaire',
-            montant: salaire,
-            venteId: venteId,
-            date: serverTimestamp(),
-            description: `Salaire de travail: ${ressource.nom || ''} x${vente.quantite || 0}`
-          });
+          if (salaire > 0) {
+            await addDoc(collection(fb.db, 'finance'), {
+              type: 'salaire',
+              montant: salaire,
+              venteId,
+              date: serverTimestamp(),
+              description: `Salaire employé: ${ressource.nom || ''} x${vente.quantite || 0}`
+            });
+          }
           await addLogEntry(fb, { 
             type: 'action', 
             action: 'vente_validate', 
             category: 'ventes',
-            message: `Validation de la vente ${venteId} - Salaire: ${salaire}€` 
+            message: `Validation de la vente ${venteId} - Salaire: ${salaire.toFixed(2)}€` 
           });
           loadStats();
           loadVentes();
+          loadHistorique();
           if (currentTab === 'traitement') loadTraitement();
           loadStockage();
           alertModal({ title: 'Succès', message: 'Vente validée avec succès.', type: 'success' });
@@ -1866,6 +2248,7 @@ export function viewVentes(root) {
               });
               loadStats();
               loadVentes();
+              loadHistorique();
               loadStockage(); // Recharger le stockage car la vente annulée libère le stock
               alertModal({ title: 'Succès', message: 'Vente annulée avec succès.', type: 'success' });
             } catch (e) { 
@@ -1923,7 +2306,7 @@ export function viewVentes(root) {
       if (e.target.closest('.btn-validate-traitement')) {
         confirmModal({
           title: 'Valider le traitement',
-          message: 'Le bénéfice correspondra au prix de bourse. L\'entreprise recevra le bénéfice réel.',
+          message: 'Cette vente sera marquée comme traitée et ajoutée au stockage privé.',
           type: 'warning',
           confirmText: 'Valider',
           cancelText: 'Annuler',
@@ -1936,12 +2319,20 @@ export function viewVentes(root) {
                 statut: 'traite',
                 updatedAt: serverTimestamp()
               });
-              await addDoc(collection(fb.db, 'finance'), {
-                type: 'benefice',
-                montant: beneficeReel,
+              await addDoc(collection(fb.db, 'stockagePrive'), {
                 venteId: venteId,
-                date: serverTimestamp(),
-                description: `Bénéfice (bourse): ${ressource.nom || ''} x${vente.quantite || 0} (${prixBourse.toFixed(2)}€)`
+                typeRessourceId: vente.typeRessourceId || null,
+                ressourceNom: ressource.nom || '',
+                quantite: vente.quantite || 0,
+                employeId: vente.employeId || null,
+                employeNom: `${vente.prenom || ''} ${vente.nom || ''}`.trim(),
+                telephone: vente.telephone || '',
+                beneficeBourse: beneficeReel,
+                prixBourse: prixBourse,
+                prixEntreprise: ressource.prixVente || ressource.prix || 0,
+                tailleObjet: vente.tailleObjet || ressource.tailleObjet || 1,
+                dateVente: vente.dateVente || null,
+                dateStockage: serverTimestamp()
               });
               await addLogEntry(fb, { 
                 type: 'action', 
@@ -1951,8 +2342,10 @@ export function viewVentes(root) {
               });
               loadStats();
               loadTraitement();
+              loadHistorique();
               loadStockage();
-              alertModal({ title: 'Succès', message: 'Traitement validé avec succès. Le bénéfice a été enregistré.', type: 'success' });
+              loadStockagePrive();
+              alertModal({ title: 'Succès', message: 'Traitement validé avec succès. La vente est stockée.', type: 'success' });
             } catch (e) { 
               alertModal({ title: 'Erreur', message: 'Erreur lors de la validation du traitement.', type: 'danger' });
               console.error(e); 

@@ -98,5 +98,26 @@ service cloud.firestore {
       allow read: if isAuthed();
       allow create, update, delete: if isAuthed();
     }
+
+    // Collection: centraleEffectif
+    // Gère le suivi des équipes (affectations, véhicules, employés, statuts)
+    match /centraleEffectif/{entryId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed();
+    }
+
+    // Collection: centraleConfig
+    // Stocke la configuration de la centrale (statuts personnalisés, etc.)
+    match /centraleConfig/{configId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed();
+    }
+
+    // Collection: centraleServices
+    // Suivi des prises de service des employés (statut en service)
+    match /centraleServices/{serviceId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed();
+    }
   }
 }

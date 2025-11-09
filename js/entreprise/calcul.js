@@ -21,11 +21,19 @@ export function viewCalcul(root) {
                 <div id="sb-email" class="user-handle text-xs opacity-70">—</div>
               </div>
             </div>
-            <div id="sb-role" class="badge-role badge-employe mt-2 inline-block text-xs">Employé</div>
+            <div
+              id="sb-role"
+              class="badge-role badge-employe mt-2 inline-block text-xs"
+              data-role-field="roleEntreprise"
+              data-default-label="Sans rôle"
+              data-empty-label="Sans rôle"
+              data-role-class="badge-employe"
+            >Employé</div>
           </a>
           <div class="section-title">Entreprise</div>
           <nav class="nav-links">
             <a href="#/entreprise" class="nav-item"><span class="nav-icon"></span>Gestion Employé</a>
+            <a href="#/entreprise/centrale" class="nav-item"><span class="nav-icon"></span>Suivi Effectif</a>
             <a href="#/entreprise/ventes" class="nav-item"><span class="nav-icon"></span>Gestion Vente</a>
             <a href="#/entreprise/finance" class="nav-item"><span class="nav-icon"></span>Gestion Finance</a>
             <a href="#/entreprise/flotte" class="nav-item"><span class="nav-icon"></span>Gestion Flotte</a>

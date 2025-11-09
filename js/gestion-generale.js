@@ -1,5 +1,5 @@
 import { html, mount, getCachedProfile, loadUserProfile, createModal, alertModal, updateAvatar, isAuthenticated, updateRoleBadge, checkPermission, updateNavPermissions } from './utils.js';
-import { getFirebase, waitForFirebase, doc, getDoc, collection, getDocs, query, orderBy, where, signOut, updateDoc, setDoc, addDoc, deleteDoc, serverTimestamp, createUserWithEmailAndPassword } from './firebase.js';
+import { getFirebase, getAdminFirebaseAuth, waitForFirebase, doc, getDoc, collection, getDocs, query, orderBy, where, signOut, updateDoc, setDoc, addDoc, deleteDoc, serverTimestamp, createUserWithEmailAndPassword } from './firebase.js';
 import { addLogEntry } from './firebase.js';
 import { formatDate } from './utils.js';
 
@@ -64,6 +64,7 @@ async function viewRolesGestionGenerale(root) {
                 <div class="perm-card"><span>Gestion Vente</span><div id="perm-gestion-ventes" class="switch" data-perm="ventes"></div></div>
                 <div class="perm-card"><span>Gestion Finance</span><div id="perm-gestion-finance" class="switch" data-perm="finance"></div></div>
                 <div class="perm-card"><span>Gestion Flotte</span><div id="perm-gestion-flotte" class="switch" data-perm="flotte"></div></div>
+                <div class="perm-card"><span>Suivi Effectif</span><div id="perm-gestion-centrale" class="switch" data-perm="centrale"></div></div>
                 <div class="perm-card"><span>Calculateur CA</span><div id="perm-gestion-calcul" class="switch" data-perm="calcul"></div></div>
                 <div class="perm-card"><span>Calculatrice</span><div id="perm-gestion-calculatrice" class="switch" data-perm="calculatrice"></div></div>
                 <div class="perm-card"><span>Logs</span><div id="perm-gestion-logs" class="switch" data-perm="logs"></div></div>
@@ -116,6 +117,8 @@ async function viewRolesGestionGenerale(root) {
                 <div class="perm-card"><span>Flotte</span><div id="perm-gestion-employe-flotte" class="switch" data-perm="employe-flotte"></div></div>
                 <div class="perm-card"><span>Calculateur CA</span><div id="perm-gestion-employe-calcul" class="switch" data-perm="employe-calcul"></div></div>
                 <div class="perm-card"><span>Calculatrice</span><div id="perm-gestion-employe-calculatrice" class="switch" data-perm="employe-calculatrice"></div></div>
+                <div class="perm-card"><span>Prise de service</span><div id="perm-gestion-employe-centrale" class="switch" data-perm="employe-centrale"></div></div>
+                <div class="perm-card"><span>Suivi effectif</span><div id="perm-gestion-employe-suivi-effectif" class="switch" data-perm="employe-suivi-effectif"></div></div>
               </div>
               
               <div class="mt-4 pt-4 border-t border-slate-200 dark:border-white/10">
@@ -283,6 +286,7 @@ async function viewRolesGestionGenerale(root) {
             ventes: space === 'entreprise' ? false : undefined, 
             finance: space === 'entreprise' ? false : undefined, 
             flotte: space === 'entreprise' ? false : undefined,
+            centrale: space === 'entreprise' ? false : undefined,
             calcul: space === 'entreprise' ? false : undefined,
             calculatrice: space === 'entreprise' ? false : undefined,
             logs: space === 'entreprise' ? false : undefined,
@@ -291,6 +295,8 @@ async function viewRolesGestionGenerale(root) {
             'employe-flotte': space === 'employe' ? false : undefined,
             'employe-calcul': space === 'employe' ? false : undefined,
             'employe-calculatrice': space === 'employe' ? false : undefined,
+            'employe-centrale': space === 'employe' ? false : undefined,
+            'employe-suivi-effectif': space === 'employe' ? false : undefined,
             // Permissions Espace Illégale
             'illegale-points': space === 'illegale' ? false : undefined,
             'illegale-armes': space === 'illegale' ? false : undefined,
@@ -413,6 +419,7 @@ async function viewRolesGestionGenerale(root) {
       ventes: document.getElementById('perm-gestion-ventes').classList.contains('on'),
       finance: document.getElementById('perm-gestion-finance').classList.contains('on'),
       flotte: document.getElementById('perm-gestion-flotte').classList.contains('on'),
+      centrale: document.getElementById('perm-gestion-centrale').classList.contains('on'),
       calcul: document.getElementById('perm-gestion-calcul').classList.contains('on'),
       calculatrice: document.getElementById('perm-gestion-calculatrice').classList.contains('on'),
       logs: document.getElementById('perm-gestion-logs').classList.contains('on')
@@ -444,7 +451,9 @@ async function viewRolesGestionGenerale(root) {
       'employe-ventes': document.getElementById('perm-gestion-employe-ventes').classList.contains('on'),
       'employe-flotte': document.getElementById('perm-gestion-employe-flotte').classList.contains('on'),
       'employe-calcul': document.getElementById('perm-gestion-employe-calcul').classList.contains('on'),
-      'employe-calculatrice': document.getElementById('perm-gestion-employe-calculatrice').classList.contains('on')
+      'employe-calculatrice': document.getElementById('perm-gestion-employe-calculatrice').classList.contains('on'),
+      'employe-centrale': document.getElementById('perm-gestion-employe-centrale').classList.contains('on'),
+      'employe-suivi-effectif': document.getElementById('perm-gestion-employe-suivi-effectif').classList.contains('on')
     };
     try {
       await setDoc(doc(fb.db, 'roles', selectedRoleId), { permissions: perms }, { merge: true });
@@ -687,6 +696,7 @@ async function viewRolesGestionGenerale(root) {
           setSwitch('perm-gestion-ventes', Boolean(perms.ventes));
           setSwitch('perm-gestion-finance', Boolean(perms.finance));
           setSwitch('perm-gestion-flotte', Boolean(perms.flotte));
+          setSwitch('perm-gestion-centrale', Boolean(perms.centrale));
           setSwitch('perm-gestion-calcul', Boolean(perms.calcul));
           setSwitch('perm-gestion-calculatrice', Boolean(perms.calculatrice));
           setSwitch('perm-gestion-logs', Boolean(perms.logs));
@@ -697,6 +707,8 @@ async function viewRolesGestionGenerale(root) {
           setSwitch('perm-gestion-employe-flotte', Boolean(perms['employe-flotte']));
           setSwitch('perm-gestion-employe-calcul', Boolean(perms['employe-calcul']));
           setSwitch('perm-gestion-employe-calculatrice', Boolean(perms['employe-calculatrice']));
+        setSwitch('perm-gestion-employe-centrale', Boolean(perms['employe-centrale']));
+        setSwitch('perm-gestion-employe-suivi-effectif', Boolean(perms['employe-suivi-effectif']));
           document.getElementById('btn-save-perms-gestion-employe').disabled = false;
         } else if (space === 'illegale') {
           setSwitch('perm-gestion-illegale', Boolean(perms.illegale));
@@ -772,7 +784,14 @@ export function viewGestionGenerale(root) {
                 <div id="sb-email-gestion" class="user-handle text-xs opacity-70">—</div>
               </div>
             </div>
-            <div id="sb-role-gestion" class="badge-role badge-admin mt-2 inline-block text-xs">Gestion Générale</div>
+            <div
+              id="sb-role-gestion"
+              class="badge-role badge-admin mt-2 inline-block text-xs"
+              data-role-field="roleGestionGenerale"
+              data-default-label="Sans rôle"
+              data-empty-label="Sans rôle"
+              data-role-class="badge-admin"
+            >Gestion Générale</div>
           </a>
           <div class="section-title">Gestion Générale</div>
           <nav class="nav-links">
@@ -1410,8 +1429,14 @@ export function viewGestionGenerale(root) {
           }
           
           try {
-            // Créer l'utilisateur dans Firebase Auth
-            const userCredential = await createUserWithEmailAndPassword(fb.auth, email, password);
+            const adminFb = getAdminFirebaseAuth();
+            if (!adminFb || !adminFb.auth) {
+              alertModal({ title: 'Service indisponible', message: 'Impossible d’ouvrir la session de création. Réessayez plus tard.', type: 'error' });
+              return;
+            }
+
+            // Créer l'utilisateur dans Firebase Auth via l'app secondaire pour conserver la session actuelle
+            const userCredential = await createUserWithEmailAndPassword(adminFb.auth, email, password);
             const uid = userCredential.user.uid;
             
             // Créer le document utilisateur dans Firestore avec les rôles par espace
@@ -1446,6 +1471,12 @@ export function viewGestionGenerale(root) {
               category: 'gestion-generale',
               message: `Création de l'utilisateur "${name}"`
             });
+
+            try {
+              await signOut(adminFb.auth);
+            } catch (signOutError) {
+              console.warn('Impossible de fermer la session secondaire de création (gestion générale):', signOutError);
+            }
             
             alertModal({
               title: 'Succès',
@@ -1655,7 +1686,7 @@ export function viewGestionGenerale(root) {
         });
         
         // Initialiser la liste des rôles
-        updateRoleSelect();
+        updateRoleFieldsVisibilityNew();
       }, 100);
     });
   }
