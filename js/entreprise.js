@@ -4,6 +4,7 @@ import { viewVentes } from './entreprise/ventes.js';
 import { viewFinance } from './entreprise/finance.js';
 import { viewFlotte } from './entreprise/flotte.js';
 import { viewCalcul } from './entreprise/calcul.js';
+import { viewCalculatrice } from './entreprise/calculatrice.js';
 import { viewLogs } from './entreprise/logs.js';
 import { viewProfile } from './profile.js';
 
@@ -22,6 +23,8 @@ export function viewEntreprise(root) {
     viewFlotte(root);
   } else if (hash === '#/entreprise/calcul') {
     viewCalcul(root);
+  } else if (hash === '#/entreprise/calculatrice') {
+    viewCalculatrice(root);
   } else if (hash === '#/entreprise/logs') {
     viewLogs(root);
   } else if (hash === '#/entreprise/profile') {

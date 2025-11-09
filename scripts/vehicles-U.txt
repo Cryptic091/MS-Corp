@@ -1,0 +1,145 @@
+(async function() {
+  function parseFrenchNumber(value) {
+    if (!value || value === '—' || value === '-' || value === '') return null;
+    let cleaned = String(value).replace(/\s/g, '').replace(/€/g, '').trim();
+    if (cleaned.includes(',') && !cleaned.includes('.')) cleaned = cleaned.replace(',', '.');
+    else if (cleaned.includes(',') && cleaned.includes('.')) {
+      const lastComma = cleaned.lastIndexOf(',');
+      const lastDot = cleaned.lastIndexOf('.');
+      if (lastComma > lastDot) cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+      else cleaned = cleaned.replace(/,/g, '');
+    }
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
+  }
+  
+  console.log('🔄 Chargement de Firebase...');
+  const { initializeApp } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js');
+  const { getFirestore, collection, addDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js');
+  
+  if (!window.firebaseConfig2) {
+    console.error('❌ Configuration Firebase secondaire (firebaseConfig2) non trouvée');
+    return;
+  }
+  
+  let app2;
+  try {
+    app2 = initializeApp(window.firebaseConfig2, 'secondary');
+  } catch (error) {
+    if (error.code === 'app/duplicate-app') {
+      const { getApps } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js');
+      app2 = getApps().find(app => app.name === 'secondary');
+    } else {
+      throw error;
+    }
+  }
+  
+  const db2 = getFirestore(app2);
+  console.log('✅ Deuxième base Firebase initialisée:', window.firebaseConfig2.projectId);
+  
+  const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+  if (!authState || !authState.uid) {
+    console.error('❌ Vous devez être connecté pour importer des véhicules');
+    return;
+  }
+  console.log('✅ Utilisateur connecté:', authState.email);
+  
+  const data = `Utilitaires	Citroën Berlingo VAN 2019	33 750 €	192	140	1	305	1 013 €	3 038 €	7 088 €	10 125 €
+Utilitaires	Citroën C15	11 500 €	147	75	1	110	345 €	1 035 €	2 415 €	3 450 €
+Utilitaires	Citroën C15 2	14 500 €	147	75	1	110	435 €	1 305 €	3 045 €	4 350 €
+Utilitaires	Citroën Jumper	45 000 €	192	140	2	375	1 350 €	4 050 €	9 450 €	13 500 €
+Utilitaires	Citroën Jumper Mini-Bus	38 000 €	192	140	9	50	1 140 €	3 420 €	7 980 €	11 400 €
+Utilitaires	Citroën Jumper XL	52 500 €	192	140	2	400	1 575 €	4 725 €	11 025 €	15 750 €
+Utilitaires	Citroën Jumper Bus XL	21 000 €	192	140	12	150	630 €	1 890 €	4 410 €	6 300 €
+Utilitaires	Fiat Ducato FG	45 000 €	197	140	2	375	1 350 €	4 050 €	9 450 €	13 500 €
+Utilitaires	FIat Ducato 2020	37 500 €	210	115	8	50	1 125 €	3 375 €	7 875 €	11 250 €
+Utilitaires	FIat Ducato 2020 Cargo	45 000 €	205	200	2	375	1 350 €	4 050 €	9 450 €	13 500 €
+Utilitaires	FIat Ducato 2020 Long	21 000 €	205	200	12	150	630 €	1 890 €	4 410 €	6 300 €
+Utilitaires	FIat Ducato 2020 Cargo Long	52 500 €	205	200	2	400	1 575 €	4 725 €	11 025 €	15 750 €
+Utilitaires	Ford Transit	41 250 €	190	400	10	350	1 238 €	3 713 €	8 663 €	12 375 €
+Utilitaires	GMC Vandura	22 500 €	161	200	1	250	675 €	2 025 €	4 725 €	6 750 €
+Utilitaires	Iveco Daily Cargo	41 250 €	181	175	2	350	1 238 €	3 713 €	8 663 €	12 375 €
+Utilitaires	Iveco Daily Mixe	22 500 €	181	175	5	175	675 €	2 025 €	4 725 €	6 750 €
+Utilitaires	Iveco Daily Slim Cargo	21 000 €	181	175	2	150	630 €	1 890 €	4 410 €	6 300 €
+Utilitaires	Iveco Daily Mini-Bus	37 500 €	181	175	9	50	1 125 €	3 375 €	7 875 €	11 250 €
+Utilitaires	Mercedes Sprinter 2019 Cargo	52 500 €	220	140	1	400	1 575 €	4 725 €	11 025 €	15 750 €
+Utilitaires	Mercedes Sprinter 2019 Mini-Bus	40 500 €	220	140	7	50	1 215 €	3 645 €	8 505 €	12 150 €
+Utilitaires	Mercedes Benz Sprinter	52 500 €	170	140	1	400	1 575 €	4 725 €	11 025 €	15 750 €
+Utilitaires	Mercedes Vito	22 500 €	186	200	6	250	675 €	2 025 €	4 725 €	6 750 €
+Utilitaires	Peugeot Expert 3	28 750 €	210	130	4	300	863 €	2 588 €	6 038 €	8 625 €
+Utilitaires	Peugeot Expert 3 Cargo	33 750 €	210	130	1	325	1 013 €	3 038 €	7 088 €	10 125 €
+Utilitaires	Peugeot Boxer	52 500 €	182	140	2	400	1 575 €	4 725 €	11 025 €	15 750 €
+Utilitaires	Renault Express	11 500 €	147	75	1	110	345 €	1 035 €	2 415 €	3 450 €
+Utilitaires	Renault Express 2	14 500 €	147	75	1	110	435 €	1 305 €	3 045 €	4 350 €
+Utilitaires	Renault Master 2024	54 500 €	190	170	2	400	1 635 €	4 905 €	11 445 €	16 350 €
+Utilitaires	Renault Master 2024 Bus	54 500 €	190	170	2	400	1 635 €	4 905 €	11 445 €	16 350 €
+Utilitaires	Renault Master 4 Cargo	52 500 €	197	140	2	400	1 575 €	4 725 €	11 025 €	15 750 €
+Utilitaires	Renault Master 4 Mini-Bus	40 500 €	197	140	8	50	1 215 €	3 645 €	8 505 €	12 150 €
+Utilitaires	Renaul Trafic 2 Cargo L1P1	33 750 €	197	140	1	300	1 013 €	3 038 €	7 088 €	10 125 €
+Utilitaires	Renault Trafic 2 L1P1	9 000 €	197	140	6	50	270 €	810 €	1 890 €	2 700 €
+Utilitaires	Renault Trafic 3 Cargo L1P1	37 500 €	197	140	1	325	1 125 €	3 375 €	7 875 €	11 250 €
+Utilitaires	Renault Trafic 3 Mini-Bus L1P1	9 500 €	197	140	6	50	285 €	855 €	1 995 €	2 850 €
+Utilitaires	Volswagen T6 2020	41 250 €	191	190	6	350	1 238 €	3 713 €	8 663 €	12 375 €`;
+  
+  const linesArray = data.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//'));
+  let imported = 0, errors = 0, skipped = 0;
+  
+  console.log(`🚀 Début de l'importation de ${linesArray.length} véhicules dans la deuxième base...\n`);
+  
+  for (let i = 0; i < linesArray.length; i++) {
+    const line = linesArray[i];
+    const parts = line.split('\t');
+    
+    if (parts.length < 11) {
+      console.warn(`⚠️  Ligne ${i + 1} ignorée (colonnes insuffisantes: ${parts.length})`);
+      skipped++;
+      continue;
+    }
+    
+    const vehicle = {
+      type: parts[0]?.trim() || 'Autre',
+      modele: parts[1]?.trim() || '',
+      prixAchat: parseFrenchNumber(parts[2]) || 0,
+      vitesseMax: parseFrenchNumber(parts[3]),
+      puissance: parseFrenchNumber(parts[4]),
+      nombrePlaces: parseFrenchNumber(parts[5]),
+      coffre: parseFrenchNumber(parts[6]),
+      assuranceTier1: parseFrenchNumber(parts[7]),
+      assuranceTier2: parseFrenchNumber(parts[8]),
+      assuranceTier3: parseFrenchNumber(parts[9]),
+      assuranceTier4: parseFrenchNumber(parts[10]),
+      achete: false,
+      createdAt: serverTimestamp()
+    };
+    
+    if (!vehicle.modele || !vehicle.prixAchat) {
+      console.warn(`⚠️  Ligne ${i + 1} ignorée (données incomplètes)`);
+      skipped++;
+      continue;
+    }
+    
+    try {
+      await addDoc(collection(db2, 'flotte'), vehicle);
+      imported++;
+      if (imported % 10 === 0 || imported === 1) {
+        console.log(`✅ [${imported}] ${vehicle.type} ${vehicle.modele}`);
+      }
+      if (imported % 50 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    } catch (error) {
+      console.error(`❌ Erreur ligne ${i + 1}: ${vehicle.modele}`, error.message || error);
+      errors++;
+    }
+  }
+  
+  console.log('\n' + '='.repeat(50));
+  console.log('📊 RÉSUMÉ DE L\'IMPORT');
+  console.log('='.repeat(50));
+  console.log(`✅ Importés: ${imported}`);
+  console.log(`❌ Erreurs: ${errors}`);
+  console.log(`⚠️  Ignorés: ${skipped}`);
+  console.log(`📦 Total traité: ${linesArray.length}`);
+  console.log(`🗄️  Base: ${window.firebaseConfig2.projectId}`);
+  console.log('='.repeat(50));
+})();

@@ -60,6 +60,34 @@ body { margin: 0; }
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Animations pour les blobs de la page d'accueil */
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
 /* Styles pour les boutons de toggle vue */
 .view-toggle-btn {
   transition: all 0.2s ease;
@@ -84,5 +112,175 @@ body { margin: 0; }
 .dark .view-toggle-btn.active:hover {
   background: #0066cc !important;
 }
+
+/* Navigation publique active */
+#public-nav a.active {
+  background: rgba(0, 85, 164, 0.1);
+  color: var(--bleuFr);
+  font-weight: 600;
+}
+
+.dark #public-nav a.active {
+  background: rgba(0, 85, 164, 0.2);
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+/* Styles pour la calculatrice */
+.calc-btn {
+  padding: 1.25rem;
+  border: 1px solid rgba(226, 232, 240, 1);
+  border-radius: 0.75rem;
+  background: white;
+  font-size: 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: rgb(15, 23, 42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.dark .calc-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(248, 250, 252, 0.9);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.calc-btn:hover {
+  background: rgba(241, 245, 249, 1);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.dark .calc-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.calc-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.calc-btn-text {
+  user-select: none;
+  pointer-events: none;
+}
+
+.calc-btn-clear {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.15) 100%);
+  color: rgb(220, 38, 38);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.dark .calc-btn-clear {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(220, 38, 38, 0.25) 100%);
+  color: rgb(248, 113, 113);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.calc-btn-clear:hover {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(220, 38, 38, 0.25) 100%);
+}
+
+.dark .calc-btn-clear:hover {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.35) 0%, rgba(220, 38, 38, 0.35) 100%);
+}
+
+.calc-btn-operator {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.15) 100%);
+  color: rgb(37, 99, 235);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.dark .calc-btn-operator {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(37, 99, 235, 0.25) 100%);
+  color: rgb(96, 165, 250);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.calc-btn-operator:hover {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(37, 99, 235, 0.25) 100%);
+}
+
+.dark .calc-btn-operator:hover {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.35) 0%, rgba(37, 99, 235, 0.35) 100%);
+}
+
+.calc-btn-number {
+  background: rgba(248, 250, 252, 1);
+  color: rgb(15, 23, 42);
+}
+
+.dark .calc-btn-number {
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(248, 250, 252, 0.95);
+}
+
+.calc-btn-number:hover {
+  background: rgba(241, 245, 249, 1);
+}
+
+.dark .calc-btn-number:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.calc-btn-equals {
+  background: linear-gradient(135deg, #0055A4 0%, #EF4135 100%);
+  color: white;
+  border: none;
+  grid-row: span 2;
+  box-shadow: 0 4px 12px rgba(0, 85, 164, 0.3);
+}
+
+.calc-btn-equals:hover {
+  background: linear-gradient(135deg, #004080 0%, #cc2e1a 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 85, 164, 0.4);
+}
+
+.calc-btn-equals:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 85, 164, 0.3);
+}
+
+/* Scrollbar personnalisée pour les tables */
+.user-table::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.user-table::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+.dark .user-table::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.user-table::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.user-table::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.dark .user-table::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.dark .user-table::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Fix pour le header sticky dans les tables - déjà dans modern.css */
 
 

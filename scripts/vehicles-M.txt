@@ -1,0 +1,177 @@
+(async function() {
+  function parseFrenchNumber(value) {
+    if (!value || value === '—' || value === '-' || value === '') return null;
+    let cleaned = String(value).replace(/\s/g, '').replace(/€/g, '').trim();
+    if (cleaned.includes(',') && !cleaned.includes('.')) cleaned = cleaned.replace(',', '.');
+    else if (cleaned.includes(',') && cleaned.includes('.')) {
+      const lastComma = cleaned.lastIndexOf(',');
+      const lastDot = cleaned.lastIndexOf('.');
+      if (lastComma > lastDot) cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+      else cleaned = cleaned.replace(/,/g, '');
+    }
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
+  }
+  
+  console.log('🔄 Chargement de Firebase...');
+  const { initializeApp } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js');
+  const { getFirestore, collection, addDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js');
+  
+  if (!window.firebaseConfig2) {
+    console.error('❌ Configuration Firebase secondaire (firebaseConfig2) non trouvée');
+    return;
+  }
+  
+  let app2;
+  try {
+    app2 = initializeApp(window.firebaseConfig2, 'secondary');
+  } catch (error) {
+    if (error.code === 'app/duplicate-app') {
+      const { getApps } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js');
+      app2 = getApps().find(app => app.name === 'secondary');
+    } else {
+      throw error;
+    }
+  }
+  
+  const db2 = getFirestore(app2);
+  console.log('✅ Deuxième base Firebase initialisée:', window.firebaseConfig2.projectId);
+  
+  const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+  if (!authState || !authState.uid) {
+    console.error('❌ Vous devez être connecté pour importer des véhicules');
+    return;
+  }
+  console.log('✅ Utilisateur connecté:', authState.email);
+  
+  const data = `Maserati	Levante 2016	61 000 €	264	430	4	45	1 830 €	5 490 €	12 810 €	18 300 €
+Maserati	GrandTurismo Liberty Walk	92 000 €	300	855	3	45	2 760 €	8 280 €	19 320 €	27 600 €
+Maserati	MC20	340 000 €	325	630	1	15	10 200 €	30 600 €	71 400 €	102 000 €
+Mazda	MX-5 Miata 1989	19 500 €	200	115	1	25	585 €	1 755 €	4 095 €	5 850 €
+McLaren	720S Coupe 2018	293 000 €	343	720	1	10	8 790 €	26 370 €	61 530 €	87 900 €
+McLaren	Artura 2022	253 000 €	330	680	1	14	7 590 €	22 770 €	53 130 €	75 900 €
+McLaren	765LT	575 640 €	330	775	1	10	17 269 €	51 808 €	120 884 €	172 692 €
+McLaren	675 LT Spider	281 500 €	320	675	1	12	8 445 €	25 335 €	59 115 €	84 450 €
+McLaren	P1 2014	2 360 000 €	350	917	1	10	70 800 €	212 400 €	495 600 €	708 000 €
+McLaren	W1	1 950 000 €	350	1500	1	10	58 500 €	175 500 €	409 500 €	585 000 €
+McLaren	Senna 2018	800 000 €	340	789	1	10	24 000 €	72 000 €	168 000 €	240 000 €
+Mercedes	300 SL	800 000 €	280	412	1	15	24 000 €	72 000 €	168 000 €	240 000 €
+Mercedes	BRABUS 700 G63 AMG 6x6	893 000 €	190	700	4	100	26 790 €	80 370 €	187 530 €	267 900 €
+Mercedes	Benz AMG GT Black Series (Bande Carbone)	336 000 €	325	730	1	15	10 080 €	30 240 €	70 560 €	100 800 €
+Mercedes	AMG Project ONE	1 800 995 €	352	1063	1	15	54 030 €	162 090 €	378 209 €	540 299 €
+Mercedes	AMG GT 63S 2018	208 775 €	315	600	3	15	6 263 €	18 790 €	43 843 €	62 633 €
+Mercedes	GT63s	237 775 €	315	639	4	15	7 133 €	21 400 €	49 933 €	71 333 €
+Mercedes	AMG GTR Pro	346 000 €	318	600	1	15	10 380 €	31 140 €	72 660 €	103 800 €
+Mercedes	AMG GTR Pro Bande Bleue	346 000 €	318	600	1	15	10 380 €	31 140 €	72 660 €	103 800 €
+Mercedes	AMG GTR Pro Bande Jaune	346 000 €	318	600	1	15	10 380 €	31 140 €	72 660 €	103 800 €
+Mercedes	AMG GTR Pro Bande Orange	346 000 €	318	600	1	15	10 380 €	31 140 €	72 660 €	103 800 €
+Mercedes	AMG GTR Pro Bande Rose	346 000 €	318	600	1	15	10 380 €	31 140 €	72 660 €	103 800 €
+Mercedes	AMG GTR Pro Bande Rouge	346 000 €	318	600	1	15	10 380 €	31 140 €	72 660 €	103 800 €
+Mercedes	AMG GTR Pro Bande Verte	346 000 €	318	600	1	15	10 380 €	31 140 €	72 660 €	103 800 €
+Mercedes	SLS AMG 2013	200 000 €	330	631	1	30	6 000 €	18 000 €	42 000 €	60 000 €
+Mercedes	AMG SL 63	228 000 €	315	585	1	30	6 840 €	20 520 €	47 880 €	68 400 €
+Mercedes	Class A 2019	60 000 €	266	420	3	30	1 800 €	5 400 €	12 600 €	18 000 €
+Mercedes	AMG CLA 45 Shooting Break	65 625 €	252	381	4	45	1 969 €	5 906 €	13 781 €	19 688 €
+Mercedes	Benz CLA 45 250 2014	37 500 €	250	610	4	45	1 125 €	3 375 €	7 875 €	11 250 €
+Mercedes	CLA EV 2025	47 500 €	250	381	6	45	1 425 €	4 275 €	9 975 €	14 250 €
+Mercedes	C63S AMG 2017	124 500 €	311	585	4	45	3 735 €	11 205 €	26 145 €	37 350 €
+Mercedes	Benz C63 AMG Coupe Black	122 000 €	300	517	4	25	3 660 €	10 980 €	25 620 €	36 600 €
+Mercedes	AMG E63 S 2018	123 000 €	290	612	4	35	3 690 €	11 070 €	25 830 €	36 900 €
+Mercedes	Benz Class G 2019	104 000 €	220	450	3	50	3 120 €	9 360 €	21 840 €	31 200 €
+Mercedes	E-Class T-Model 2017	63 200 €	273	300	4	50	1 896 €	5 688 €	13 272 €	18 960 €
+Mercedes	GLE Coupe 2020	205 000 €	270	380	4	50	6 150 €	18 450 €	43 050 €	61 500 €
+Mercedes	ML 63 AMG	59 350 €	301	450	4	35	1 781 €	5 342 €	12 464 €	17 805 €
+Mercedes	ML 63 AMG 2	59 350 €	301	450	4	35	1 781 €	5 342 €	12 464 €	17 805 €
+Mercedes	ML63 BRABUS	196 000 €	260	650	4	15	5 880 €	17 640 €	41 160 €	58 800 €
+Mercedes	Maybach Pullman	296 250 €	254	325	5	25	8 888 €	26 663 €	62 213 €	88 875 €
+Mini	Cooper JCW GP 2020	42 000 €	267	306	1	25	1 260 €	3 780 €	8 820 €	12 600 €
+Mitsubishi	Lancer Evolution X	53 250 €	280	500	4	25	1 598 €	4 793 €	11 183 €	15 975 €
+Mitsubishi	Evolution IX	33 250 €	261	325	4	15	998 €	2 993 €	6 983 €	9 975 €
+Moto	BMW M1000rr 2021	31 641 €	306	212	1	12	949 €	2 848 €	6 645 €	9 492 €
+Moto	BMW 1200RT	10 210 €	290	270	1	12	306 €	919 €	2 144 €	3 063 €
+Moto	Ducatti Panigale V4 Speciale 2018	42 188 €	300	214	1	12	1 266 €	3 797 €	8 859 €	12 656 €
+Moto	Ducatti Hypermotard	16 209 €	200	144	0	12	486 €	1 459 €	3 404 €	4 863 €
+Moto	Harley Davidson Fat Boy	13 125 €	140	500	0	12	394 €	1 181 €	2 756 €	3 938 €
+Moto	Honda CRF 450	4 260 €	140	230	0	12	128 €	383 €	895 €	1 278 €
+Moto	Honda Goldwing	31 874 €	210	144	1	12	956 €	2 869 €	6 694 €	9 562 €
+Moto	Kawasaki KX 450	4 260 €	140	500	0	12	128 €	383 €	895 €	1 278 €
+Moto	Kawasaki KX 450 1	4 260 €	140	500	0	12	128 €	383 €	895 €	1 278 €
+Moto	Kawasaki KX 450 2	4 260 €	140	500	0	12	128 €	383 €	895 €	1 278 €
+Moto	Kawasaki KX 450 3	4 260 €	140	500	0	12	128 €	383 €	895 €	1 278 €
+Moto	Kawasaki KX 450 4	4 260 €	140	500	0	12	128 €	383 €	895 €	1 278 €
+Moto	Kawasaki KX 450 5	4 260 €	140	500	0	12	128 €	383 €	895 €	1 278 €
+Moto	KTM Super Dike R 2014	16 015 €	280	330	0	12	480 €	1 441 €	3 363 €	4 805 €
+Moto	Suzuki GSX-R 1000 2014	17 719 €	275	330	1	12	532 €	1 595 €	3 721 €	5 316 €
+Moto	Yamaha FJR1300 2009	6 181 €	265	144	1	12	185 €	556 €	1 298 €	1 854 €
+Moto	Yamaha MT-07 2018	6 655 €	275	330	1	12	200 €	599 €	1 398 €	1 997 €
+Moto	Yamaha TMAX 2017	8 344 €	220	120	1	20	250 €	751 €	1 752 €	2 503 €
+Moto	Tracer 900	17 855 €	264	150	1	20	536 €	1 607 €	3 750 €	5 357 €
+Moto	Yamaha YZF R6 2017	13 115 €	270	120	1	12	393 €	1 180 €	2 754 €	3 935 €
+Moto	Yamaha YZF R6 2017 Akrapovic	13 115 €	270	120	1	12	393 €	1 180 €	2 754 €	3 935 €
+Moto	Yamaha YZF R6 2017 M1	13 115 €	270	120	1	12	393 €	1 180 €	2 754 €	3 935 €
+Moto	Yamaha YZF R6 2017 M2	13 115 €	270	120	1	12	393 €	1 180 €	2 754 €	3 935 €
+Moto	Yamaha YZF R6 2017 Akrapovic M	13 115 €	270	120	1	12	393 €	1 180 €	2 754 €	3 935 €
+Moto	Yamaha YZF R6 2017 Akrapovic M	13 115 €	270	120	1	12	393 €	1 180 €	2 754 €	3 935 €`;
+  
+  const linesArray = data.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//'));
+  let imported = 0, errors = 0, skipped = 0;
+  
+  console.log(`🚀 Début de l'importation de ${linesArray.length} véhicules dans la deuxième base...\n`);
+  
+  for (let i = 0; i < linesArray.length; i++) {
+    const line = linesArray[i];
+    const parts = line.split('\t');
+    
+    if (parts.length < 11) {
+      console.warn(`⚠️  Ligne ${i + 1} ignorée (colonnes insuffisantes: ${parts.length})`);
+      skipped++;
+      continue;
+    }
+    
+    const vehicle = {
+      type: parts[0]?.trim() || 'Autre',
+      modele: parts[1]?.trim() || '',
+      prixAchat: parseFrenchNumber(parts[2]) || 0,
+      vitesseMax: parseFrenchNumber(parts[3]),
+      puissance: parseFrenchNumber(parts[4]),
+      nombrePlaces: parseFrenchNumber(parts[5]),
+      coffre: parseFrenchNumber(parts[6]),
+      assuranceTier1: parseFrenchNumber(parts[7]),
+      assuranceTier2: parseFrenchNumber(parts[8]),
+      assuranceTier3: parseFrenchNumber(parts[9]),
+      assuranceTier4: parseFrenchNumber(parts[10]),
+      achete: false,
+      createdAt: serverTimestamp()
+    };
+    
+    if (!vehicle.modele || !vehicle.prixAchat) {
+      console.warn(`⚠️  Ligne ${i + 1} ignorée (données incomplètes)`);
+      skipped++;
+      continue;
+    }
+    
+    try {
+      await addDoc(collection(db2, 'flotte'), vehicle);
+      imported++;
+      if (imported % 10 === 0 || imported === 1) {
+        console.log(`✅ [${imported}] ${vehicle.type} ${vehicle.modele}`);
+      }
+      if (imported % 50 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    } catch (error) {
+      console.error(`❌ Erreur ligne ${i + 1}: ${vehicle.modele}`, error.message || error);
+      errors++;
+    }
+  }
+  
+  console.log('\n' + '='.repeat(50));
+  console.log('📊 RÉSUMÉ DE L\'IMPORT');
+  console.log('='.repeat(50));
+  console.log(`✅ Importés: ${imported}`);
+  console.log(`❌ Erreurs: ${errors}`);
+  console.log(`⚠️  Ignorés: ${skipped}`);
+  console.log(`📦 Total traité: ${linesArray.length}`);
+  console.log(`🗄️  Base: ${window.firebaseConfig2.projectId}`);
+  console.log('='.repeat(50));
+})();

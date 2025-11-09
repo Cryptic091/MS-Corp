@@ -1,5 +1,5 @@
     import { html, mount, createModal, getCachedProfile, loadUserProfile, updateNavPermissions, alertModal, updateAvatar, isAuthenticated, updateRoleBadge } from '../utils.js'
-import { getFirebase, waitForFirebase, collection, getDocs, getDoc, query, orderBy, where, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, signOut } from '../firebase.js';
+import { getFirebase, getFlotteFirebase, waitForFirebase, collection, getDocs, getDoc, query, orderBy, where, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, signOut } from '../firebase.js';
 import { addLogEntry } from '../firebase.js';
 
 export function viewFlotte(root) {
@@ -31,7 +31,9 @@ export function viewFlotte(root) {
             <a href="#/entreprise/finance" class="nav-item"><span class="nav-icon"></span>Gestion Finance</a>
             <a href="#/entreprise/flotte" class="active nav-item"><span class="nav-icon"></span>Gestion Flotte</a>
             <a href="#/entreprise/calcul" class="nav-item"><span class="nav-icon"></span>Calculateur CA</a>
+            <a href="#/entreprise/calculatrice" class="nav-item"><span class="nav-icon"></span>Calculatrice</a>
             <a href="#/entreprise/logs" class="nav-item"><span class="nav-icon"></span>Logs</a>
+            <a href="#/public" class="nav-item" style="border-top: 1px solid rgba(226,232,240,1); margin-top: 0.5rem; padding-top: 0.75rem;"><span class="nav-icon"></span>Site Public</a>
           </nav>
           <div class="nav-bottom">
             <a href="#/home" class="home-card-link">
@@ -55,7 +57,7 @@ export function viewFlotte(root) {
           </div>
 
           <!-- Statistiques -->
-          <div class="stats-grid mb-6">
+          <div class="stats-grid mb-4">
             <div class="stat-card">
               <div class="stat-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -64,7 +66,7 @@ export function viewFlotte(root) {
                 </svg>
               </div>
               <div>
-                <div class="stat-label">Total véhicules</div>
+                <div class="stat-label">Total</div>
                 <div id="stat-total-vehicules" class="stat-value">0</div>
               </div>
             </div>
@@ -78,7 +80,7 @@ export function viewFlotte(root) {
                 </svg>
               </div>
               <div>
-                <div class="stat-label">Places totales</div>
+                <div class="stat-label">Capacité</div>
                 <div id="stat-places-totales" class="stat-value">0</div>
               </div>
             </div>
@@ -90,7 +92,7 @@ export function viewFlotte(root) {
                 </svg>
               </div>
               <div>
-                <div class="stat-label">Valeur totale</div>
+                <div class="stat-label">Valeur</div>
                 <div id="stat-valeur-totale" class="stat-value">0 €</div>
               </div>
             </div>
@@ -104,7 +106,7 @@ export function viewFlotte(root) {
                 </svg>
               </div>
               <div>
-                <div class="stat-label">Assurances actives</div>
+                <div class="stat-label">Actifs</div>
                 <div id="stat-assurances-actives" class="stat-value">0</div>
               </div>
             </div>
@@ -115,15 +117,95 @@ export function viewFlotte(root) {
             <div class="tabs-list">
               <button class="tab-item active" data-tab="liste-a4l">Liste des véhicules A4L</button>
               <button class="tab-item" data-tab="flotte-ms-corp">Flotte MS Corp</button>
+              <button class="tab-item" data-tab="comparateur">Comparateur véhicule</button>
             </div>
           </div>
 
           <!-- Tab 1: Liste des véhicules A4L -->
           <div id="tab-liste-a4l" class="tab-content active">
+            <!-- Barre de recherche et filtres -->
+            <div class="card mb-4 mt-6">
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <!-- Recherche -->
+                <div class="lg:col-span-2">
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Rechercher
+                  </label>
+                  <input 
+                    type="text" 
+                    id="flotte-search-input" 
+                    placeholder="Marque, modèle, type..."
+                    class="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <!-- Filtre Type/Marque -->
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Type/Marque
+                  </label>
+                  <select 
+                    id="flotte-filter-type" 
+                    class="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Tous</option>
+                  </select>
+                </div>
+
+                <!-- Filtre Prix -->
+                <div>
+                  <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Prix max
+                  </label>
+                  <input 
+                    type="number" 
+                    id="flotte-filter-prix" 
+                    placeholder="Prix maximum"
+                    class="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <!-- Tri et statistiques -->
+              <div class="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-200 dark:border-white/10">
+                <div class="flex items-center gap-4 flex-wrap">
+                  <label class="text-sm font-medium text-slate-700 dark:text-slate-300">Trier par:</label>
+                  <select 
+                    id="flotte-sort-select" 
+                    class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="prix-asc">Prix croissant</option>
+                    <option value="prix-desc">Prix décroissant</option>
+                    <option value="marque-asc">Marque A-Z</option>
+                    <option value="marque-desc">Marque Z-A</option>
+                    <option value="places-asc">Places croissant</option>
+                    <option value="places-desc">Places décroissant</option>
+                  </select>
+                  <button 
+                    id="flotte-reset-filters" 
+                    class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 text-sm hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
+                    title="Réinitialiser les filtres"
+                  >
+                    Réinitialiser
+                  </button>
+                </div>
+                <div id="flotte-stats-count" class="text-sm text-slate-600 dark:text-slate-400 font-medium">
+                  <span id="flotte-filtered-count">0</span> véhicule(s) trouvé(s)
+                </div>
+              </div>
+            </div>
+
             <!-- Toggle vue card/tableau -->
-            <div class="flex items-center justify-between mb-4 mt-6">
+            <div class="flex items-center justify-between mb-4">
               <h3 class="font-medium text-lg">Véhicules disponibles</h3>
               <div class="flex items-center gap-2">
+                <button id="btn-delete-all-a4l" class="px-3 py-1.5 rounded border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors flex items-center gap-2" title="Supprimer tous les véhicules A4L">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+                  </svg>
+                  Supprimer tout A4L
+                </button>
                 <button id="btn-view-table" class="view-toggle-btn active flex items-center gap-2 px-3 py-1.5 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm hover:bg-slate-50 dark:hover:bg-white/10 transition-colors" title="Vue tableau">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -146,8 +228,8 @@ export function viewFlotte(root) {
 
             <!-- Vue Tableau -->
             <div id="flotte-table-view" class="flotte-view">
-              <div class="user-table">
-                <table>
+              <div class="user-table" style="max-height: calc(100vh - 500px); min-height: 400px; overflow-y: auto; overflow-x: auto; position: relative;">
+                <table style="width: 100%;">
                   <thead>
                     <tr>
                       <th>Type</th>
@@ -177,7 +259,196 @@ export function viewFlotte(root) {
             </div>
           </div>
 
-          <!-- Tab 2: Flotte MS Corp -->
+          <!-- Tab 2: Comparateur véhicule -->
+          <div id="tab-comparateur" class="tab-content">
+            <div class="card mt-6">
+              <h3 class="font-medium text-lg mb-4">Comparateur de véhicules</h3>
+              
+              <!-- Instructions -->
+              <div class="mb-6 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                <p class="text-sm text-blue-900 dark:text-blue-200">
+                  <strong>Comment utiliser :</strong> Utilisez les filtres ci-dessous pour trouver rapidement les véhicules, puis sélectionnez-les pour les ajouter au comparateur. 
+                  Vous pouvez définir une quantité pour chaque véhicule et comparer leurs caractéristiques.
+                </p>
+              </div>
+
+              <!-- Filtres de recherche avancés -->
+              <div class="mb-6 p-4 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
+                <h4 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Recherche et filtres</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                  <!-- Recherche -->
+                  <div class="lg:col-span-2">
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Rechercher
+                    </label>
+                    <input 
+                      type="text" 
+                      id="comparateur-search" 
+                      placeholder="Marque, modèle..."
+                      class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    />
+                  </div>
+
+                  <!-- Filtre Type -->
+                  <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Type/Marque
+                    </label>
+                    <select 
+                      id="comparateur-filter-type" 
+                      class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    >
+                      <option value="">Tous</option>
+                    </select>
+                  </div>
+
+                  <!-- Filtre Prix -->
+                  <div>
+                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Prix max
+                    </label>
+                    <input 
+                      type="number" 
+                      id="comparateur-filter-prix" 
+                      placeholder="Prix maximum"
+                      class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    />
+                  </div>
+                </div>
+                
+                <!-- Boutons d'action rapide -->
+                <div class="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-200 dark:border-white/10">
+                  <button 
+                    id="comparateur-add-all" 
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
+                  >
+                    Ajouter tous les résultats
+                  </button>
+                  <button 
+                    id="comparateur-clear-filters" 
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
+                  >
+                    Réinitialiser filtres
+                  </button>
+                  <button 
+                    id="comparateur-clear-all" 
+                    class="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-600 text-white hover:bg-red-700 transition-colors"
+                  >
+                    Vider le comparateur
+                  </button>
+                </div>
+              </div>
+
+              <!-- Liste déroulante des véhicules -->
+              <div class="mb-6">
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Sélectionner un véhicule
+                </label>
+                <div class="relative">
+                  <select 
+                    id="comparateur-select" 
+                    class="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">-- Choisir un véhicule --</option>
+                  </select>
+                  <button 
+                    id="comparateur-add-selected" 
+                    class="mt-2 w-full px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium text-sm"
+                  >
+                    Ajouter au comparateur
+                  </button>
+                </div>
+              </div>
+
+              <!-- Liste des véhicules filtrés avec cases à cocher -->
+              <div id="comparateur-filtered-list" class="mb-6 hidden">
+                <div class="flex items-center justify-between mb-3">
+                  <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Véhicules disponibles (<span id="comparateur-filtered-count">0</span>)
+                  </h4>
+                  <div class="flex items-center gap-2">
+                    <button 
+                      id="comparateur-select-all" 
+                      class="px-2 py-1 rounded text-xs font-medium border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/10 transition-colors"
+                    >
+                      Tout sélectionner
+                    </button>
+                    <button 
+                      id="comparateur-add-selected-multiple" 
+                      class="px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                    >
+                      Ajouter sélectionnés
+                    </button>
+                  </div>
+                </div>
+                <div id="comparateur-filtered-items" class="max-h-80 overflow-y-auto border border-slate-200 dark:border-white/10 rounded-lg p-3 space-y-2 bg-white dark:bg-white/5"></div>
+              </div>
+
+              <!-- Liste des véhicules sélectionnés -->
+              <div class="mb-6">
+                <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
+                  Véhicules dans le comparateur (<span id="comparateur-selected-count">0</span>)
+                </h4>
+                <div id="comparateur-selected" class="space-y-3">
+                  <p class="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
+                    Aucun véhicule sélectionné. Utilisez les filtres ci-dessus pour ajouter des véhicules.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Tableau de comparaison -->
+              <div id="comparateur-table-container" class="hidden">
+                <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Comparaison</h4>
+                <div class="overflow-x-auto">
+                  <table class="w-full border-collapse">
+                    <thead>
+                      <tr class="bg-slate-50 dark:bg-white/5">
+                        <th class="px-4 py-2 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-white/10">Véhicule</th>
+                        <th class="px-4 py-2 text-center text-xs font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-white/10">Quantité</th>
+                        <th class="px-4 py-2 text-right text-xs font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-white/10">Prix unitaire</th>
+                        <th class="px-4 py-2 text-right text-xs font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-white/10">Prix total</th>
+                        <th class="px-4 py-2 text-right text-xs font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-white/10">Places totales</th>
+                        <th class="px-4 py-2 text-center text-xs font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-white/10">Assurance sélectionnée</th>
+                        <th class="px-4 py-2 text-right text-xs font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-white/10">Montant assurance</th>
+                        <th class="px-4 py-2 text-right text-xs font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-white/10">Total avec assurance</th>
+                        <th class="px-4 py-2 text-center text-xs font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-white/10">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="comparateur-tbody"></tbody>
+                    <tfoot id="comparateur-totals" class="bg-slate-50 dark:bg-white/5 font-semibold">
+                      <!-- Les totaux seront générés ici -->
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Résumé global -->
+              <div id="comparateur-summary" class="hidden mt-6 grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div class="card p-4">
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Total véhicules</div>
+                  <div id="summary-total-vehicules" class="text-2xl font-bold text-slate-900 dark:text-white">0</div>
+                </div>
+                <div class="card p-4">
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Prix total</div>
+                  <div id="summary-prix-total" class="text-2xl font-bold text-blue-600 dark:text-blue-400">0 €</div>
+                </div>
+                <div class="card p-4">
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Places totales</div>
+                  <div id="summary-places-totales" class="text-2xl font-bold text-green-600 dark:text-green-400">0</div>
+                </div>
+                <div class="card p-4">
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Assurances totales</div>
+                  <div id="summary-assurances-totales" class="text-2xl font-bold text-purple-600 dark:text-purple-400">0 €</div>
+                </div>
+                <div class="card p-4">
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Total avec assurances</div>
+                  <div id="summary-total-avec-assurances" class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">0 €</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab 3: Flotte MS Corp -->
           <div id="tab-flotte-ms-corp" class="tab-content">
             <div class="card mt-4">
               <div class="flex items-center justify-between mb-4">
@@ -239,9 +510,11 @@ export function viewFlotte(root) {
   }
 
   let flotteCache = [];
+  let filteredFlotte = [];
   let flotteAcheteeCache = [];
   let currentView = localStorage.getItem('flotte-view') || 'table'; // 'table' ou 'card'
-  let currentTab = localStorage.getItem('flotte-tab') || 'liste-a4l'; // 'liste-a4l' ou 'flotte-ms-corp'
+  let currentTab = localStorage.getItem('flotte-tab') || 'liste-a4l'; // 'liste-a4l', 'flotte-ms-corp' ou 'comparateur'
+  let comparateurVehicules = []; // [{vehicule, quantite}]
 
   // Fonction pour formater les nombres avec espaces
   function formatNumber(num) {
@@ -272,17 +545,166 @@ export function viewFlotte(root) {
       cardView?.classList.add('hidden');
       btnTable?.classList.add('active');
       btnCard?.classList.remove('active');
+      renderFlotteTable();
     } else {
       tableView?.classList.add('hidden');
       cardView?.classList.remove('hidden');
       btnTable?.classList.remove('active');
       btnCard?.classList.add('active');
-      loadFlotteCards();
+      renderFlotteCards();
     }
   }
 
   document.getElementById('btn-view-table')?.addEventListener('click', () => switchView('table'));
   document.getElementById('btn-view-card')?.addEventListener('click', () => switchView('card'));
+  
+  // Configurer les event listeners pour les filtres
+  function setupFlotteFilters() {
+    const searchInput = document.getElementById('flotte-search-input');
+    const filterType = document.getElementById('flotte-filter-type');
+    const filterPrix = document.getElementById('flotte-filter-prix');
+    const sortSelect = document.getElementById('flotte-sort-select');
+    const resetBtn = document.getElementById('flotte-reset-filters');
+    
+    if (searchInput) searchInput.addEventListener('input', applyFiltersFlotte);
+    if (filterType) filterType.addEventListener('change', applyFiltersFlotte);
+    if (filterPrix) filterPrix.addEventListener('input', applyFiltersFlotte);
+    if (sortSelect) sortSelect.addEventListener('change', applyFiltersFlotte);
+    
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        if (searchInput) searchInput.value = '';
+        if (filterType) filterType.value = '';
+        if (filterPrix) filterPrix.value = '';
+        if (sortSelect) sortSelect.value = 'prix-asc';
+        applyFiltersFlotte();
+      });
+    }
+  }
+  
+  // Supprimer tous les véhicules A4L
+  document.getElementById('btn-delete-all-a4l')?.addEventListener('click', async () => {
+    const a4lVehicules = flotteCache.filter(v => !v.vehiculeSourceId);
+    const count = a4lVehicules.length;
+    
+    if (count === 0) {
+      alertModal({
+        title: 'Aucun véhicule',
+        message: 'Il n\'y a aucun véhicule A4L à supprimer.',
+        type: 'info'
+      });
+      return;
+    }
+    
+    const confirmed = await new Promise((resolve) => {
+      createModal({
+        title: 'Supprimer tous les véhicules A4L',
+        body: `
+          <div style="padding: 1rem 0;">
+            <p style="margin-bottom: 1rem; color: rgb(239,68,68); font-weight: 600;">
+              ⚠️ Attention : Cette action est irréversible !
+            </p>
+            <p style="margin-bottom: 0.5rem;">
+              Vous êtes sur le point de supprimer <strong>${count} véhicule(s) A4L</strong>.
+            </p>
+            <p style="color: rgb(100,116,139); font-size: 0.875rem;">
+              Les véhicules achetés (Flotte MS Corp) ne seront pas affectés.
+            </p>
+          </div>
+        `,
+        confirmText: 'Supprimer tout',
+        cancelText: 'Annuler',
+        confirmStyle: 'background: rgb(239,68,68); color: white;',
+        onConfirm: () => resolve(true),
+        onCancel: () => resolve(false)
+      });
+    });
+    
+    if (!confirmed) return;
+    
+    try {
+      const fb = getFlotteFirebase();
+      if (!fb || !fb.db) {
+        alertModal({ title: 'Erreur', message: 'Erreur de connexion à la base de données.', type: 'danger' });
+        return;
+      }
+      
+      let deleted = 0;
+      let errors = 0;
+      
+      // Afficher un modal de progression
+      const progressModal = createModal({
+        title: 'Suppression en cours...',
+        body: `<div style="padding: 1rem 0; text-align: center;">
+          <div style="margin-bottom: 1rem;">Suppression de ${count} véhicule(s)...</div>
+          <div id="delete-progress" style="font-size: 0.875rem; color: rgb(100,116,139);">0/${count}</div>
+        </div>`,
+        confirmText: '',
+        cancelText: '',
+        isView: true
+      });
+      
+      // Supprimer chaque véhicule
+      for (const vehicule of a4lVehicules) {
+        try {
+          await deleteDoc(doc(fb.db, 'flotte', vehicule.id));
+          deleted++;
+          
+          // Mettre à jour la progression
+          const progressEl = document.getElementById('delete-progress');
+          if (progressEl) {
+            progressEl.textContent = `${deleted}/${count}`;
+          }
+        } catch (error) {
+          console.error(`Erreur suppression véhicule ${vehicule.id}:`, error);
+          errors++;
+        }
+      }
+      
+      // Fermer le modal de progression
+      const modalBackdrop = document.querySelector('.modal-backdrop');
+      if (modalBackdrop) {
+        modalBackdrop.classList.remove('show');
+        modalBackdrop.remove();
+      }
+      
+      // Log de l'action
+      await addLogEntry(fb, {
+        type: 'action',
+        action: 'flotte_delete_all_a4l',
+        category: 'flotte',
+        message: `Suppression de ${deleted} véhicule(s) A4L`
+      });
+      
+      // Recharger les données
+      await loadFlotte();
+      if (currentView === 'card') {
+        loadFlotteCards();
+      }
+      await loadStats();
+      
+      if (errors > 0) {
+        alertModal({
+          title: 'Suppression partielle',
+          message: `${deleted} véhicule(s) supprimé(s) avec succès. ${errors} erreur(s) rencontrée(s).`,
+          type: 'warning'
+        });
+      } else {
+        alertModal({
+          title: 'Succès',
+          message: `${deleted} véhicule(s) A4L supprimé(s) avec succès.`,
+          type: 'success'
+        });
+      }
+    } catch (error) {
+      console.error('Erreur lors de la suppression:', error);
+      alertModal({
+        title: 'Erreur',
+        message: 'Erreur lors de la suppression des véhicules.',
+        type: 'danger'
+      });
+    }
+  });
   
   // Initialiser la vue
   switchView(currentView);
@@ -307,6 +729,15 @@ export function viewFlotte(root) {
           loadStats();
         } else if (tabId === 'flotte-ms-corp') {
           loadFlotteAchetee();
+        } else if (tabId === 'comparateur') {
+          // Attendre que la flotte soit chargée si nécessaire
+          if (flotteCache.length === 0) {
+            loadFlotte().then(() => {
+              setTimeout(() => setupComparateur(), 100);
+            });
+          } else {
+            setupComparateur();
+          }
         }
       });
     });
@@ -354,7 +785,12 @@ export function viewFlotte(root) {
         loadStats();
       } else if (currentTab === 'flotte-ms-corp') {
         loadFlotteAchetee();
+      } else if (currentTab === 'comparateur') {
+        setupComparateur();
       }
+      
+      // Configurer les event listeners pour les filtres
+      setupFlotteFilters();
     } catch (e) { 
       console.error(e); 
     }
@@ -362,7 +798,7 @@ export function viewFlotte(root) {
 
   async function loadStats() {
     try {
-      const fb = getFirebase();
+      const fb = getFlotteFirebase();
       if (!fb || !fb.db) return;
 
       const snap = await getDocs(collection(fb.db, 'flotte'));
@@ -386,7 +822,7 @@ export function viewFlotte(root) {
 
   async function loadFlotte() {
     try {
-      const fb = getFirebase();
+      const fb = getFlotteFirebase();
       if (!fb || !fb.db) return;
       
       const snap = await getDocs(query(collection(fb.db, 'flotte'), orderBy('createdAt', 'desc')));
@@ -407,42 +843,130 @@ export function viewFlotte(root) {
 
       flotteCache = vehicules;
       
-      vehicules.forEach(v => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${v.type || '—'}</td>
-          <td>${v.modele || '—'}</td>
-          <td>${formatNumber(v.nombrePlaces || 0)}</td>
-          <td>${formatAmount(v.prixAchat || 0)} €</td>
-          <td>${v.assuranceTier1 ? formatAmount(v.assuranceTier1) + ' €' : '—'}</td>
-          <td>${v.assuranceTier2 ? formatAmount(v.assuranceTier2) + ' €' : '—'}</td>
-          <td>${v.assuranceTier3 ? formatAmount(v.assuranceTier3) + ' €' : '—'}</td>
-          <td>${v.assuranceTier4 ? formatAmount(v.assuranceTier4) + ' €' : '—'}</td>
-          <td>
-            <div class="action-buttons" data-vehicule-id="${v.id}">
-              <button class="action-btn btn-view" title="Voir"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></span></button>
-              <button class="action-btn btn-edit" title="Modifier"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg></span></button>
-              <button class="action-btn btn-acheter" title="Acheter" style="background: #0055A4; color: white;"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"></line><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path></svg></span></button>
-              <button class="action-btn btn-delete" title="Supprimer"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2"></path></svg></span></button>
-            </div>
-          </td>`;
-        tbody.appendChild(tr);
-      });
+      // Remplir le select des types
+      const typeSelect = document.getElementById('flotte-filter-type');
+      if (typeSelect) {
+        const types = [...new Set(vehicules.map(v => v.type).filter(Boolean))].sort();
+        // Garder seulement l'option "Tous"
+        typeSelect.innerHTML = '<option value="">Tous</option>';
+        types.forEach(type => {
+          const option = document.createElement('option');
+          option.value = type;
+          option.textContent = type;
+          typeSelect.appendChild(option);
+        });
+      }
       
+      // Appliquer les filtres initiaux
+      applyFiltersFlotte();
+      
+      // Charger les stats
       loadStats();
-      // Recharger les cartes si la vue card est active
-      if (currentView === 'card') {
-        loadFlotteCards();
+      
+      // Si on est sur l'onglet comparateur, l'initialiser
+      if (currentTab === 'comparateur') {
+        setTimeout(() => setupComparateur(), 100);
       }
     } catch (e) { 
       console.error(e); 
     }
   }
 
+  // Fonction pour appliquer les filtres
+  function applyFiltersFlotte() {
+    const searchTerm = document.getElementById('flotte-search-input')?.value.toLowerCase() || '';
+    const filterType = document.getElementById('flotte-filter-type')?.value || '';
+    const filterPrix = parseFloat(document.getElementById('flotte-filter-prix')?.value) || Infinity;
+    const sortValue = document.getElementById('flotte-sort-select')?.value || 'prix-asc';
+
+    // Filtrer
+    filteredFlotte = flotteCache.filter(v => {
+      const matchSearch = !searchTerm || 
+        (v.type || '').toLowerCase().includes(searchTerm) ||
+        (v.modele || '').toLowerCase().includes(searchTerm);
+      
+      const matchType = !filterType || v.type === filterType;
+      const matchPrix = (v.prixAchat || 0) <= filterPrix;
+      
+      return matchSearch && matchType && matchPrix;
+    });
+
+    // Trier
+    filteredFlotte.sort((a, b) => {
+      switch(sortValue) {
+        case 'prix-asc':
+          return (a.prixAchat || 0) - (b.prixAchat || 0);
+        case 'prix-desc':
+          return (b.prixAchat || 0) - (a.prixAchat || 0);
+        case 'marque-asc':
+          return (a.type || '').localeCompare(b.type || '');
+        case 'marque-desc':
+          return (b.type || '').localeCompare(a.type || '');
+        case 'places-asc':
+          return (a.nombrePlaces || 0) - (b.nombrePlaces || 0);
+        case 'places-desc':
+          return (b.nombrePlaces || 0) - (a.nombrePlaces || 0);
+        default:
+          return 0;
+      }
+    });
+
+    // Mettre à jour le compteur
+    const countEl = document.getElementById('flotte-filtered-count');
+    if (countEl) countEl.textContent = filteredFlotte.length;
+    
+    // Afficher les résultats selon la vue actuelle
+    if (currentView === 'table') {
+      renderFlotteTable();
+    } else {
+      renderFlotteCards();
+    }
+  }
+
+  // Fonction pour rendre le tableau filtré
+  function renderFlotteTable() {
+    const tbody = document.getElementById('flotte-tbody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = '';
+    
+    if (!filteredFlotte.length) {
+      tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="9">Aucun véhicule ne correspond à vos critères</td></tr>';
+      return;
+    }
+    
+    filteredFlotte.forEach(v => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${v.type || '—'}</td>
+        <td>${v.modele || '—'}</td>
+        <td>${formatNumber(v.nombrePlaces || 0)}</td>
+        <td>${formatAmount(v.prixAchat || 0)} €</td>
+        <td>${v.assuranceTier1 ? formatAmount(v.assuranceTier1) + ' €' : '—'}</td>
+        <td>${v.assuranceTier2 ? formatAmount(v.assuranceTier2) + ' €' : '—'}</td>
+        <td>${v.assuranceTier3 ? formatAmount(v.assuranceTier3) + ' €' : '—'}</td>
+        <td>${v.assuranceTier4 ? formatAmount(v.assuranceTier4) + ' €' : '—'}</td>
+        <td>
+          <div class="action-buttons" data-vehicule-id="${v.id}">
+            <button class="action-btn btn-view" title="Voir"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></span></button>
+            <button class="action-btn btn-edit" title="Modifier"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg></span></button>
+            <button class="action-btn btn-acheter" title="Acheter" style="background: #0055A4; color: white;"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"></line><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path></svg></span></button>
+            <button class="action-btn btn-delete" title="Supprimer"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2"></path></svg></span></button>
+          </div>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Fonction pour rendre les cartes filtrées
+  function renderFlotteCards() {
+    loadFlotteCards();
+  }
+
   // Fonction pour vérifier et renouveler automatiquement les assurances expirées
   async function checkAndRenewAssurances() {
     try {
-      const fb = getFirebase();
+      const fb = getFlotteFirebase();
       if (!fb || !fb.db) return;
       
       const snap = await getDocs(query(collection(fb.db, 'flotte'), where('achete', '==', true)));
@@ -494,7 +1018,7 @@ export function viewFlotte(root) {
       // Vérifier et renouveler automatiquement les assurances expirées avant de charger
       await checkAndRenewAssurances();
       
-      const fb = getFirebase();
+      const fb = getFlotteFirebase();
       if (!fb || !fb.db) return;
       
       const snap = await getDocs(query(collection(fb.db, 'flotte'), orderBy('dateAchat', 'desc')));
@@ -596,15 +1120,15 @@ export function viewFlotte(root) {
 
       cardsContainer.innerHTML = '';
       
-      if (!flotteCache || flotteCache.length === 0) {
-        emptyState.textContent = 'Aucun véhicule';
+      if (!filteredFlotte || filteredFlotte.length === 0) {
+        emptyState.textContent = filteredFlotte.length === 0 && flotteCache.length > 0 ? 'Aucun véhicule ne correspond à vos critères' : 'Aucun véhicule';
         emptyState.classList.remove('hidden');
         return;
       }
 
       emptyState.classList.add('hidden');
 
-      flotteCache.forEach(vehicule => {
+      filteredFlotte.forEach(vehicule => {
         const dateAchat = vehicule.dateAchat ? 
           (vehicule.dateAchat.toDate ? vehicule.dateAchat.toDate() : new Date(vehicule.dateAchat)) : 
           null;
@@ -678,6 +1202,17 @@ export function viewFlotte(root) {
             <option value="Camionnette">Camionnette</option>
             <option value="Fourgon">Fourgon</option>
             <option value="Utilitaire">Utilitaire</option>
+            <option value="Van">Van</option>
+            <option value="Pick-up">Pick-up</option>
+            <option value="SUV">SUV</option>
+            <option value="Berline">Berline</option>
+            <option value="Break">Break</option>
+            <option value="Monospace">Monospace</option>
+            <option value="Cabriolet">Cabriolet</option>
+            <option value="Coupé">Coupé</option>
+            <option value="Moto">Moto</option>
+            <option value="Scooter">Scooter</option>
+            <option value="Quad">Quad</option>
             <option value="Autre">Autre</option>
           </select>
         </div>
@@ -731,7 +1266,7 @@ export function viewFlotte(root) {
       confirmText: 'Créer',
       cancelText: 'Annuler',
       onConfirm: async () => {
-        const fb = getFirebase();
+        const fb = getFlotteFirebase();
         const type = document.getElementById('modal-type').value.trim();
         const modele = document.getElementById('modal-modele').value.trim();
         const nombrePlaces = parseInt(document.getElementById('modal-places').value);
@@ -771,7 +1306,9 @@ export function viewFlotte(root) {
 
           await addDoc(collection(fb.db, 'flotte'), data);
           
-          await addLogEntry(fb, { 
+          // Utiliser la première base pour les logs
+          const fbMain = getFirebase();
+          await addLogEntry(fbMain, { 
             type: 'action', 
             action: 'flotte_create', 
             category: 'flotte',
@@ -907,6 +1444,17 @@ export function viewFlotte(root) {
             <option value="Camionnette" ${vehicule.type === 'Camionnette' ? 'selected' : ''}>Camionnette</option>
             <option value="Fourgon" ${vehicule.type === 'Fourgon' ? 'selected' : ''}>Fourgon</option>
             <option value="Utilitaire" ${vehicule.type === 'Utilitaire' ? 'selected' : ''}>Utilitaire</option>
+            <option value="Van" ${vehicule.type === 'Van' ? 'selected' : ''}>Van</option>
+            <option value="Pick-up" ${vehicule.type === 'Pick-up' ? 'selected' : ''}>Pick-up</option>
+            <option value="SUV" ${vehicule.type === 'SUV' ? 'selected' : ''}>SUV</option>
+            <option value="Berline" ${vehicule.type === 'Berline' ? 'selected' : ''}>Berline</option>
+            <option value="Break" ${vehicule.type === 'Break' ? 'selected' : ''}>Break</option>
+            <option value="Monospace" ${vehicule.type === 'Monospace' ? 'selected' : ''}>Monospace</option>
+            <option value="Cabriolet" ${vehicule.type === 'Cabriolet' ? 'selected' : ''}>Cabriolet</option>
+            <option value="Coupé" ${vehicule.type === 'Coupé' ? 'selected' : ''}>Coupé</option>
+            <option value="Moto" ${vehicule.type === 'Moto' ? 'selected' : ''}>Moto</option>
+            <option value="Scooter" ${vehicule.type === 'Scooter' ? 'selected' : ''}>Scooter</option>
+            <option value="Quad" ${vehicule.type === 'Quad' ? 'selected' : ''}>Quad</option>
             <option value="Autre" ${vehicule.type === 'Autre' ? 'selected' : ''}>Autre</option>
           </select>
         </div>
@@ -1204,8 +1752,10 @@ export function viewFlotte(root) {
             // Créer le nouveau document pour le véhicule acheté
             const nouveauVehiculeRef = await addDoc(collection(fb.db, 'flotte'), vehiculeAcheteData);
             
+            // Utiliser la première base pour la finance
+            const fbMain = getFirebase();
             // Créer la transaction financière (retrait)
-            await addDoc(collection(fb.db, 'finance'), {
+            await addDoc(collection(fbMain.db, 'finance'), {
               type: 'depense',
               montant: montantTotal,
               description: `Achat véhicule: ${vehicule.type} ${vehicule.modele} (${immatriculation}) - Assurance ${selectedTier.toUpperCase()}`,
@@ -1339,6 +1889,469 @@ export function viewFlotte(root) {
     }
   });
 
+  // ========== COMPARATEUR VÉHICULE ==========
+  
+  let comparateurFilteredVehicules = []; // Véhicules filtrés actuellement affichés
+  
+  function setupComparateur() {
+    // Remplir le select des types
+    const typeSelect = document.getElementById('comparateur-filter-type');
+    if (typeSelect && flotteCache.length > 0) {
+      const types = [...new Set(flotteCache.map(v => v.type).filter(Boolean))].sort();
+      typeSelect.innerHTML = '<option value="">Tous</option>';
+      types.forEach(type => {
+        const option = document.createElement('option');
+        option.value = type;
+        option.textContent = type;
+        typeSelect.appendChild(option);
+      });
+    }
+    
+    // Remplir le select des véhicules
+    updateComparateurSelect();
+    
+    // Event listeners pour les filtres
+    const searchInput = document.getElementById('comparateur-search');
+    const filterType = document.getElementById('comparateur-filter-type');
+    const filterPrix = document.getElementById('comparateur-filter-prix');
+    
+    const applyFilters = () => {
+      const query = (searchInput?.value || '').toLowerCase().trim();
+      const typeFilter = filterType?.value || '';
+      const prixFilter = parseFloat(filterPrix?.value) || Infinity;
+      
+      comparateurFilteredVehicules = flotteCache.filter(v => {
+        const matchSearch = !query || 
+          (v.type || '').toLowerCase().includes(query) ||
+          (v.modele || '').toLowerCase().includes(query);
+        const matchType = !typeFilter || v.type === typeFilter;
+        const matchPrix = (v.prixAchat || 0) <= prixFilter;
+        
+        return matchSearch && matchType && matchPrix;
+      });
+      
+      updateComparateurFilteredList();
+      updateComparateurSelect();
+    };
+    
+    if (searchInput) searchInput.addEventListener('input', applyFilters);
+    if (filterType) filterType.addEventListener('change', applyFilters);
+    if (filterPrix) filterPrix.addEventListener('input', applyFilters);
+    
+    // Bouton ajouter depuis le select
+    const addSelectedBtn = document.getElementById('comparateur-add-selected');
+    if (addSelectedBtn) {
+      addSelectedBtn.addEventListener('click', () => {
+        const select = document.getElementById('comparateur-select');
+        const vehiculeId = select?.value;
+        if (vehiculeId) {
+          window.addToComparateur(vehiculeId);
+          if (select) select.value = '';
+        }
+      });
+    }
+    
+    // Bouton ajouter tous les résultats
+    const addAllBtn = document.getElementById('comparateur-add-all');
+    if (addAllBtn) {
+      addAllBtn.addEventListener('click', () => {
+        comparateurFilteredVehicules.forEach(v => {
+          if (!comparateurVehicules.some(cv => cv.vehicule.id === v.id)) {
+            comparateurVehicules.push({ vehicule: v, quantite: 1, assuranceTier: null });
+          }
+        });
+        updateComparateurDisplay();
+      });
+    }
+    
+    // Bouton réinitialiser filtres
+    const clearFiltersBtn = document.getElementById('comparateur-clear-filters');
+    if (clearFiltersBtn) {
+      clearFiltersBtn.addEventListener('click', () => {
+        if (searchInput) searchInput.value = '';
+        if (filterType) filterType.value = '';
+        if (filterPrix) filterPrix.value = '';
+        applyFilters();
+      });
+    }
+    
+    // Bouton vider le comparateur
+    const clearAllBtn = document.getElementById('comparateur-clear-all');
+    if (clearAllBtn) {
+      clearAllBtn.addEventListener('click', () => {
+        if (confirm('Êtes-vous sûr de vouloir vider le comparateur ?')) {
+          comparateurVehicules = [];
+          updateComparateurDisplay();
+        }
+      });
+    }
+    
+    // Bouton tout sélectionner
+    const selectAllBtn = document.getElementById('comparateur-select-all');
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener('click', () => {
+        const checkboxes = document.querySelectorAll('#comparateur-filtered-items input[type="checkbox"]');
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+        checkboxes.forEach(cb => cb.checked = !allChecked);
+      });
+    }
+    
+    // Bouton ajouter sélectionnés
+    const addSelectedMultipleBtn = document.getElementById('comparateur-add-selected-multiple');
+    if (addSelectedMultipleBtn) {
+      addSelectedMultipleBtn.addEventListener('click', () => {
+        const checkboxes = document.querySelectorAll('#comparateur-filtered-items input[type="checkbox"]:checked');
+        checkboxes.forEach(cb => {
+          const vehiculeId = cb.value;
+          if (!comparateurVehicules.some(cv => cv.vehicule.id === vehiculeId)) {
+            const vehicule = flotteCache.find(v => v.id === vehiculeId);
+            if (vehicule) {
+              comparateurVehicules.push({ vehicule: vehicule, quantite: 1, assuranceTier: null });
+            }
+          }
+        });
+        updateComparateurDisplay();
+        // Décocher toutes les cases
+        document.querySelectorAll('#comparateur-filtered-items input[type="checkbox"]').forEach(cb => cb.checked = false);
+      });
+    }
+    
+    // Initialiser avec tous les véhicules
+    comparateurFilteredVehicules = [...flotteCache];
+    updateComparateurFilteredList();
+    updateComparateurDisplay();
+  }
+  
+  function updateComparateurSelect() {
+    const select = document.getElementById('comparateur-select');
+    if (!select) return;
+    
+    // Garder l'option par défaut
+    select.innerHTML = '<option value="">-- Choisir un véhicule --</option>';
+    
+    // Ajouter les véhicules filtrés (non déjà ajoutés)
+    comparateurFilteredVehicules.forEach(v => {
+      const isAlreadyAdded = comparateurVehicules.some(cv => cv.vehicule.id === v.id);
+      if (!isAlreadyAdded) {
+        const option = document.createElement('option');
+        option.value = v.id;
+        option.textContent = `${v.type || '—'} ${v.modele || '—'} - ${formatAmount(v.prixAchat || 0)} €`;
+        select.appendChild(option);
+      }
+    });
+  }
+  
+  function updateComparateurFilteredList() {
+    const container = document.getElementById('comparateur-filtered-list');
+    const itemsContainer = document.getElementById('comparateur-filtered-items');
+    const countEl = document.getElementById('comparateur-filtered-count');
+    
+    if (!container || !itemsContainer || !countEl) return;
+    
+    if (comparateurFilteredVehicules.length === 0) {
+      container.classList.add('hidden');
+      return;
+    }
+    
+    container.classList.remove('hidden');
+    countEl.textContent = comparateurFilteredVehicules.length;
+    
+    itemsContainer.innerHTML = comparateurFilteredVehicules.map(v => {
+      const isAlreadyAdded = comparateurVehicules.some(cv => cv.vehicule.id === v.id);
+      const hasAssurances = v.assuranceTier1 || v.assuranceTier2 || v.assuranceTier3 || v.assuranceTier4;
+      
+      return `
+        <div class="comparateur-vehicle-item p-4 rounded-xl border ${isAlreadyAdded ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20' : 'border-slate-200 dark:border-white/10 bg-white dark:bg-white/5'} hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-600 transition-all flex items-start gap-4 cursor-pointer" onclick="if(!this.querySelector('input').disabled) this.querySelector('input').click()">
+          <label class="custom-checkbox-wrapper flex-shrink-0 mt-0.5 cursor-pointer">
+            <input 
+              type="checkbox" 
+              value="${v.id}" 
+              id="comparateur-checkbox-${v.id}"
+              class="custom-checkbox-input"
+              ${isAlreadyAdded ? 'disabled checked' : ''}
+              onchange="event.stopPropagation(); this.closest('.comparateur-vehicle-item').classList.toggle('selected', this.checked);"
+            />
+            <span class="custom-checkbox ${isAlreadyAdded ? 'checked disabled' : ''}"></span>
+          </label>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between gap-2 mb-1">
+              <div class="flex-1 min-w-0">
+                <div class="font-semibold text-sm text-slate-900 dark:text-white truncate">${v.type || '—'} ${v.modele || '—'}</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  <span class="font-medium text-blue-600 dark:text-blue-400">${formatAmount(v.prixAchat || 0)} €</span>
+                  <span class="mx-1">•</span>
+                  <span>${formatNumber(v.nombrePlaces || 0)} places</span>
+                </div>
+              </div>
+              ${isAlreadyAdded ? '<span class="text-xs text-green-600 dark:text-green-400 font-semibold flex-shrink-0">✓ Ajouté</span>' : ''}
+            </div>
+            ${hasAssurances ? `
+            <div class="mt-2 pt-2 border-t border-slate-200 dark:border-white/10">
+              <div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Assurances disponibles:</div>
+              <div class="flex flex-wrap gap-1.5">
+                ${v.assuranceTier1 ? `<span class="px-2 py-0.5 rounded text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">T1: ${formatAmount(v.assuranceTier1)} €</span>` : ''}
+                ${v.assuranceTier2 ? `<span class="px-2 py-0.5 rounded text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">T2: ${formatAmount(v.assuranceTier2)} €</span>` : ''}
+                ${v.assuranceTier3 ? `<span class="px-2 py-0.5 rounded text-xs bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300">T3: ${formatAmount(v.assuranceTier3)} €</span>` : ''}
+                ${v.assuranceTier4 ? `<span class="px-2 py-0.5 rounded text-xs bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">T4: ${formatAmount(v.assuranceTier4)} €</span>` : ''}
+              </div>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+  
+  // Fonction globale pour ajouter un véhicule au comparateur
+  window.addToComparateur = function(vehiculeId) {
+    const vehicule = flotteCache.find(v => v.id === vehiculeId);
+    if (!vehicule) return;
+    
+    // Vérifier si déjà ajouté
+    if (comparateurVehicules.some(cv => cv.vehicule.id === vehiculeId)) {
+      alertModal({ 
+        title: 'Information', 
+        message: 'Ce véhicule est déjà dans le comparateur.', 
+        type: 'info' 
+      });
+      return;
+    }
+    
+    comparateurVehicules.push({
+      vehicule: vehicule,
+      quantite: 1,
+      assuranceTier: null
+    });
+    
+    updateComparateurDisplay();
+  };
+  
+  function updateComparateurDisplay() {
+    const selectedContainer = document.getElementById('comparateur-selected');
+    const selectedCountEl = document.getElementById('comparateur-selected-count');
+    const tableContainer = document.getElementById('comparateur-table-container');
+    const summaryContainer = document.getElementById('comparateur-summary');
+    const tbody = document.getElementById('comparateur-tbody');
+    const totalsFoot = document.getElementById('comparateur-totals');
+    
+    if (!selectedContainer || !tableContainer || !summaryContainer || !tbody || !totalsFoot) return;
+    
+    // Mettre à jour le compteur
+    if (selectedCountEl) selectedCountEl.textContent = comparateurVehicules.length;
+    
+    // Mettre à jour le select et la liste filtrée
+    updateComparateurSelect();
+    updateComparateurFilteredList();
+    
+    if (comparateurVehicules.length === 0) {
+      selectedContainer.innerHTML = '<p class="text-sm text-slate-500 dark:text-slate-400 text-center py-4">Aucun véhicule sélectionné. Utilisez les filtres ci-dessus pour ajouter des véhicules.</p>';
+      tableContainer.classList.add('hidden');
+      summaryContainer.classList.add('hidden');
+      return;
+    }
+    
+    // Afficher les véhicules sélectionnés
+    selectedContainer.innerHTML = comparateurVehicules.map((cv, index) => {
+      const v = cv.vehicule;
+      const selectedAssurance = cv.assuranceTier || null;
+      const hasAssurances = v.assuranceTier1 || v.assuranceTier2 || v.assuranceTier3 || v.assuranceTier4;
+      
+      return `
+        <div class="p-4 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:shadow-md transition-shadow">
+          <div class="flex items-start justify-between gap-4 mb-3">
+            <div class="flex-1">
+              <div class="font-medium text-slate-900 dark:text-white mb-1">${v.type || '—'} ${v.modele || '—'}</div>
+              <div class="text-sm text-slate-500 dark:text-slate-400">
+                ${formatAmount(v.prixAchat || 0)} € • ${formatNumber(v.nombrePlaces || 0)} places
+              </div>
+            </div>
+            <button 
+              class="px-3 py-1.5 rounded-lg text-sm font-medium bg-red-600 text-white hover:bg-red-700 transition-colors flex-shrink-0"
+              onclick="window.removeFromComparateur(${index})"
+            >
+              Retirer
+            </button>
+          </div>
+          
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-3 border-t border-slate-200 dark:border-white/10">
+            <div>
+              <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Quantité</label>
+              <input 
+                type="number" 
+                min="1" 
+                value="${cv.quantite}" 
+                class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white text-sm"
+                onchange="window.updateComparateurQuantite(${index}, this.value)"
+              />
+            </div>
+            
+            ${hasAssurances ? `
+            <div>
+              <label class="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Assurance</label>
+              <select 
+                class="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onchange="window.updateComparateurAssurance(${index}, this.value); event.stopPropagation();"
+              >
+                <option value="">Aucune</option>
+                ${v.assuranceTier1 ? `<option value="Tier1" ${selectedAssurance === 'Tier1' ? 'selected' : ''}>Tier 1 - ${formatAmount(v.assuranceTier1)} €</option>` : ''}
+                ${v.assuranceTier2 ? `<option value="Tier2" ${selectedAssurance === 'Tier2' ? 'selected' : ''}>Tier 2 - ${formatAmount(v.assuranceTier2)} €</option>` : ''}
+                ${v.assuranceTier3 ? `<option value="Tier3" ${selectedAssurance === 'Tier3' ? 'selected' : ''}>Tier 3 - ${formatAmount(v.assuranceTier3)} €</option>` : ''}
+                ${v.assuranceTier4 ? `<option value="Tier4" ${selectedAssurance === 'Tier4' ? 'selected' : ''}>Tier 4 - ${formatAmount(v.assuranceTier4)} €</option>` : ''}
+              </select>
+            </div>
+            ` : '<div></div>'}
+          </div>
+        </div>
+      `;
+    }).join('');
+    
+    // Afficher le tableau de comparaison
+    tableContainer.classList.remove('hidden');
+    summaryContainer.classList.remove('hidden');
+    
+    // Générer le tableau
+    let totalVehicules = 0;
+    let totalPrix = 0;
+    let totalPlaces = 0;
+    let totalAssuranceT1 = 0;
+    let totalAssuranceT2 = 0;
+    let totalAssuranceT3 = 0;
+    let totalAssuranceT4 = 0;
+    
+    tbody.innerHTML = comparateurVehicules.map((cv, index) => {
+      const v = cv.vehicule;
+      const qty = cv.quantite || 1;
+      const prixUnitaire = v.prixAchat || 0;
+      const prixTotal = prixUnitaire * qty;
+      const placesTotal = (v.nombrePlaces || 0) * qty;
+      
+      // Calculer l'assurance sélectionnée
+      let assuranceMontant = 0;
+      let assuranceLabel = 'Aucune';
+      if (cv.assuranceTier) {
+        // cv.assuranceTier est "Tier1", "Tier2", "Tier3" ou "Tier4"
+        const assuranceValue = v[`assurance${cv.assuranceTier}`] || 0;
+        assuranceMontant = assuranceValue * qty;
+        assuranceLabel = cv.assuranceTier.replace('Tier', 'Tier ');
+      }
+      
+      const totalAvecAssurance = prixTotal + assuranceMontant;
+      
+      totalVehicules += qty;
+      totalPrix += prixTotal;
+      totalPlaces += placesTotal;
+      totalAssuranceT1 += cv.assuranceTier === 'Tier1' ? assuranceMontant : 0;
+      totalAssuranceT2 += cv.assuranceTier === 'Tier2' ? assuranceMontant : 0;
+      totalAssuranceT3 += cv.assuranceTier === 'Tier3' ? assuranceMontant : 0;
+      totalAssuranceT4 += cv.assuranceTier === 'Tier4' ? assuranceMontant : 0;
+      
+      return `
+        <tr class="border-b border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+          <td class="px-4 py-3 text-sm text-slate-900 dark:text-white">
+            <div class="font-medium">${v.type || '—'} ${v.modele || '—'}</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400">${formatNumber(v.nombrePlaces || 0)} places</div>
+          </td>
+          <td class="px-4 py-3 text-center text-sm text-slate-900 dark:text-white">
+            <input 
+              type="number" 
+              min="1" 
+              value="${qty}" 
+              class="w-16 px-2 py-1 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white text-sm text-center"
+              onchange="window.updateComparateurQuantite(${index}, this.value)"
+            />
+          </td>
+          <td class="px-4 py-3 text-right text-sm text-slate-900 dark:text-white">${formatAmount(prixUnitaire)} €</td>
+          <td class="px-4 py-3 text-right text-sm font-semibold text-blue-600 dark:text-blue-400">${formatAmount(prixTotal)} €</td>
+          <td class="px-4 py-3 text-right text-sm text-slate-900 dark:text-white">${formatNumber(placesTotal)}</td>
+          <td class="px-4 py-3 text-center text-sm">
+            <select 
+              class="px-2 py-1 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onchange="window.updateComparateurAssurance(${index}, this.value); event.stopPropagation();"
+            >
+              <option value="">Aucune</option>
+              ${v.assuranceTier1 ? `<option value="Tier1" ${cv.assuranceTier === 'Tier1' ? 'selected' : ''}>Tier 1</option>` : ''}
+              ${v.assuranceTier2 ? `<option value="Tier2" ${cv.assuranceTier === 'Tier2' ? 'selected' : ''}>Tier 2</option>` : ''}
+              ${v.assuranceTier3 ? `<option value="Tier3" ${cv.assuranceTier === 'Tier3' ? 'selected' : ''}>Tier 3</option>` : ''}
+              ${v.assuranceTier4 ? `<option value="Tier4" ${cv.assuranceTier === 'Tier4' ? 'selected' : ''}>Tier 4</option>` : ''}
+            </select>
+          </td>
+          <td class="px-4 py-3 text-right text-sm text-slate-900 dark:text-white">
+            ${assuranceMontant > 0 ? formatAmount(assuranceMontant) + ' €' : '—'}
+          </td>
+          <td class="px-4 py-3 text-right text-sm font-semibold text-purple-600 dark:text-purple-400">
+            ${formatAmount(totalAvecAssurance)} €
+          </td>
+          <td class="px-4 py-3 text-center">
+            <button 
+              class="px-2 py-1 rounded text-xs font-medium bg-red-600 text-white hover:bg-red-700 transition-colors"
+              onclick="window.removeFromComparateur(${index})"
+            >
+              Retirer
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+    
+    // Générer les totaux
+    const totalAssurances = totalAssuranceT1 + totalAssuranceT2 + totalAssuranceT3 + totalAssuranceT4;
+    const totalAvecAssurances = totalPrix + totalAssurances;
+    
+    totalsFoot.innerHTML = `
+      <tr class="bg-slate-100 dark:bg-white/10">
+        <td class="px-4 py-3 text-sm font-semibold text-slate-900 dark:text-white">TOTAL</td>
+        <td class="px-4 py-3 text-center text-sm font-semibold text-slate-900 dark:text-white">${totalVehicules}</td>
+        <td class="px-4 py-3 text-right text-sm text-slate-500 dark:text-slate-400">—</td>
+        <td class="px-4 py-3 text-right text-sm font-semibold text-blue-600 dark:text-blue-400">${formatAmount(totalPrix)} €</td>
+        <td class="px-4 py-3 text-right text-sm font-semibold text-green-600 dark:text-green-400">${formatNumber(totalPlaces)}</td>
+        <td class="px-4 py-3 text-center text-sm text-slate-500 dark:text-slate-400">—</td>
+        <td class="px-4 py-3 text-right text-sm font-semibold text-purple-600 dark:text-purple-400">${totalAssurances > 0 ? formatAmount(totalAssurances) + ' €' : '—'}</td>
+        <td class="px-4 py-3 text-right text-sm font-semibold text-indigo-600 dark:text-indigo-400 text-lg">${formatAmount(totalAvecAssurances)} €</td>
+        <td class="px-4 py-3"></td>
+      </tr>
+    `;
+    
+    // Mettre à jour le résumé
+    document.getElementById('summary-total-vehicules').textContent = totalVehicules;
+    document.getElementById('summary-prix-total').textContent = formatAmount(totalPrix) + ' €';
+    document.getElementById('summary-places-totales').textContent = formatNumber(totalPlaces);
+    document.getElementById('summary-assurances-totales').textContent = formatAmount(totalAssurances) + ' €';
+    const totalAvecAssurancesEl = document.getElementById('summary-total-avec-assurances');
+    if (totalAvecAssurancesEl) totalAvecAssurancesEl.textContent = formatAmount(totalAvecAssurances) + ' €';
+  }
+  
+  // Fonction globale pour mettre à jour la quantité
+  window.updateComparateurQuantite = function(index, quantite) {
+    const qty = parseInt(quantite) || 1;
+    if (qty < 1) return;
+    
+    if (comparateurVehicules[index]) {
+      comparateurVehicules[index].quantite = qty;
+      updateComparateurDisplay();
+    }
+  };
+  
+  // Fonction globale pour mettre à jour l'assurance
+  window.updateComparateurAssurance = function(index, assuranceTier) {
+    if (comparateurVehicules[index]) {
+      comparateurVehicules[index].assuranceTier = assuranceTier || null;
+      // Forcer la mise à jour immédiate
+      updateComparateurDisplay();
+    }
+  };
+  
+  // Fonction globale pour retirer un véhicule
+  window.removeFromComparateur = function(index) {
+    comparateurVehicules.splice(index, 1);
+    updateComparateurDisplay();
+    
+    // Réinitialiser la recherche si nécessaire
+    const searchInput = document.getElementById('comparateur-search');
+    if (searchInput && searchInput.value) {
+      searchInput.dispatchEvent(new Event('input'));
+    }
+  };
+
   // Gestionnaire pour le bouton "Voir" dans Flotte MS Corp (avec historique)
   page.addEventListener('click', async (e) => {
     if (e.target.closest('.btn-view')) {
@@ -1355,7 +2368,7 @@ export function viewFlotte(root) {
         return;
       }
       
-      const fb = getFirebase();
+      const fb = getFlotteFirebase();
       if (!fb || !fb.db) return;
       
       try {
@@ -1631,7 +2644,7 @@ export function viewFlotte(root) {
       }
 
       // Récupérer le véhicule depuis la collection
-      const fb = getFirebase();
+      const fb = getFlotteFirebase();
       if (!fb || !fb.db) return;
       
       // Variables pour la sélection (déclarées dans le scope du gestionnaire)
@@ -1902,7 +2915,7 @@ export function viewFlotte(root) {
       }
 
       // Récupérer le véhicule depuis la collection
-      const fb = getFirebase();
+      const fb = getFlotteFirebase();
       if (!fb || !fb.db) return;
       
       try {

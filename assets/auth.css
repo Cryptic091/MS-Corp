@@ -1,7 +1,7 @@
 /* Écran d'auth centré, sans navigation */
 html, body {
   height: 100%;
-  overflow: hidden;
+  /* overflow: hidden; - Retiré pour permettre le scroll sur les pages publiques */
 }
 
 /* Header stylé */

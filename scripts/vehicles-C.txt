@@ -1,0 +1,132 @@
+(async function() {
+  function parseFrenchNumber(value) {
+    if (!value || value === '—' || value === '-' || value === '') return null;
+    let cleaned = String(value).replace(/\s/g, '').replace(/€/g, '').trim();
+    if (cleaned.includes(',') && !cleaned.includes('.')) cleaned = cleaned.replace(',', '.');
+    else if (cleaned.includes(',') && cleaned.includes('.')) {
+      const lastComma = cleaned.lastIndexOf(',');
+      const lastDot = cleaned.lastIndexOf('.');
+      if (lastComma > lastDot) cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+      else cleaned = cleaned.replace(/,/g, '');
+    }
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
+  }
+  
+  console.log('🔄 Chargement de Firebase...');
+  const { initializeApp } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js');
+  const { getFirestore, collection, addDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js');
+  
+  if (!window.firebaseConfig2) {
+    console.error('❌ Configuration Firebase secondaire (firebaseConfig2) non trouvée');
+    return;
+  }
+  
+  let app2;
+  try {
+    app2 = initializeApp(window.firebaseConfig2, 'secondary');
+  } catch (error) {
+    if (error.code === 'app/duplicate-app') {
+      const { getApps } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js');
+      app2 = getApps().find(app => app.name === 'secondary');
+    } else {
+      throw error;
+    }
+  }
+  
+  const db2 = getFirestore(app2);
+  console.log('✅ Deuxième base Firebase initialisée:', window.firebaseConfig2.projectId);
+  
+  const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+  if (!authState || !authState.uid) {
+    console.error('❌ Vous devez être connecté pour importer des véhicules');
+    return;
+  }
+  console.log('✅ Utilisateur connecté:', authState.email);
+  
+  const data = `Cadillac	CTS-V	105 787 €	249	550	4	32	3 174 €	9 521 €	22 215 €	31 736 €
+Cadillac	Escalade	149 906 €	198	325	5	32	4 497 €	13 492 €	31 480 €	44 972 €
+Cadillac	XTS	136 687 €	209	325	5	40	4 101 €	12 302 €	28 704 €	41 006 €
+Chevrolet	Camaro 1969	58 515 €	271	400	1	20	1 755 €	5 266 €	12 288 €	17 555 €
+Chevrolet	Camaro 2017	71 207 €	294	600	1	20	2 136 €	6 409 €	14 953 €	21 362 €
+Chevrolet	Corvette C7 Stingray 2014	65 615 €	290	466	1	20	1 968 €	5 905 €	13 779 €	19 685 €
+Chevrolet	Corvette C8 2020	111 217 €	371	550	1	20	3 337 €	10 010 €	23 356 €	33 365 €
+Chevrolet	Corvette ZR1 2016	182 217 €	371	550	1	20	5 467 €	16 400 €	38 266 €	54 665 €
+Chevrolet	Corvette Z06 2023	162 217 €	399	550	1	20	4 867 €	14 600 €	34 066 €	48 665 €
+Chevrolet	Colorado	42 975 €	168	400	4	20	1 289 €	3 868 €	9 025 €	12 893 €
+Chevrolet	Colorado Phase ll	45 123 €	168	400	4	20	1 354 €	4 061 €	9 476 €	13 537 €
+Chevrolet	Impala 1959	32 301 €	177	250	3	32	969 €	2 907 €	6 783 €	9 690 €
+Chevrolet	Impala 1967	32 301 €	191	275	3	32	969 €	2 907 €	6 783 €	9 690 €
+Chevrolet	K5 Blazer 1980	21 988 €	177	275	3	32	660 €	1 979 €	4 617 €	6 596 €
+Chevrolet	Suburban	113 343 €	231	300	6	80	3 400 €	10 201 €	23 802 €	34 003 €
+Chevrolet	Suburban Chevy 2021	82 000 €	250	600	6	20	2 460 €	7 380 €	17 220 €	24 600 €
+Chevrolet	Tahoe	98 727 €	256	325	5	80	2 962 €	8 885 €	20 733 €	29 618 €
+Chrysler	Pacifica	80 436 €	256	325	6	55	2 413 €	7 239 €	16 892 €	24 131 €
+Citroën	Ami	7 069 €	80	510	1	25	212 €	636 €	1 484 €	2 121 €
+Citroën	Berlingo	22 500 €	212	130	4	40	675 €	2 025 €	4 725 €	6 750 €
+Citroën	2CV	3 000 €	135	30	3	25	90 €	270 €	630 €	900 €
+Citroën	DS7 Performance Line 2022	72 000 €	260	360	4	60	2 160 €	6 480 €	15 120 €	21 600 €
+Citroën	C4 2012	12 654 €	220	198	4	55	380 €	1 139 €	2 657 €	3 796 €`;
+  
+  const linesArray = data.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//'));
+  let imported = 0, errors = 0, skipped = 0;
+  
+  console.log(`🚀 Début de l'importation de ${linesArray.length} véhicules dans la deuxième base...\n`);
+  
+  for (let i = 0; i < linesArray.length; i++) {
+    const line = linesArray[i];
+    const parts = line.split('\t');
+    
+    if (parts.length < 11) {
+      console.warn(`⚠️  Ligne ${i + 1} ignorée (colonnes insuffisantes: ${parts.length})`);
+      skipped++;
+      continue;
+    }
+    
+    const vehicle = {
+      type: parts[0]?.trim() || 'Autre',
+      modele: parts[1]?.trim() || '',
+      prixAchat: parseFrenchNumber(parts[2]) || 0,
+      vitesseMax: parseFrenchNumber(parts[3]),
+      puissance: parseFrenchNumber(parts[4]),
+      nombrePlaces: parseFrenchNumber(parts[5]),
+      coffre: parseFrenchNumber(parts[6]),
+      assuranceTier1: parseFrenchNumber(parts[7]),
+      assuranceTier2: parseFrenchNumber(parts[8]),
+      assuranceTier3: parseFrenchNumber(parts[9]),
+      assuranceTier4: parseFrenchNumber(parts[10]),
+      achete: false,
+      createdAt: serverTimestamp()
+    };
+    
+    if (!vehicle.modele || !vehicle.prixAchat) {
+      console.warn(`⚠️  Ligne ${i + 1} ignorée (données incomplètes)`);
+      skipped++;
+      continue;
+    }
+    
+    try {
+      await addDoc(collection(db2, 'flotte'), vehicle);
+      imported++;
+      if (imported % 10 === 0 || imported === 1) {
+        console.log(`✅ [${imported}] ${vehicle.type} ${vehicle.modele}`);
+      }
+      if (imported % 50 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    } catch (error) {
+      console.error(`❌ Erreur ligne ${i + 1}: ${vehicle.modele}`, error.message || error);
+      errors++;
+    }
+  }
+  
+  console.log('\n' + '='.repeat(50));
+  console.log('📊 RÉSUMÉ DE L\'IMPORT');
+  console.log('='.repeat(50));
+  console.log(`✅ Importés: ${imported}`);
+  console.log(`❌ Erreurs: ${errors}`);
+  console.log(`⚠️  Ignorés: ${skipped}`);
+  console.log(`📦 Total traité: ${linesArray.length}`);
+  console.log(`🗄️  Base: ${window.firebaseConfig2.projectId}`);
+  console.log('='.repeat(50));
+})();

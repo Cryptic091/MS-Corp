@@ -1,0 +1,140 @@
+(async function() {
+  function parseFrenchNumber(value) {
+    if (!value || value === '—' || value === '-' || value === '') return null;
+    let cleaned = String(value).replace(/\s/g, '').replace(/€/g, '').trim();
+    if (cleaned.includes(',') && !cleaned.includes('.')) cleaned = cleaned.replace(',', '.');
+    else if (cleaned.includes(',') && cleaned.includes('.')) {
+      const lastComma = cleaned.lastIndexOf(',');
+      const lastDot = cleaned.lastIndexOf('.');
+      if (lastComma > lastDot) cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+      else cleaned = cleaned.replace(/,/g, '');
+    }
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
+  }
+  
+  console.log('🔄 Chargement de Firebase...');
+  const { initializeApp } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js');
+  const { getFirestore, collection, addDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js');
+  
+  if (!window.firebaseConfig2) {
+    console.error('❌ Configuration Firebase secondaire (firebaseConfig2) non trouvée');
+    return;
+  }
+  
+  let app2;
+  try {
+    app2 = initializeApp(window.firebaseConfig2, 'secondary');
+  } catch (error) {
+    if (error.code === 'app/duplicate-app') {
+      const { getApps } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js');
+      app2 = getApps().find(app => app.name === 'secondary');
+    } else {
+      throw error;
+    }
+  }
+  
+  const db2 = getFirestore(app2);
+  console.log('✅ Deuxième base Firebase initialisée:', window.firebaseConfig2.projectId);
+  
+  const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+  if (!authState || !authState.uid) {
+    console.error('❌ Vous devez être connecté pour importer des véhicules');
+    return;
+  }
+  console.log('✅ Utilisateur connecté:', authState.email);
+  
+  const data = `Alfa Romeo	Gulia Quadrifloglio 2017	41 830 €	305	510	4	25	1 255 €	3 765 €	8 784 €	12 549 €
+Alfa Romeo	Gulia Quadrifoglio 2017 Black Pack	46 850 €	305	510	4	25	1 406 €	4 217 €	9 839 €	14 055 €
+Alfa Romeo	GTAM	80 000 €	300	540	1	25	2 400 €	7 200 €	16 800 €	24 000 €
+Alfa Romeo	Mito	28 000 €	230	225	4	25	840 €	2 520 €	5 880 €	8 400 €
+Apollo	Apollo Intensa Emozione 2018	2 165 250 €	335	780	1	10	64 958 €	194 873 €	454 703 €	649 575 €
+Aston Martin	DBX 2020	188 250 €	291	650	4	15	5 648 €	16 943 €	39 533 €	56 475 €
+Aston Martin	DBX 2020 MAT	282 645 €	291	650	4	15	8 479 €	25 438 €	59 355 €	84 794 €
+Aston Martin	DBS Superleggera	374 995 €	338	725	1	15	11 250 €	33 750 €	78 749 €	112 499 €
+Aston Martin	Vantage 2019	143 250 €	320	530	1	15	4 298 €	12 893 €	30 083 €	42 975 €
+Aston Martin	Vantage 2019 Camo	214 856 €	320	530	1	15	6 446 €	19 337 €	45 120 €	64 457 €
+Aston Martin	Vanquish 2013	120 000 €	300	552	3	20	3 600 €	10 800 €	25 200 €	36 000 €
+Aston Martin	Valhalla	1 755 000 €	350	1079	1	15	52 650 €	157 950 €	368 550 €	526 500 €
+Aston Martin	Victor	1 575 000 €	360	900	1	15	47 250 €	141 750 €	330 750 €	472 500 €
+Aston Martin	Vulcan 2016	2 625 000 €	360	825	1	15	78 750 €	236 250 €	551 250 €	787 500 €
+Audi	R8 2020	206 225 €	321	620	1	10	6 187 €	18 560 €	43 307 €	61 868 €
+Audi	RS2 1995	16 875 €	253	475	4	40	506 €	1 519 €	3 544 €	5 063 €
+Audi	RS3 2022	72 750 €	290	740	4	40	2 183 €	6 548 €	15 278 €	21 825 €
+Audi	RS4 Avant	92 259 €	289	600	4	40	2 768 €	8 303 €	19 374 €	27 678 €
+Audi	RS4 Avant 2018	76 500 €	255	600	4	40	2 295 €	6 885 €	16 065 €	22 950 €
+Audi	RS4 Avant 2024	85 000 €	255	600	4	40	2 550 €	7 650 €	17 850 €	25 500 €
+Audi	RS5 2020	82 500 €	263	450	4	40	2 475 €	7 425 €	17 325 €	24 750 €
+Audi	RS6 C7	90 731 €	280	750	4	55	2 722 €	8 166 €	19 054 €	27 219 €
+Audi	RS6 Avant 2020	121 875 €	305	600	4	55	3 656 €	10 969 €	25 594 €	36 563 €
+Audi	RS6 Avant 2020 Black Pack	145 852 €	305	600	4	55	4 376 €	13 127 €	30 629 €	43 756 €
+Audi	RS7 2013	67 500 €	330	800	3	35	2 025 €	6 075 €	14 175 €	20 250 €
+Audi	RS7 Sportback 2020	134 825 €	327	610	4	35	4 045 €	12 134 €	28 313 €	40 448 €
+Audi	RSQ8 2020	145 218 €	305	600	4	35	4 357 €	13 070 €	30 496 €	43 565 €
+Audi	S1	34 787 €	250	400	3	20	1 044 €	3 131 €	7 305 €	10 436 €
+Audi	S3	55 082 €	255	780	4	30	1 652 €	4 957 €	11 567 €	16 525 €
+Audi	S3 2002	32 582 €	241	136	4	30	977 €	2 932 €	6 842 €	9 775 €
+Audi	S3 2022	58 660 €	250	725	4	30	1 760 €	5 279 €	12 319 €	17 598 €`;
+  
+  const linesArray = data.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//'));
+  let imported = 0, errors = 0, skipped = 0;
+  
+  console.log(`🚀 Début de l'importation de ${linesArray.length} véhicules dans la deuxième base...\n`);
+  
+  for (let i = 0; i < linesArray.length; i++) {
+    const line = linesArray[i];
+    const parts = line.split('\t');
+    
+    if (parts.length < 11) {
+      console.warn(`⚠️  Ligne ${i + 1} ignorée (colonnes insuffisantes: ${parts.length})`);
+      skipped++;
+      continue;
+    }
+    
+    const vehicle = {
+      type: parts[0]?.trim() || 'Autre',
+      modele: parts[1]?.trim() || '',
+      prixAchat: parseFrenchNumber(parts[2]) || 0,
+      vitesseMax: parseFrenchNumber(parts[3]),
+      puissance: parseFrenchNumber(parts[4]),
+      nombrePlaces: parseFrenchNumber(parts[5]),
+      coffre: parseFrenchNumber(parts[6]),
+      assuranceTier1: parseFrenchNumber(parts[7]),
+      assuranceTier2: parseFrenchNumber(parts[8]),
+      assuranceTier3: parseFrenchNumber(parts[9]),
+      assuranceTier4: parseFrenchNumber(parts[10]),
+      achete: false,
+      createdAt: serverTimestamp()
+    };
+    
+    if (!vehicle.modele || !vehicle.prixAchat) {
+      console.warn(`⚠️  Ligne ${i + 1} ignorée (données incomplètes)`);
+      skipped++;
+      continue;
+    }
+    
+    try {
+      await addDoc(collection(db2, 'flotte'), vehicle);
+      imported++;
+      if (imported % 10 === 0 || imported === 1) {
+        console.log(`✅ [${imported}] ${vehicle.type} ${vehicle.modele}`);
+      }
+      if (imported % 50 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    } catch (error) {
+      console.error(`❌ Erreur ligne ${i + 1}: ${vehicle.modele}`, error.message || error);
+      errors++;
+    }
+  }
+  
+  console.log('\n' + '='.repeat(50));
+  console.log('📊 RÉSUMÉ DE L\'IMPORT');
+  console.log('='.repeat(50));
+  console.log(`✅ Importés: ${imported}`);
+  console.log(`❌ Erreurs: ${errors}`);
+  console.log(`⚠️  Ignorés: ${skipped}`);
+  console.log(`📦 Total traité: ${linesArray.length}`);
+  console.log(`🗄️  Base: ${window.firebaseConfig2.projectId}`);
+  console.log('='.repeat(50));
+})();

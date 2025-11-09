@@ -1,0 +1,172 @@
+(async function() {
+  function parseFrenchNumber(value) {
+    if (!value || value === '—' || value === '-' || value === '') return null;
+    let cleaned = String(value).replace(/\s/g, '').replace(/€/g, '').trim();
+    if (cleaned.includes(',') && !cleaned.includes('.')) cleaned = cleaned.replace(',', '.');
+    else if (cleaned.includes(',') && cleaned.includes('.')) {
+      const lastComma = cleaned.lastIndexOf(',');
+      const lastDot = cleaned.lastIndexOf('.');
+      if (lastComma > lastDot) cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+      else cleaned = cleaned.replace(/,/g, '');
+    }
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
+  }
+  
+  console.log('🔄 Chargement de Firebase...');
+  const { initializeApp } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js');
+  const { getFirestore, collection, addDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js');
+  
+  if (!window.firebaseConfig2) {
+    console.error('❌ Configuration Firebase secondaire (firebaseConfig2) non trouvée');
+    return;
+  }
+  
+  let app2;
+  try {
+    app2 = initializeApp(window.firebaseConfig2, 'secondary');
+  } catch (error) {
+    if (error.code === 'app/duplicate-app') {
+      const { getApps } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js');
+      app2 = getApps().find(app => app.name === 'secondary');
+    } else {
+      throw error;
+    }
+  }
+  
+  const db2 = getFirestore(app2);
+  console.log('✅ Deuxième base Firebase initialisée:', window.firebaseConfig2.projectId);
+  
+  const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+  if (!authState || !authState.uid) {
+    console.error('❌ Vous devez être connecté pour importer des véhicules');
+    return;
+  }
+  console.log('✅ Utilisateur connecté:', authState.email);
+  
+  const data = `Pagani	Zonda Tricolore 2010	1 406 250 €	350	658	1	10	42 188 €	126 563 €	295 313 €	421 875 €
+Pagani	Utopia 2023	2 000 000 €	370	864	1	10	60 000 €	180 000 €	420 000 €	600 000 €
+Peugeot	208 GT Line 2019	21 281 €	208	177	3	25	638 €	1 915 €	4 469 €	6 384 €
+Peugeot	206	6 750 €	191	125	4	25	203 €	608 €	1 418 €	2 025 €
+Peugeot	E-2008 2020	34 781 €	208	136	4	45	1 043 €	3 130 €	7 304 €	10 434 €
+Peugeot	308 2010	13 125 €	220	130	4	30	394 €	1 181 €	2 756 €	3 938 €
+Peugeot	308 2010 V	4 625 €	220	130	4	30	139 €	416 €	971 €	1 388 €
+Peugeot	508 2021 PSE SW	30 128 €	266	260	4	30	904 €	2 712 €	6 327 €	9 038 €
+Peugeot	308 GTI 2016	30 356 €	250	270	4	30	911 €	2 732 €	6 375 €	9 107 €
+Peugeot	308 GTI 2016 Black Pack	35 640 €	250	270	4	30	1 069 €	3 208 €	7 484 €	10 692 €
+Peugeot	308 GT 2022	39 500 €	250	225	4	30	1 185 €	3 555 €	8 295 €	11 850 €
+Peugeot	308 SW 2023 Hybride	45 000 €	250	225	4	30	1 350 €	4 050 €	9 450 €	13 500 €
+Peugeot	3008 2021 Hybride	56 525 €	266	300	4	50	1 696 €	5 087 €	11 870 €	16 958 €
+Peugeot	508 GT 2019	31 219 €	252	177	3	35	937 €	2 810 €	6 556 €	9 366 €
+Peugeot	508 SW 2013	36 938 €	235	204	4	45	1 108 €	3 324 €	7 757 €	11 081 €
+Peugeot	508 SW PSE 2023	63 150 €	270	360	4	40	1 895 €	5 684 €	13 262 €	18 945 €
+Peugeot	408 GT	42 500 €	245	225	4	30	1 275 €	3 825 €	8 925 €	12 750 €
+Peugeot	5008 2021	44 813 €	245	250	4	100	1 344 €	4 033 €	9 411 €	13 444 €
+Peugeot	5008 2024	48 520 €	250	203	4	80	1 456 €	4 367 €	10 189 €	14 556 €
+Peugeot	E-5008 2024	62 990 €	237	210	4	80	1 890 €	5 669 €	13 228 €	18 897 €
+Peugeot	E-Legend Concept	70 313 €	220	350	3	25	2 109 €	6 328 €	14 766 €	21 094 €
+Porsche	718 Boxster S 2017	63 656 €	285	350	1	15	1 910 €	5 729 €	13 368 €	19 097 €
+Porsche	911 Carrera S 2016	107 719 €	300	530	1	15	3 232 €	9 695 €	22 621 €	32 316 €
+Porsche	911 GT2 RS	271 097 €	340	700	1	15	8 133 €	24 399 €	56 930 €	81 329 €
+Porsche	911 GT3 2022	244 700 €	296	730	1	15	7 341 €	22 023 €	51 387 €	73 410 €
+Porsche	911 GT3 RS	320 000 €	300	525	1	15	9 600 €	28 800 €	67 200 €	96 000 €
+Porsche	918 Spyder 2016	831 563 €	349	887	1	15	24 947 €	74 841 €	174 628 €	249 469 €
+Porsche	911 (993) 1995	114 375 €	300	450	3	15	3 431 €	10 294 €	24 019 €	34 313 €
+Porsche	Cayenne Turbo 2013	46 875 €	258	177	4	45	1 406 €	4 219 €	9 844 €	14 063 €
+Porsche	911 GT2 2005	125 000 €	340	530	3	15	3 750 €	11 250 €	26 250 €	37 500 €
+Porsche	Cayenne Turbo Coupe 2020	149 250 €	290	550	4	45	4 478 €	13 433 €	31 343 €	44 775 €
+Porsche	Cayman 718 GT4RS	198 000 €	317	600	1	45	5 940 €	17 820 €	41 580 €	59 400 €
+Porsche	Macan 2019	79 594 €	261	500	4	15	2 388 €	7 163 €	16 715 €	23 878 €
+Porsche	Panamera Turbo e-hybrid	135 000 €	315	680	3	15	4 050 €	12 150 €	28 350 €	40 500 €
+Porsche	Taycan 2020	145 830 €	260	630	3	15	4 375 €	13 125 €	30 624 €	43 749 €
+Porsche	Taycan Turismo Cross	160 000 €	230	510	4	25	4 800 €	14 400 €	33 600 €	48 000 €
+Porsche	Taycan Turbo GT 2025	218 745 €	315	1019	1	15	6 562 €	19 687 €	45 936 €	65 624 €
+Porsche	911 Turbo S	250 260 €	330	650	1	20	7 508 €	22 523 €	52 555 €	75 078 €
+Poids Lourds	Mercedes Atego Léger	78 750 €	140	325	1	600	2 363 €	7 088 €	16 538 €	23 625 €
+Poids Lourds	Mercedes Atego	90 000 €	151	325	1	700	2 700 €	8 100 €	18 900 €	27 000 €
+Poids Lourds	Mercedes Atego Long	101 250 €	151	325	1	800	3 038 €	9 113 €	21 263 €	30 375 €
+Poids Lourds	Mercedes Atego Lourd	108 750 €	151	325	1	850	3 263 €	9 788 €	22 838 €	32 625 €
+Poids Lourds	Mercedes Unimog Transport	101 250 €	175	325	2	600	3 038 €	9 113 €	21 263 €	30 375 €
+Poids Lourds	Mitsubishi Fuso	78 750 €	145	400	1	600	2 363 €	7 088 €	16 538 €	23 625 €
+Poids Lourds	Renault Midlum	90 000 €	140	325	2	700	2 700 €	8 100 €	18 900 €	27 000 €
+Poids Lourds	Renault Midlum Court	78 750 €	140	325	2	600	2 363 €	7 088 €	16 538 €	23 625 €
+Poids Lourds	Renault Midlum Loud Transport Interieur	108 750 €	140	325	2	550	3 263 €	9 788 €	22 838 €	32 625 €
+Poids Lourds	Renault Midlum Long	101 250 €	140	325	2	800	3 038 €	9 113 €	21 263 €	30 375 €
+Poids Lourds	Renault Midlum Lourd	108 750 €	140	325	2	850	3 263 €	9 788 €	22 838 €	32 625 €
+Poids Lourds	Volvo FH16 460 Bache Civ	105 250 €	142	250	2	820	3 158 €	9 473 €	22 103 €	31 575 €
+Poids Lourds	Volvo FH16 460 Bache Axeco	105 250 €	142	250	2	820	3 158 €	9 473 €	22 103 €	31 575 €
+Poids Lourds	Volvo FH16 460 Bache EMH	105 250 €	142	250	2	820	3 158 €	9 473 €	22 103 €	31 575 €
+Poids Lourds	Volvo FH16 460 Bache H2O	105 250 €	142	250	2	820	3 158 €	9 473 €	22 103 €	31 575 €
+Poids Lourds	Volvo FH16 460 Bache Instant Gaming	105 250 €	142	250	2	820	3 158 €	9 473 €	22 103 €	31 575 €
+Poids Lourds	Volvo FH16 460 Bache VCL	105 250 €	142	250	2	820	3 158 €	9 473 €	22 103 €	31 575 €
+Poids Lourds	Volvo FH16 460 Bache Wisolar	105 250 €	142	250	2	820	3 158 €	9 473 €	22 103 €	31 575 €
+Poids Lourds	Volvo FH16 460 Long Bache Civ	105 250 €	142	460	2	875	3 158 €	9 473 €	22 103 €	31 575 €
+Poids Lourds	Volvo FH16 460 Long Bache Axeco	105 250 €	142	460	2	875	3 158 €	9 473 €	22 103 €	31 575 €
+Poids Lourds	Volvo FH16 460 Long Bache EMH	105 250 €	142	460	2	875	3 158 €	9 473 €	22 103 €	31 575 €
+Poids Lourds	Volvo FH16 460 Long Bache H2O	105 250 €	142	460	2	875	3 158 €	9 473 €	22 103 €	31 575 €
+Poids Lourds	Volvo FH16 460 Long Bache Instang Gaming	105 250 €	142	460	2	875	3 158 €	9 473 €	22 103 €	31 575 €
+Poids Lourds	Volvo FH16 460 Long Bache VCL	105 250 €	142	460	2	875	3 158 €	9 473 €	22 103 €	31 575 €
+Poids Lourds	Volvo FH16 460 Long Bache Wisolar	105 250 €	142	460	2	875	3 158 €	9 473 €	22 103 €	31 575 €`;
+  
+  const linesArray = data.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//'));
+  let imported = 0, errors = 0, skipped = 0;
+  
+  console.log(`🚀 Début de l'importation de ${linesArray.length} véhicules dans la deuxième base...\n`);
+  
+  for (let i = 0; i < linesArray.length; i++) {
+    const line = linesArray[i];
+    const parts = line.split('\t');
+    
+    if (parts.length < 11) {
+      console.warn(`⚠️  Ligne ${i + 1} ignorée (colonnes insuffisantes: ${parts.length})`);
+      skipped++;
+      continue;
+    }
+    
+    const vehicle = {
+      type: parts[0]?.trim() || 'Autre',
+      modele: parts[1]?.trim() || '',
+      prixAchat: parseFrenchNumber(parts[2]) || 0,
+      vitesseMax: parseFrenchNumber(parts[3]),
+      puissance: parseFrenchNumber(parts[4]),
+      nombrePlaces: parseFrenchNumber(parts[5]),
+      coffre: parseFrenchNumber(parts[6]),
+      assuranceTier1: parseFrenchNumber(parts[7]),
+      assuranceTier2: parseFrenchNumber(parts[8]),
+      assuranceTier3: parseFrenchNumber(parts[9]),
+      assuranceTier4: parseFrenchNumber(parts[10]),
+      achete: false,
+      createdAt: serverTimestamp()
+    };
+    
+    if (!vehicle.modele || !vehicle.prixAchat) {
+      console.warn(`⚠️  Ligne ${i + 1} ignorée (données incomplètes)`);
+      skipped++;
+      continue;
+    }
+    
+    try {
+      await addDoc(collection(db2, 'flotte'), vehicle);
+      imported++;
+      if (imported % 10 === 0 || imported === 1) {
+        console.log(`✅ [${imported}] ${vehicle.type} ${vehicle.modele}`);
+      }
+      if (imported % 50 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    } catch (error) {
+      console.error(`❌ Erreur ligne ${i + 1}: ${vehicle.modele}`, error.message || error);
+      errors++;
+    }
+  }
+  
+  console.log('\n' + '='.repeat(50));
+  console.log('📊 RÉSUMÉ DE L\'IMPORT');
+  console.log('='.repeat(50));
+  console.log(`✅ Importés: ${imported}`);
+  console.log(`❌ Erreurs: ${errors}`);
+  console.log(`⚠️  Ignorés: ${skipped}`);
+  console.log(`📦 Total traité: ${linesArray.length}`);
+  console.log(`🗄️  Base: ${window.firebaseConfig2.projectId}`);
+  console.log('='.repeat(50));
+})();

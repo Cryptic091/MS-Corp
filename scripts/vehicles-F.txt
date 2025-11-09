@@ -1,0 +1,160 @@
+(async function() {
+  function parseFrenchNumber(value) {
+    if (!value || value === '—' || value === '-' || value === '') return null;
+    let cleaned = String(value).replace(/\s/g, '').replace(/€/g, '').trim();
+    if (cleaned.includes(',') && !cleaned.includes('.')) cleaned = cleaned.replace(',', '.');
+    else if (cleaned.includes(',') && cleaned.includes('.')) {
+      const lastComma = cleaned.lastIndexOf(',');
+      const lastDot = cleaned.lastIndexOf('.');
+      if (lastComma > lastDot) cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+      else cleaned = cleaned.replace(/,/g, '');
+    }
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
+  }
+  
+  console.log('🔄 Chargement de Firebase...');
+  const { initializeApp } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js');
+  const { getFirestore, collection, addDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js');
+  
+  if (!window.firebaseConfig2) {
+    console.error('❌ Configuration Firebase secondaire (firebaseConfig2) non trouvée');
+    return;
+  }
+  
+  let app2;
+  try {
+    app2 = initializeApp(window.firebaseConfig2, 'secondary');
+  } catch (error) {
+    if (error.code === 'app/duplicate-app') {
+      const { getApps } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js');
+      app2 = getApps().find(app => app.name === 'secondary');
+    } else {
+      throw error;
+    }
+  }
+  
+  const db2 = getFirestore(app2);
+  console.log('✅ Deuxième base Firebase initialisée:', window.firebaseConfig2.projectId);
+  
+  const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+  if (!authState || !authState.uid) {
+    console.error('❌ Vous devez être connecté pour importer des véhicules');
+    return;
+  }
+  console.log('✅ Utilisateur connecté:', authState.email);
+  
+  const data = `Ferrari	458 Italia 2010	184 624 €	358	570	1	10	5 539 €	16 616 €	38 771 €	55 387 €
+Ferrari	250 GTO	750 000 €	280	412	1	10	22 500 €	67 500 €	157 500 €	225 000 €
+Ferrari	458 Italia 2010 Tuning	277 000 €	325	570	1	10	8 310 €	24 930 €	58 170 €	83 100 €
+Ferrari	488 Pista 2019	400 000 €	340	720	1	10	12 000 €	36 000 €	84 000 €	120 000 €
+Ferrari	12 Cilindri 2024	387 751 €	340	830	1	10	11 633 €	34 898 €	81 428 €	116 325 €
+Ferrari	Purosangue	384 229 €	310	725	3	10	11 527 €	34 581 €	80 688 €	115 269 €
+Ferrari	812 Superfast 2017	280 000 €	341	800	1	22	8 400 €	25 200 €	58 800 €	84 000 €
+Ferrari	F8 Tributo 2019	218 000 €	346	720	1	10	6 540 €	19 620 €	45 780 €	65 400 €
+Ferrari	F12 Berlinetta 2014	195 000 €	344	740	1	15	5 850 €	17 550 €	40 950 €	58 500 €
+Ferrari	LaFerrari 2015	1 725 000 €	370	963	1	10	51 750 €	155 250 €	362 250 €	517 500 €
+Ferrari	Monza SP2 2019	1 500 000 €	300	810	1	10	45 000 €	135 000 €	315 000 €	450 000 €
+Ferrari	Daytona SP3	1 723 619 €	346	970	1	10	51 709 €	155 126 €	361 960 €	517 086 €
+Ferrari	SP48 Unica	380 000 €	340	720	1	10	11 400 €	34 200 €	79 800 €	114 000 €
+Ferrari	SF90 Stradal	529 467 €	346	970	1	10	15 884 €	47 652 €	111 188 €	158 840 €
+Ferrari	SF90 XX Stradale 2024	829 467 €	340	1030	1	10	24 884 €	74 652 €	174 188 €	248 840 €
+Ferrari	Roma 2020	194 000 €	320	740	3	10	5 820 €	17 460 €	40 740 €	58 200 €
+Fiat	500 Abarth 595 Essence	30 000 €	260	185	3	10	900 €	2 700 €	6 300 €	9 000 €
+Fiat	Multipla	21 000 €	176	1105	5	45	630 €	1 890 €	4 410 €	6 300 €
+Ford	Branco 1989	19 000 €	188	275	1	35	570 €	1 710 €	3 990 €	5 700 €
+Ford	Crown Victoria 2011	27 500 €	205	193	4	35	825 €	2 475 €	5 775 €	8 250 €
+Ford	Explorer 2020	75 000 €	230	450	4	100	2 250 €	6 750 €	15 750 €	22 500 €
+Ford	Explorer ST 2020	78 000 €	250	600	4	100	2 340 €	7 020 €	16 380 €	23 400 €
+Ford	Everest	82 700 €	241	350	4	50	2 481 €	7 443 €	17 367 €	24 810 €
+Ford	F-150 1980	5 420 €	169	275	1	40	163 €	488 €	1 138 €	1 626 €
+Ford	Focus RS 2009	35 250 €	254	400	1	35	1 058 €	3 173 €	7 403 €	10 575 €
+Ford	Focus RS 2017	41 250 €	265	400	4	35	1 238 €	3 713 €	8 663 €	12 375 €
+Ford	GT 2017	330 000 €	345	647	1	10	9 900 €	29 700 €	69 300 €	99 000 €
+Ford	GT40 1964	105 642 €	279	550	1	10	3 169 €	9 508 €	22 185 €	31 693 €
+Ford	Galaxy 2009	9 950 €	238	180	4	40	299 €	896 €	2 090 €	2 985 €
+Ford	Galaxy 2016	25 750 €	242	210	4	40	773 €	2 318 €	5 408 €	7 725 €
+Ford	Maverick 2022	101 560 €	245	365	4	50	3 047 €	9 140 €	21 328 €	30 468 €
+Ford	Mondeo 2013 Berline	28 500 €	262	250	4	30	855 €	2 565 €	5 985 €	8 550 €
+Ford	Mondeo 2009 SW	25 500 €	243	250	4	80	765 €	2 295 €	5 355 €	7 650 €
+Ford	Mondeo SW 2015	31 500 €	250	650	4	35	945 €	2 835 €	6 615 €	9 450 €
+Ford	Mustang Fastback 1966	89 990 €	200	270	3	35	2 700 €	8 099 €	18 898 €	26 997 €
+Ford	Mustang GT 2008 Convertible	21 250 €	240	210	3	35	638 €	1 913 €	4 463 €	6 375 €
+Ford	Mustang GT 2015	50 000 €	280	500	3	30	1 500 €	4 500 €	10 500 €	15 000 €
+Ford	Mustang Dark Horse 2024	67 000 €	290	552	3	30	2 010 €	6 030 €	14 070 €	20 100 €
+Ford	Mustang 1970	108 750 €	240	320	3	35	3 263 €	9 788 €	22 838 €	32 625 €
+Ford	Mach E 2021	62 500 €	235	462	4	45	1 875 €	5 625 €	13 125 €	18 750 €
+Ford	F-350 Super Duty	34 000 €	210	177	4	130	1 020 €	3 060 €	7 140 €	10 200 €
+Ford	Ranger 2017	33 300 €	235	250	4	110	999 €	2 997 €	6 993 €	9 990 €
+Ford	Ranger 2017 2	34 800 €	235	250	4	110	1 044 €	3 132 €	7 308 €	10 440 €
+Ford	Raptor	103 000 €	171	325	4	110	3 090 €	9 270 €	21 630 €	30 900 €
+Ford	S-Max	45 652 €	247	350	4	110	1 370 €	4 109 €	9 587 €	13 696 €
+Ford	Taurus	25 300 €	310	350	4	70	759 €	2 277 €	5 313 €	7 590 €
+Ford	Velociraptor	237 300 €	183	325	4	110	7 119 €	21 357 €	49 833 €	71 190 €
+Ford	F-550	109 000 €	171	350	4	110	3 270 €	9 810 €	22 890 €	32 700 €
+Ford	F-550 Camo Type 1	109 000 €	171	350	4	110	3 270 €	9 810 €	22 890 €	32 700 €
+Ford	F-550 Camo Type 2	109 000 €	171	350	4	110	3 270 €	9 810 €	22 890 €	32 700 €
+Ford	F-550 Camo Type 3	109 000 €	171	350	4	110	3 270 €	9 810 €	22 890 €	32 700 €`;
+  
+  const linesArray = data.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//'));
+  let imported = 0, errors = 0, skipped = 0;
+  
+  console.log(`🚀 Début de l'importation de ${linesArray.length} véhicules dans la deuxième base...\n`);
+  
+  for (let i = 0; i < linesArray.length; i++) {
+    const line = linesArray[i];
+    const parts = line.split('\t');
+    
+    if (parts.length < 11) {
+      console.warn(`⚠️  Ligne ${i + 1} ignorée (colonnes insuffisantes: ${parts.length})`);
+      skipped++;
+      continue;
+    }
+    
+    const vehicle = {
+      type: parts[0]?.trim() || 'Autre',
+      modele: parts[1]?.trim() || '',
+      prixAchat: parseFrenchNumber(parts[2]) || 0,
+      vitesseMax: parseFrenchNumber(parts[3]),
+      puissance: parseFrenchNumber(parts[4]),
+      nombrePlaces: parseFrenchNumber(parts[5]),
+      coffre: parseFrenchNumber(parts[6]),
+      assuranceTier1: parseFrenchNumber(parts[7]),
+      assuranceTier2: parseFrenchNumber(parts[8]),
+      assuranceTier3: parseFrenchNumber(parts[9]),
+      assuranceTier4: parseFrenchNumber(parts[10]),
+      achete: false,
+      createdAt: serverTimestamp()
+    };
+    
+    if (!vehicle.modele || !vehicle.prixAchat) {
+      console.warn(`⚠️  Ligne ${i + 1} ignorée (données incomplètes)`);
+      skipped++;
+      continue;
+    }
+    
+    try {
+      await addDoc(collection(db2, 'flotte'), vehicle);
+      imported++;
+      if (imported % 10 === 0 || imported === 1) {
+        console.log(`✅ [${imported}] ${vehicle.type} ${vehicle.modele}`);
+      }
+      if (imported % 50 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    } catch (error) {
+      console.error(`❌ Erreur ligne ${i + 1}: ${vehicle.modele}`, error.message || error);
+      errors++;
+    }
+  }
+  
+  console.log('\n' + '='.repeat(50));
+  console.log('📊 RÉSUMÉ DE L\'IMPORT');
+  console.log('='.repeat(50));
+  console.log(`✅ Importés: ${imported}`);
+  console.log(`❌ Erreurs: ${errors}`);
+  console.log(`⚠️  Ignorés: ${skipped}`);
+  console.log(`📦 Total traité: ${linesArray.length}`);
+  console.log(`🗄️  Base: ${window.firebaseConfig2.projectId}`);
+  console.log('='.repeat(50));
+})();

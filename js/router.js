@@ -5,6 +5,9 @@ import { viewAuth } from './auth.js';
 import { isAuthenticated, checkPermission, alertModal } from './utils.js';
 import { viewHome } from './home.js';
 import { viewProfile } from './profile.js';
+import { viewPublicHome } from './public/home.js';
+import { viewPublicVehicules } from './public/vehicules.js';
+import { viewPublicLogin } from './public/login.js';
 
 const app = document.getElementById('app');
 
@@ -21,7 +24,10 @@ const routePermissions = {
 };
 
 const routes = {
-  '#/': () => location.replace('#/home'),
+  '#/': () => location.replace('#/public'),
+  '#/public': () => viewPublicHome(app),
+  '#/public/vehicules': () => viewPublicVehicules(app),
+  '#/public/login': () => viewPublicLogin(app),
   '#/home': () => requireAuth(viewHome),
   '#/dashboard': () => requireAuth(viewDashboard),
   '#/entreprise': () => requireAuthWithPermission(viewEntreprise, 'entreprise'),
@@ -57,6 +63,18 @@ function requireAuth(component, options = {}) {
 
 async function render() {
   const key = location.hash || '#/';
+  
+  // Routes publiques (pas d'authentification requise)
+  if (key.startsWith('#/public')) {
+    const route = routes[key];
+    if (typeof route === 'function') {
+      await route();
+    } else {
+      // Route publique par défaut
+      location.replace('#/public');
+    }
+    return;
+  }
   
   // Vérifier les routes avec permissions
   if (key.startsWith('#/entreprise')) {

@@ -133,6 +133,36 @@ export async function viewHome(root) {
             </div>
             <div class="space-card-accent profile-accent"></div>
           </a>
+          <a href="#/public" class="space-card">
+            <div class="space-card-header">
+              <div class="space-card-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                  <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+              </div>
+              <div class="space-card-badge" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">Public</div>
+            </div>
+            <div class="space-card-content">
+              <h3 class="space-card-title">Site Public</h3>
+              <p class="space-card-desc">Accédez au site public pour consulter les véhicules et les informations de l'entreprise.</p>
+              <div class="space-card-features">
+                <div class="feature-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  <span>Véhicules</span>
+                </div>
+                <div class="feature-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  <span>Présentation</span>
+                </div>
+              </div>
+            </div>
+            <div class="space-card-accent" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
+          </a>
         </div>
       </div>
     </section>

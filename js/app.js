@@ -10,35 +10,116 @@ document.getElementById('year').textContent = String(new Date().getFullYear());
 
 function updateNavByAuth() {
   const isAuth = Boolean(JSON.parse(localStorage.getItem('ms_auth_state') || 'null'));
-  const btnLogout = document.getElementById('btn-logout');
+  const btnLogoutNav = document.getElementById('btn-logout-nav');
+  const publicNav = document.getElementById('public-nav');
   const header = document.getElementById('site-header');
   const footer = document.getElementById('site-footer');
+  const logoLink = document.getElementById('header-logo-link');
+  const navLogin = document.getElementById('nav-public-login');
+  const navDashboard = document.getElementById('nav-dashboard');
+  const isPublicPage = location.hash.startsWith('#/public');
   const isAuthPage = location.hash === '#/auth' || location.hash === '';
   
-  if (isAuth) {
-    btnLogout?.classList.remove('hidden');
+  // Mettre à jour le lien du logo
+  if (logoLink) {
+    if (isAuth && !isPublicPage) {
+      logoLink.setAttribute('href', '#/home');
+    } else {
+      logoLink.setAttribute('href', '#/public');
+    }
+  }
+  
+  // Mettre à jour la navigation active pour les pages publiques
+  if (isPublicPage && publicNav) {
+    const navLinks = publicNav.querySelectorAll('a');
+    navLinks.forEach(link => {
+      const href = link.getAttribute('href');
+      if (location.hash === href || (location.hash === '#/public' && href === '#/public')) {
+        link.classList.add('active');
+      } else {
+        link.classList.remove('active');
+      }
+    });
+  }
+  
+  const app = document.getElementById('app');
+  const htmlEl = document.documentElement;
+  const bodyEl = document.body;
+  
+  if (isPublicPage) {
+    // Pages publiques
+    header?.classList.remove('hidden');
+    footer?.classList.remove('hidden');
+    publicNav?.classList.remove('hidden');
+    
+    // Permettre le scroll sur les pages publiques
+    if (app) {
+      app.classList.remove('overflow-hidden');
+      app.style.overflow = 'visible';
+    }
+    if (htmlEl) {
+      htmlEl.style.overflow = 'auto';
+      htmlEl.style.height = 'auto';
+    }
+    if (bodyEl) {
+      bodyEl.style.overflow = 'auto';
+      bodyEl.style.height = 'auto';
+    }
+    
+    // Afficher/masquer les éléments selon l'authentification
+    if (isAuth) {
+      navLogin?.classList.add('hidden');
+      navDashboard?.classList.remove('hidden');
+      btnLogoutNav?.classList.remove('hidden');
+    } else {
+      navLogin?.classList.remove('hidden');
+      navDashboard?.classList.add('hidden');
+      btnLogoutNav?.classList.add('hidden');
+    }
+  } else if (isAuth) {
+    // Utilisateur connecté sur page privée : masquer header/footer
     header?.classList.add('hidden');
     footer?.classList.add('hidden');
+    publicNav?.classList.add('hidden');
+    
+    if (app) {
+      app.classList.add('overflow-hidden');
+    }
   } else {
-    btnLogout?.classList.add('hidden');
+    // Page d'authentification classique
     if (isAuthPage) {
       header?.classList.add('hidden');
       footer?.classList.remove('hidden');
+      publicNav?.classList.add('hidden');
+      if (htmlEl) {
+        htmlEl.style.overflow = 'auto';
+        htmlEl.style.height = 'auto';
+      }
+      if (bodyEl) {
+        bodyEl.style.overflow = 'auto';
+        bodyEl.style.height = 'auto';
+      }
     } else {
       header?.classList.remove('hidden');
       footer?.classList.remove('hidden');
+      publicNav?.classList.remove('hidden');
+      navLogin?.classList.remove('hidden');
+      navDashboard?.classList.add('hidden');
+      btnLogoutNav?.classList.add('hidden');
     }
   }
 }
 
 // Déconnexion - attaché après chargement DOM
 function setupLogout() {
-  const btn = document.getElementById('btn-logout');
-  if (!btn) {
+  const btnNav = document.getElementById('btn-logout-nav');
+  
+  if (!btnNav) {
     setTimeout(setupLogout, 100);
     return;
   }
-  btn.addEventListener('click', async (e) => {
+  
+  btnNav.addEventListener('click', async (e) => {
     e.preventDefault();
     const fb = getFirebase();
     const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
@@ -61,7 +142,7 @@ function setupLogout() {
     }
     localStorage.removeItem('ms_auth_state');
     updateNavByAuth();
-    location.hash = '#/auth';
+    location.hash = '#/public';
   });
 }
 setupLogout();

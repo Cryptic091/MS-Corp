@@ -34,8 +34,8 @@
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900 dark:bg-nuit dark:text-slate-100 flex flex-col">
   <header id="site-header" class="sticky top-0 z-40 backdrop-blur-md bg-white/80 dark:bg-nuit/80 border-b border-slate-200/60 dark:border-white/10 auth-header-styled shadow-sm">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between">
-      <div class="flex items-center gap-3">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between flex-wrap gap-3">
+      <a href="#/public" id="header-logo-link" class="flex items-center gap-3 cursor-pointer">
         <div class="header-logo-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -46,15 +46,29 @@
           <h1 class="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">MS Corp</h1>
           <span class="hidden sm:inline text-xs text-slate-500 dark:text-slate-400">Portail Entreprise</span>
         </div>
-      </div>
-      <nav class="flex items-center gap-1 text-sm">
-        <button id="btn-logout" class="hidden ml-2 rounded-md px-3 py-1.5 border border-slate-200 dark:border-white/10 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">Déconnexion</button>
+      </a>
+      <nav id="public-nav" class="hidden flex items-center gap-2 text-sm">
+        <a href="#/public" class="px-4 py-2 rounded-lg font-medium hover:bg-slate-100 dark:hover:bg-white/10 transition-colors relative" id="nav-public-home">
+          Accueil
+        </a>
+        <a href="#/public/vehicules" class="px-4 py-2 rounded-lg font-medium hover:bg-slate-100 dark:hover:bg-white/10 transition-colors relative" id="nav-public-vehicules">
+          Véhicules
+        </a>
+        <a href="#/public/login" class="px-4 py-2 rounded-lg font-medium hover:bg-slate-100 dark:hover:bg-white/10 transition-colors relative hidden" id="nav-public-login">
+          Connexion
+        </a>
+        <a href="#/home" class="px-4 py-2 rounded-lg font-medium hover:bg-slate-100 dark:hover:bg-white/10 transition-colors relative hidden" id="nav-dashboard">
+          Tableau de bord
+        </a>
+        <button id="btn-logout-nav" class="px-4 py-2 rounded-lg font-medium text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors hidden">
+          Déconnexion
+        </button>
       </nav>
     </div>
     <div class="header-accent-line"></div>
   </header>
 
-  <main id="app" class="flex-1 flex flex-col overflow-hidden">
+  <main id="app" class="flex-1 flex flex-col">
     <!-- Le routeur injecte ici -->
   </main>
 
@@ -66,7 +80,7 @@
 
   <!-- Firebase (CDN modulaire) : importé depuis js/firebase.js -->
   <script>
-    // Configuration Firebase - MS Corp
+    // Configuration Firebase principale - MS Corp
     window.firebaseConfig = {
       apiKey: "AIzaSyD2nAu0CsUlnWS1n481as8z-S-VwGQWqv4",
       authDomain: "ms-corp.firebaseapp.com",
@@ -75,6 +89,19 @@
       messagingSenderId: "809477788279",
       appId: "1:809477788279:web:bca3716a93223dc75f2c72",
       measurementId: "G-R5YSDZRQVN"
+    };
+
+    // Configuration Firebase secondaire - MS Corp 2
+    window.firebaseConfig2 = {
+      apiKey: "AIzaSyAkO3VtSfuoyW0d1D1DJxM0Q3jdCN513MA",
+      authDomain: "ms-corp-207e3.firebaseapp.com",
+      projectId: "ms-corp-207e3",
+      storageBucket: "ms-corp-207e3.firebasestorage.app",
+      messagingSenderId: "957406064103",
+      appId: "1:957406064103:web:8174b4e95c4a390000e142",
+      measurementId: "G-VHR3FZ1P98"
+      // Note: La région Firestore (ex: "europe-west1") doit être choisie lors de la création
+      // de la base de données dans Firebase Console. Elle ne peut pas être changée après.
     };
   </script>
 

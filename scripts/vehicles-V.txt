@@ -1,0 +1,125 @@
+(async function() {
+  function parseFrenchNumber(value) {
+    if (!value || value === '—' || value === '-' || value === '') return null;
+    let cleaned = String(value).replace(/\s/g, '').replace(/€/g, '').trim();
+    if (cleaned.includes(',') && !cleaned.includes('.')) cleaned = cleaned.replace(',', '.');
+    else if (cleaned.includes(',') && cleaned.includes('.')) {
+      const lastComma = cleaned.lastIndexOf(',');
+      const lastDot = cleaned.lastIndexOf('.');
+      if (lastComma > lastDot) cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+      else cleaned = cleaned.replace(/,/g, '');
+    }
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? null : num;
+  }
+  
+  console.log('🔄 Chargement de Firebase...');
+  const { initializeApp } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js');
+  const { getFirestore, collection, addDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-firestore.js');
+  
+  if (!window.firebaseConfig2) {
+    console.error('❌ Configuration Firebase secondaire (firebaseConfig2) non trouvée');
+    return;
+  }
+  
+  let app2;
+  try {
+    app2 = initializeApp(window.firebaseConfig2, 'secondary');
+  } catch (error) {
+    if (error.code === 'app/duplicate-app') {
+      const { getApps } = await import('https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js');
+      app2 = getApps().find(app => app.name === 'secondary');
+    } else {
+      throw error;
+    }
+  }
+  
+  const db2 = getFirestore(app2);
+  console.log('✅ Deuxième base Firebase initialisée:', window.firebaseConfig2.projectId);
+  
+  const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+  if (!authState || !authState.uid) {
+    console.error('❌ Vous devez être connecté pour importer des véhicules');
+    return;
+  }
+  console.log('✅ Utilisateur connecté:', authState.email);
+  
+  const data = `Volkswagen	Arteon R-Line	78 452 €	253	300	4	25	2 354 €	7 061 €	16 475 €	23 536 €
+Volkswagen	Golf 7.5 GTI	30 928 €	250	235	4	40	928 €	2 784 €	6 495 €	9 278 €
+Volkswagen	Golf 7.5 GTI Black Badge	36 210 €	250	235	4	40	1 086 €	3 259 €	7 604 €	10 863 €
+Volkswagen	Golf R MK8 2021	58 125 €	290	750	4	40	1 744 €	5 231 €	12 206 €	17 438 €
+Volkswagen	Golf R 2017	42 019 €	276	350	4	25	1 261 €	3 782 €	8 824 €	12 606 €
+Volkswagen	ID4 2023	46 500 €	201	325	4	25	1 395 €	4 185 €	9 765 €	13 950 €
+Volkswagen	ID Buzz Pro S 2025	38 000 €	230	130	6	25	1 140 €	3 420 €	7 980 €	11 400 €
+Volkswagen	Polo R Rallye	47 500 €	200	450	1	25	1 425 €	4 275 €	9 975 €	14 250 €
+Volkswagen	Passat Break	38 484 €	245	300	4	25	1 155 €	3 464 €	8 082 €	11 545 €
+Volkswagen	Passat R-Line	36 945 €	245	300	4	25	1 108 €	3 325 €	7 758 €	11 084 €
+Volkswagen	Passat SW GTE 2022	48 500 €	260	218	4	25	1 455 €	4 365 €	10 185 €	14 550 €
+Volkswagen	T1	57 161 €	138	200	5	80	1 715 €	5 144 €	12 004 €	17 148 €
+Volkswagen	Golf R Variant 2024	48 000 €	265	600	4	80	1 440 €	4 320 €	10 080 €	14 400 €
+Volkswagen	Touareg R eHybrid 2022	39 272 €	265	462	4	45	1 178 €	3 534 €	8 247 €	11 782 €
+Volkswagen	Touareg	36 272 €	250	400	4	45	1 088 €	3 264 €	7 617 €	10 882 €
+Volvo	V60	46 738 €	255	290	5	30	1 402 €	4 206 €	9 815 €	14 021 €`;
+  
+  const linesArray = data.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//'));
+  let imported = 0, errors = 0, skipped = 0;
+  
+  console.log(`🚀 Début de l'importation de ${linesArray.length} véhicules dans la deuxième base...\n`);
+  
+  for (let i = 0; i < linesArray.length; i++) {
+    const line = linesArray[i];
+    const parts = line.split('\t');
+    
+    if (parts.length < 11) {
+      console.warn(`⚠️  Ligne ${i + 1} ignorée (colonnes insuffisantes: ${parts.length})`);
+      skipped++;
+      continue;
+    }
+    
+    const vehicle = {
+      type: parts[0]?.trim() || 'Autre',
+      modele: parts[1]?.trim() || '',
+      prixAchat: parseFrenchNumber(parts[2]) || 0,
+      vitesseMax: parseFrenchNumber(parts[3]),
+      puissance: parseFrenchNumber(parts[4]),
+      nombrePlaces: parseFrenchNumber(parts[5]),
+      coffre: parseFrenchNumber(parts[6]),
+      assuranceTier1: parseFrenchNumber(parts[7]),
+      assuranceTier2: parseFrenchNumber(parts[8]),
+      assuranceTier3: parseFrenchNumber(parts[9]),
+      assuranceTier4: parseFrenchNumber(parts[10]),
+      achete: false,
+      createdAt: serverTimestamp()
+    };
+    
+    if (!vehicle.modele || !vehicle.prixAchat) {
+      console.warn(`⚠️  Ligne ${i + 1} ignorée (données incomplètes)`);
+      skipped++;
+      continue;
+    }
+    
+    try {
+      await addDoc(collection(db2, 'flotte'), vehicle);
+      imported++;
+      if (imported % 10 === 0 || imported === 1) {
+        console.log(`✅ [${imported}] ${vehicle.type} ${vehicle.modele}`);
+      }
+      if (imported % 50 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    } catch (error) {
+      console.error(`❌ Erreur ligne ${i + 1}: ${vehicle.modele}`, error.message || error);
+      errors++;
+    }
+  }
+  
+  console.log('\n' + '='.repeat(50));
+  console.log('📊 RÉSUMÉ DE L\'IMPORT');
+  console.log('='.repeat(50));
+  console.log(`✅ Importés: ${imported}`);
+  console.log(`❌ Erreurs: ${errors}`);
+  console.log(`⚠️  Ignorés: ${skipped}`);
+  console.log(`📦 Total traité: ${linesArray.length}`);
+  console.log(`🗄️  Base: ${window.firebaseConfig2.projectId}`);
+  console.log('='.repeat(50));
+})();
