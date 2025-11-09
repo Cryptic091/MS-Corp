@@ -3058,7 +3058,7 @@ function viewCentraleEmploye(root) {
 
       if (e.target.closest('.btn-delete')) {
         createModal({
-          title: 'Supprimer l'affectation',
+          title: 'Supprimer l\'affectation',
           body: `<p>Souhaitez-vous supprimer <strong>${entry.affectation || 'cette affectation'}</strong> ?</p><p class="text-sm text-slate-500 mt-2">Cette action est irréversible.</p>`,
           confirmText: 'Supprimer',
           cancelText: 'Annuler',
