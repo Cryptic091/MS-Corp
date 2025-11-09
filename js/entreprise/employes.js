@@ -1,5 +1,5 @@
 import { html, mount, createModal, getCachedProfile, loadUserProfile, updateNavPermissions, alertModal, updateAvatar, formatDate, isAuthenticated, updateRoleBadge, applyPagePermissions, hasStoredPermission, checkPermission } from '../utils.js';
-import { getFirebase, waitForFirebase, collection, getDocs, query, where, setDoc, doc, updateDoc, deleteDoc, serverTimestamp, signOut, createUserWithEmailAndPassword, fetchSignInMethodsForEmail } from '../firebase.js';
+import { getFirebase, waitForFirebase, collection, getDocs, query, where, setDoc, doc, updateDoc, deleteDoc, serverTimestamp, signOut, createUserWithEmailAndPassword, fetchSignInMethodsForEmail, addDoc } from '../firebase.js';
 import { addLogEntry } from '../firebase.js';
 
 function getInitials(name) {
@@ -7,6 +7,20 @@ function getInitials(name) {
   const parts = name.trim().split(/\s+/);
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return name.substring(0, 2).toUpperCase();
+}
+
+function splitFullName(fullName = '') {
+  const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) {
+    return { prenom: '', nom: '' };
+  }
+  if (parts.length === 1) {
+    return { prenom: parts[0], nom: '' };
+  }
+  return {
+    prenom: parts[0],
+    nom: parts.slice(1).join(' ')
+  };
 }
 
 export function viewEmployes(root) {
@@ -28,7 +42,14 @@ export function viewEmployes(root) {
                 <div id="sb-email" class="user-handle text-xs opacity-70">—</div>
               </div>
             </div>
-            <div id="sb-role" class="badge-role badge-employe mt-2 inline-block text-xs">Employé</div>
+            <div
+              id="sb-role"
+              class="badge-role badge-employe mt-2 inline-block text-xs"
+              data-role-field="roleEntreprise"
+              data-default-label="Sans rôle"
+              data-empty-label="Sans rôle"
+              data-role-class="badge-employe"
+            >Employé</div>
           </a>
           <div class="section-title">Entreprise</div>
           <nav class="nav-links">
@@ -57,9 +78,12 @@ export function viewEmployes(root) {
             <div class="page-title">Gestion des Utilisateurs</div>
             <div class="page-sub">Gérez les comptes utilisateurs de l'entreprise</div>
           </div>
-          <div class="flex gap-2">
+          <div class="flex gap-2 flex-wrap justify-end">
             <button id="btn-refresh" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-sm flex items-center gap-2">
               <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0114.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0020.49 15"></path></svg></span> Actualiser
+            </button>
+            <button id="btn-new-vente-par-employe" class="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 transition">
+              <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span> Nouvelle vente par employé
             </button>
             <button id="btn-new-user" class="btn-primary flex items-center gap-2">
               <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span> Nouvel utilisateur
@@ -170,6 +194,181 @@ export function viewEmployes(root) {
   }
 
 let cache = [];
+let rolesCache = [];
+let rolesById = new Map();
+const ROLE_OPTION_NONE = '__none__';
+const ROLE_OPTION_EMPTY = '__empty__';
+let ressourcesVenteCache = [];
+
+  const delegatedSaleBtn = document.getElementById('btn-new-vente-par-employe');
+  if (delegatedSaleBtn) {
+    delegatedSaleBtn.addEventListener('click', async () => {
+      try {
+        let fbInstance = getFirebase();
+        if (!fbInstance || !fbInstance.db) {
+          fbInstance = await waitForFirebase();
+        }
+
+        if (!fbInstance || !fbInstance.db) {
+          alertModal({ title: 'Erreur', message: 'Connexion à la base de données indisponible.', type: 'danger' });
+          return;
+        }
+
+        if (!ressourcesVenteCache || !ressourcesVenteCache.length) {
+          const resSnap = await getDocs(collection(fbInstance.db, 'ressources'));
+          ressourcesVenteCache = resSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        }
+
+        let employesDisponibles = Array.isArray(cache) && cache.length ? cache.slice() : [];
+        if (!employesDisponibles.length) {
+          const usersSnap = await getDocs(collection(fbInstance.db, 'users'));
+          employesDisponibles = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+          cache = employesDisponibles;
+        }
+
+        employesDisponibles = employesDisponibles.filter(u => u.active !== false);
+
+        if (!employesDisponibles.length) {
+          alertModal({ title: 'Aucun employé', message: 'Aucun employé actif n’a été trouvé pour enregistrer une vente.', type: 'warning' });
+          return;
+        }
+
+        if (!ressourcesVenteCache.length) {
+          alertModal({ title: 'Aucune ressource', message: 'Aucune ressource disponible pour enregistrer une vente.', type: 'warning' });
+          return;
+        }
+
+        const body = `
+          <div class="modal-field">
+            <label>Employé concerné *</label>
+            <select id="modal-employe-vente" required></select>
+            <div id="modal-employe-vente-info" class="text-sm text-slate-500 dark:text-slate-400 mt-2"></div>
+          </div>
+          <div class="modal-field">
+            <label>Date de la vente *</label>
+            <input id="modal-date-delegue" type="date" required />
+          </div>
+          <div class="modal-field">
+            <label>Type de ressource *</label>
+            <select id="modal-ressource-delegue" required></select>
+          </div>
+          <div class="modal-field">
+            <label>Nombre de ressources *</label>
+            <input id="modal-quantite-delegue" type="number" min="1" required placeholder="1" />
+          </div>
+        `;
+
+        createModal({
+          title: 'Nouvelle vente par employé',
+          body,
+          confirmText: 'Créer',
+          onConfirm: async () => {
+            const dateStr = document.getElementById('modal-date-delegue').value;
+            const ressourceId = document.getElementById('modal-ressource-delegue').value;
+            const quantite = parseInt(document.getElementById('modal-quantite-delegue').value, 10);
+            const employeId = document.getElementById('modal-employe-vente').value;
+
+            if (!employeId || !dateStr || !ressourceId || Number.isNaN(quantite) || quantite <= 0) {
+              alertModal({ title: 'Champs requis', message: 'Employé, date, ressource et quantité sont requis.', type: 'warning' });
+              return;
+            }
+
+            const selectedEmploye = employesDisponibles.find(u => u.id === employeId) || null;
+            const selectedRessource = ressourcesVenteCache.find(r => r.id === ressourceId) || null;
+
+            if (!selectedRessource) {
+              alertModal({ title: 'Ressource introuvable', message: 'La ressource sélectionnée est introuvable.', type: 'danger' });
+              return;
+            }
+
+            const { prenom, nom } = splitFullName(selectedEmploye?.name || '');
+            const telephone = selectedEmploye?.phone || '';
+            const tailleObjet = selectedRessource?.tailleObjet || 1;
+
+            try {
+              const dateVente = new Date(dateStr);
+              await addDoc(collection(fbInstance.db, 'ventes'), {
+                dateVente,
+                typeRessourceId: ressourceId,
+                quantite,
+                tailleObjet,
+                employeId,
+                prenom,
+                nom,
+                telephone,
+                statut: 'en attente',
+                createdAt: serverTimestamp()
+              });
+
+              await addLogEntry(fbInstance, { 
+                type: 'action', 
+                action: 'vente_create_deleguee', 
+                category: 'ventes',
+                message: `Création d'une vente pour ${selectedEmploye?.name || selectedEmploye?.email || employeId}: ${quantite} x ${selectedRessource?.nom || ressourceId}` 
+              });
+
+              alertModal({ 
+                title: 'Succès', 
+                message: `Vente enregistrée pour ${selectedEmploye?.name || selectedEmploye?.email || 'l\'employé sélectionné'}.`, 
+                type: 'success' 
+              });
+            } catch (error) {
+              console.error('Erreur création vente déléguée (Gestion Employé):', error);
+              alertModal({ title: 'Erreur', message: 'Erreur lors de la création de la vente.', type: 'danger' });
+            }
+          }
+        });
+
+        const selEmploye = document.getElementById('modal-employe-vente');
+        const selRessource = document.getElementById('modal-ressource-delegue');
+        const infoEmploye = document.getElementById('modal-employe-vente-info');
+        const dateInput = document.getElementById('modal-date-delegue');
+
+        if (selEmploye) {
+          const sortedEmployes = [...employesDisponibles].sort((a, b) => {
+            const nameA = (a.name || a.email || '').toLowerCase();
+            const nameB = (b.name || b.email || '').toLowerCase();
+            return nameA.localeCompare(nameB);
+          });
+          selEmploye.innerHTML = sortedEmployes
+            .map(u => `<option value="${u.id}">${(u.name || u.email || u.id)}</option>`)
+            .join('');
+
+          if (infoEmploye) {
+            infoEmploye.style.whiteSpace = 'pre-line';
+            const updateInfo = () => {
+              const selected = sortedEmployes.find(u => u.id === selEmploye.value) || null;
+              if (!selected) {
+                infoEmploye.textContent = 'Sélectionnez un employé pour afficher ses informations.';
+                return;
+              }
+              infoEmploye.textContent = [
+                `Nom complet : ${selected.name || '—'}`,
+                `Email : ${selected.email || '—'}`,
+                `Téléphone : ${selected.phone || '—'}`
+              ].join('\n');
+            };
+            selEmploye.addEventListener('change', updateInfo);
+            updateInfo();
+          }
+        }
+
+        if (selRessource) {
+          const sortedRessources = [...ressourcesVenteCache].sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
+          selRessource.innerHTML = sortedRessources
+            .map(r => `<option value="${r.id}">${r.nom || r.id}</option>`)
+            .join('');
+        }
+
+        if (dateInput) {
+          dateInput.valueAsDate = new Date();
+        }
+      } catch (error) {
+        console.error('Erreur lors de l’ouverture du modal de vente déléguée (Gestion Employé):', error);
+        alertModal({ title: 'Erreur', message: 'Impossible d’ouvrir la création de vente déléguée.', type: 'danger' });
+      }
+    });
+  }
 
 function generateTempPassword(length = 10) {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
@@ -178,6 +377,97 @@ function generateTempPassword(length = 10) {
     pwd += chars[Math.floor(Math.random() * chars.length)];
   }
   return pwd;
+}
+
+function getRoleDisplayInfo(scopeLabel, roleId) {
+  const hasAccess = roleId !== null && roleId !== undefined;
+  if (!hasAccess) {
+    return {
+      scope: scopeLabel,
+      text: 'Pas d\'accès',
+      className: 'badge-inactif'
+    };
+  }
+
+  if (roleId === '') {
+    return {
+      scope: scopeLabel,
+      text: 'Sans rôle',
+      className: 'badge-employe'
+    };
+  }
+
+  const roleData = rolesById.get(roleId) || null;
+  if (roleData) {
+    return {
+      scope: scopeLabel,
+      text: roleData.name || 'Rôle',
+      className: 'badge-employe'
+    };
+  }
+
+  return {
+    scope: scopeLabel,
+    text: 'Rôle introuvable',
+    className: 'badge-inactif'
+  };
+}
+
+function renderRoleBadges(roleEntrepriseId, roleEmployeId) {
+  const entreprise = getRoleDisplayInfo('Entreprise', roleEntrepriseId);
+  const employe = getRoleDisplayInfo('Employé', roleEmployeId);
+
+  const renderBadge = (info) => `
+    <span class="badge-role ${info.className}">
+      ${info.text}
+      <span style="margin-left: 0.35rem; font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.8;">(${info.scope})</span>
+    </span>
+  `;
+
+  return `
+    <div class="flex flex-col gap-1">
+      ${renderBadge(entreprise)}
+      ${renderBadge(employe)}
+    </div>
+  `;
+}
+
+function roleValueToOption(value, includeNoAccess = true) {
+  if ((value === null || value === undefined) && includeNoAccess) {
+    return ROLE_OPTION_NONE;
+  }
+  if (value === '') {
+    return ROLE_OPTION_EMPTY;
+  }
+  return value ?? (includeNoAccess ? ROLE_OPTION_NONE : ROLE_OPTION_EMPTY);
+}
+
+function optionToRoleValue(option, includeNoAccess = true) {
+  if (option === ROLE_OPTION_NONE) {
+    return includeNoAccess ? null : undefined;
+  }
+  if (option === ROLE_OPTION_EMPTY) {
+    return '';
+  }
+  return option;
+}
+
+function buildRoleOptions(roles, { includeNoAccess = true, includeEmpty = true, currentValue = null } = {}) {
+  const options = [];
+  const currentToken = roleValueToOption(currentValue, includeNoAccess);
+  if (includeNoAccess) {
+    options.push(`<option value="${ROLE_OPTION_NONE}" ${currentToken === ROLE_OPTION_NONE ? 'selected' : ''}>Pas d'accès</option>`);
+  }
+  if (includeEmpty) {
+    options.push(`<option value="${ROLE_OPTION_EMPTY}" ${currentToken === ROLE_OPTION_EMPTY ? 'selected' : ''}>Sans rôle</option>`);
+  }
+  if (roles.length > 0) {
+    options.push(...roles.map(role => `<option value="${role.id}" ${currentToken === role.id ? 'selected' : ''}>${role.name}</option>`));
+  }
+  if (options.length === 0) {
+    options.push('<option value="">Aucun rôle disponible</option>');
+  }
+  return options.join('');
 }
 
   function renderRows(list) {
@@ -191,15 +481,6 @@ function generateTempPassword(length = 10) {
     list.forEach(u => {
       const tr = document.createElement('tr');
       const initials = getInitials(u.name || u.email);
-      // Utiliser roleEntreprise au lieu de role
-      const roleEntrepriseId = u.roleEntreprise;
-      // Trouver le rôle dans rolesCache par ID
-      let roleData = null;
-      if (roleEntrepriseId && roleEntrepriseId !== "" && roleEntrepriseId !== null) {
-        roleData = rolesCache.find(r => r.id === roleEntrepriseId);
-      }
-      const roleDisplay = roleData ? roleData.name : (roleEntrepriseId === "" ? 'Sans rôle' : '—');
-      const roleBadgeClass = roleData ? 'badge-employe' : 'badge-employe';
       const isActive = u.active !== false;
       tr.innerHTML = `
         <td>
@@ -221,7 +502,7 @@ function generateTempPassword(length = 10) {
           </div>
         </td>
         <td>
-          <span class="badge-role ${roleBadgeClass}">${roleDisplay}</span>
+          ${renderRoleBadges(u.roleEntreprise, u.roleEmploye)}
         </td>
         <td>
           <span class="badge-role ${isActive ? 'badge-actif' : 'badge-inactif'}">${isActive ? 'actif' : 'inactif'}</span>
@@ -238,13 +519,12 @@ function generateTempPassword(length = 10) {
     });
     if (!list.length) tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="6">Aucun utilisateur</td></tr>';
     
-    // Update stats - utiliser roleEntreprise
+    // Update stats - accès espaces Entreprise et Employé
+    const hasAccess = (value) => value !== null && value !== undefined;
     document.getElementById('stat-total').textContent = String(cache.length);
     document.getElementById('stat-active').textContent = String(cache.filter(u => u.active !== false).length);
-    // Compter les utilisateurs avec un rôle Entreprise (non null et non vide)
-    const usersWithRoleEntreprise = cache.filter(u => u.roleEntreprise && u.roleEntreprise !== "" && u.roleEntreprise !== null);
-    document.getElementById('stat-admin').textContent = String(usersWithRoleEntreprise.length);
-    document.getElementById('stat-employe').textContent = String(cache.length - usersWithRoleEntreprise.length);
+    document.getElementById('stat-admin').textContent = String(cache.filter(u => hasAccess(u.roleEntreprise)).length);
+    document.getElementById('stat-employe').textContent = String(cache.filter(u => hasAccess(u.roleEmploye)).length);
   }
 
   function applyFilters() {
@@ -253,19 +533,39 @@ function generateTempPassword(length = 10) {
     const sf = document.getElementById('status-filter')?.value || '';
     const filtered = cache.filter(u => {
       const match = (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
-      // Filtrer par roleEntreprise
+      // Filtrer par rôle sélectionné
       let roleMatch = true;
       if (rf) {
-        const roleEntrepriseId = u.roleEntreprise;
-        if (roleEntrepriseId && roleEntrepriseId !== "" && roleEntrepriseId !== null) {
-          const roleData = rolesCache.find(r => r.id === roleEntrepriseId);
-          if (roleData) {
-            roleMatch = (roleData.name || '').toLowerCase() === rf;
+        const [scope, identifier] = rf.includes(':') ? rf.split(':') : ['legacy', rf];
+        if (scope === 'entreprise') {
+          if (identifier === '__empty__') {
+            roleMatch = u.roleEntreprise === '';
+          } else if (identifier === '__none__') {
+            roleMatch = u.roleEntreprise === null || u.roleEntreprise === undefined;
+          } else {
+            roleMatch = u.roleEntreprise === identifier;
+          }
+        } else if (scope === 'employe') {
+          if (identifier === '__empty__') {
+            roleMatch = u.roleEmploye === '';
+          } else if (identifier === '__none__') {
+            roleMatch = u.roleEmploye === null || u.roleEmploye === undefined;
+          } else {
+            roleMatch = u.roleEmploye === identifier;
+          }
+        } else {
+          // Compatibilité avec l'ancien filtre basé sur le nom du rôle Entreprise
+          const roleEntrepriseId = u.roleEntreprise;
+          if (roleEntrepriseId && roleEntrepriseId !== "" && roleEntrepriseId !== null) {
+            const roleData = rolesById.get(roleEntrepriseId);
+            if (roleData) {
+              roleMatch = (roleData.name || '').toLowerCase() === identifier.toLowerCase();
+            } else {
+              roleMatch = false;
+            }
           } else {
             roleMatch = false;
           }
-        } else {
-          roleMatch = false;
         }
       }
       const statusMatch = !sf || (sf === 'actif' && u.active !== false) || (sf === 'inactif' && u.active === false);
@@ -287,7 +587,7 @@ function generateTempPassword(length = 10) {
     try {
       const snap = await getDocs(collection(fb.db, 'users'));
       cache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      renderRows(cache);
+      applyFilters();
     } catch {}
   });
 
@@ -317,8 +617,14 @@ function generateTempPassword(length = 10) {
         <input id="modal-phone" type="tel" placeholder="0612345678" />
       </div>
       <div class="modal-field">
-        <label>Rôle *</label>
-        <select id="modal-role" required></select>
+        <label>Rôle (Espace Entreprise) *</label>
+        <select id="modal-role-entreprise" required></select>
+        <p class="text-xs text-slate-500 mt-1">Définit les permissions dans l'espace Entreprise.</p>
+      </div>
+      <div class="modal-field">
+        <label>Rôle (Espace Employé)</label>
+        <select id="modal-role-employe"></select>
+        <p class="text-xs text-slate-500 mt-1">Définit les permissions dans l'espace Employé. Choisissez "Pas d'accès" pour retirer l'accès.</p>
       </div>
       <div class="modal-field">
         <label>Mot de passe initial *</label>
@@ -335,7 +641,8 @@ function generateTempPassword(length = 10) {
         const name = document.getElementById('modal-name').value.trim();
         let emailRaw = document.getElementById('modal-email').value.trim();
         const phone = document.getElementById('modal-phone').value.trim();
-        const role = document.getElementById('modal-role').value;
+        const roleEntrepriseSelection = document.getElementById('modal-role-entreprise').value;
+        const roleEmployeSelection = document.getElementById('modal-role-employe')?.value ?? ROLE_OPTION_NONE;
         const tempPassword = document.getElementById('modal-temp-password').value.trim();
         
         if (!name) {
@@ -378,6 +685,16 @@ function generateTempPassword(length = 10) {
           alertModal({ title: 'Mot de passe requis', message: 'Veuillez renseigner un mot de passe provisoire.', type: 'warning' });
           return;
         }
+        if (!roleEntrepriseSelection) {
+          alertModal({ title: 'Rôle requis', message: 'Veuillez sélectionner un rôle pour l\'espace Entreprise.', type: 'warning' });
+          return;
+        }
+        const roleEntrepriseValue = optionToRoleValue(roleEntrepriseSelection, false);
+        if (roleEntrepriseValue === undefined) {
+          alertModal({ title: 'Rôle invalide', message: 'Sélection de rôle Entreprise incorrecte.', type: 'warning' });
+          return;
+        }
+        const roleEmployeValue = optionToRoleValue(roleEmployeSelection, true);
         try {
           let fbInstance = fb;
           if (!fbInstance || !fbInstance.auth) {
@@ -424,9 +741,8 @@ function generateTempPassword(length = 10) {
           const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
           const createdBy = authState?.uid || null;
 
-          // Trouver le rôle par nom dans rolesCache pour obtenir l'ID
-          const selectedRole = rolesCache.find(r => (r.name || '').toLowerCase() === role.toLowerCase());
-          const roleEntrepriseId = selectedRole ? selectedRole.id : null;
+          const roleEntrepriseId = typeof roleEntrepriseValue === 'string' ? roleEntrepriseValue : '';
+          const roleEmployeId = typeof roleEmployeValue === 'string' ? roleEmployeValue : roleEmployeValue === '' ? '' : null;
           
           const cred = await createUserWithEmailAndPassword(fbInstance.auth, email, tempPassword);
           await setDoc(doc(fbInstance.db, 'users', cred.user.uid), {
@@ -434,19 +750,32 @@ function generateTempPassword(length = 10) {
             email,
             phone: phone || null,
             roleEntreprise: roleEntrepriseId || "",
+            roleEmploye: roleEmployeId !== undefined ? roleEmployeId : null,
             active: true,
             initialPassword: tempPassword,
             createdAt: serverTimestamp(),
             createdBy
           });
 
-          cache.push({ id: cred.user.uid, name, email, phone, roleEntreprise: roleEntrepriseId || "", active: true, initialPassword: tempPassword, createdAt: new Date() });
-          renderRows(cache);
+          cache.push({
+            id: cred.user.uid,
+            name,
+            email,
+            phone,
+            roleEntreprise: roleEntrepriseId || "",
+            roleEmploye: roleEmployeId !== undefined ? roleEmployeId : null,
+            active: true,
+            initialPassword: tempPassword,
+            createdAt: new Date()
+          });
+          applyFilters();
+          const entrepriseLabel = getRoleDisplayInfo('Entreprise', roleEntrepriseId || '').text;
+          const employeLabel = getRoleDisplayInfo('Employé', roleEmployeId !== undefined ? roleEmployeId : null).text;
           await addLogEntry(fbInstance, { 
             type: 'action', 
             action: 'user_create', 
             category: 'utilisateurs',
-            message: `Création de l'utilisateur "${name || email}" (${email})` 
+            message: `Création de l'utilisateur "${name || email}" (${email}) - Entreprise: ${entrepriseLabel} | Employé: ${employeLabel}` 
           });
           alertModal({ title: 'Succès', message: `Utilisateur créé avec succès.<br><strong>Mot de passe :</strong> ${tempPassword}`, type: 'success' });
         } catch (e) { 
@@ -467,10 +796,29 @@ function generateTempPassword(length = 10) {
       }
     });
     // Remplir la liste des rôles depuis la BDD - uniquement les rôles de l'espace Entreprise
-    const sel = document.getElementById('modal-role');
-    if (sel) {
+    const entrepriseSelect = document.getElementById('modal-role-entreprise');
+    const employeSelect = document.getElementById('modal-role-employe');
+    if (entrepriseSelect || employeSelect) {
+      if (!rolesCache || rolesCache.length === 0) {
+        try {
+          const fbInstance = getFirebase();
+          if (fbInstance?.db) {
+            const rs = await getDocs(collection(fbInstance.db, 'roles'));
+            rolesCache = rs.docs.map(d => ({ id: d.id, ...d.data() }));
+            rolesById = new Map(rolesCache.map(r => [r.id, r]));
+          }
+        } catch (err) {
+          console.error('Erreur chargement rôles:', err);
+        }
+      }
+    }
+    if (entrepriseSelect) {
       const entrepriseRoles = rolesCache.filter(r => r.permissions && r.permissions.entreprise === true);
-      sel.innerHTML = entrepriseRoles.map(r => `<option value="${(r.name||'').toLowerCase()}">${r.name}</option>`).join('') || '<option value="">Aucun rôle disponible</option>';
+      entrepriseSelect.innerHTML = buildRoleOptions(entrepriseRoles, { includeNoAccess: false, includeEmpty: true, currentValue: '' });
+    }
+    if (employeSelect) {
+      const employeRoles = rolesCache.filter(r => r.permissions && r.permissions.employe === true);
+      employeSelect.innerHTML = buildRoleOptions(employeRoles, { includeNoAccess: true, includeEmpty: true, currentValue: null });
     }
     const tempField = document.getElementById('modal-temp-password');
     if (tempField) {
@@ -545,14 +893,19 @@ function generateTempPassword(length = 10) {
               <div class="view-item-label">Rôle (Espace Entreprise)</div>
               <div class="view-item-value">
                 ${(() => {
-                  const roleEntrepriseId = user.roleEntreprise;
-                  if (roleEntrepriseId && roleEntrepriseId !== "" && roleEntrepriseId !== null) {
-                    const roleData = rolesCache.find(r => r.id === roleEntrepriseId);
-                    const roleName = roleData ? roleData.name : 'Rôle non trouvé';
-                    return `<span class="view-badge badge-role badge-employe">${roleName}</span>`;
-                  } else {
-                    return '<span class="view-badge badge-role badge-employe">Sans rôle</span>';
-                  }
+                  const value = user.roleEntreprise;
+                  const info = getRoleDisplayInfo('Entreprise', value);
+                  return `<span class="view-badge badge-role ${info.className}">${info.text}</span>`;
+                })()}
+              </div>
+            </div>
+            <div class="view-item">
+              <div class="view-item-label">Rôle (Espace Employé)</div>
+              <div class="view-item-value">
+                ${(() => {
+                  const value = user.roleEmploye;
+                  const info = getRoleDisplayInfo('Employé', value);
+                  return `<span class="view-badge badge-role ${info.className}">${info.text}</span>`;
                 })()}
               </div>
             </div>
@@ -587,8 +940,12 @@ function generateTempPassword(length = 10) {
           <input id="modal-edit-phone" type="tel" value="${user.phone || ''}" />
         </div>
         <div class="modal-field">
-          <label>Rôle *</label>
-          <select id="modal-edit-role" required></select>
+          <label>Rôle (Espace Entreprise) *</label>
+          <select id="modal-edit-role-entreprise" required></select>
+        </div>
+        <div class="modal-field">
+          <label>Rôle (Espace Employé)</label>
+          <select id="modal-edit-role-employe"></select>
         </div>
         <div class="modal-field">
           <label class="block mb-2">Utilisateur actif</label>
@@ -602,22 +959,37 @@ function generateTempPassword(length = 10) {
           const name = document.getElementById('modal-edit-name').value.trim();
           const email = document.getElementById('modal-edit-email').value.trim();
           const phone = document.getElementById('modal-edit-phone').value.trim();
-          const roleName = document.getElementById('modal-edit-role').value;
+          const roleEntrepriseSelection = document.getElementById('modal-edit-role-entreprise').value;
+          const roleEmployeSelection = document.getElementById('modal-edit-role-employe')?.value ?? ROLE_OPTION_NONE;
           const active = document.getElementById('modal-edit-active').classList.contains('on');
           if (!name || !email) {
             alertModal({ title: 'Champs requis', message: 'Nom et email sont requis.', type: 'warning' });
             return;
           }
-          if (!roleName) {
-            alertModal({ title: 'Rôle requis', message: 'Veuillez sélectionner un rôle.', type: 'warning' });
+          if (!roleEntrepriseSelection) {
+            alertModal({ title: 'Rôle requis', message: 'Veuillez sélectionner un rôle pour l\'espace Entreprise.', type: 'warning' });
             return;
           }
+          const roleEntrepriseValue = optionToRoleValue(roleEntrepriseSelection, false);
+          if (roleEntrepriseValue === undefined) {
+            alertModal({ title: 'Rôle invalide', message: 'Sélection de rôle Entreprise incorrecte.', type: 'warning' });
+            return;
+          }
+          const roleEmployeValue = optionToRoleValue(roleEmployeSelection, true);
           try {
-            // Trouver le rôle par nom dans rolesCache pour obtenir l'ID
-            const selectedRole = rolesCache.find(r => (r.name || '').toLowerCase() === roleName.toLowerCase());
-            const roleEntrepriseId = selectedRole ? selectedRole.id : "";
+            const roleEntrepriseId = typeof roleEntrepriseValue === 'string' ? roleEntrepriseValue : '';
+            const roleEmployeId = typeof roleEmployeValue === 'string'
+              ? roleEmployeValue
+              : roleEmployeValue === '' ? '' : null;
             
-            await updateDoc(doc(fb.db, 'users', id), { name, email, phone: phone || null, roleEntreprise: roleEntrepriseId, active });
+            await updateDoc(doc(fb.db, 'users', id), { 
+              name, 
+              email, 
+              phone: phone || null, 
+              roleEntreprise: roleEntrepriseId || "", 
+              roleEmploye: roleEmployeId !== undefined ? roleEmployeId : null,
+              active 
+            });
             
             // Si c'est l'utilisateur connecté qui a été modifié, invalider le cache du profil
             const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
@@ -632,6 +1004,7 @@ function generateTempPassword(length = 10) {
             try {
               const rs = await getDocs(collection(fb.db, 'roles'));
               rolesCache = rs.docs.map(d => ({ id: d.id, ...d.data() }));
+              rolesById = new Map(rolesCache.map(r => [r.id, r]));
             } catch (err) {
               console.error('Erreur rechargement rôles:', err);
             }
@@ -650,11 +1023,13 @@ function generateTempPassword(length = 10) {
               }
             }
             
+            const entrepriseLabel = getRoleDisplayInfo('Entreprise', roleEntrepriseId || '').text;
+            const employeLabel = getRoleDisplayInfo('Employé', roleEmployeId !== undefined ? roleEmployeId : null).text;
             await addLogEntry(fb, { 
               type: 'action', 
               action: 'user_update', 
               category: 'utilisateurs',
-              message: `Modification de l'utilisateur "${name || email}" - Rôle Entreprise: ${roleName}` 
+              message: `Modification de l'utilisateur "${name || email}" - Entreprise: ${entrepriseLabel} | Employé: ${employeLabel}` 
             });
             alertModal({ title: 'Succès', message: 'Utilisateur modifié avec succès.', type: 'success' });
           } catch (err) {
@@ -666,32 +1041,24 @@ function generateTempPassword(length = 10) {
       // remplir rôles - s'assurer que rolesCache est chargé
       // Utiliser setTimeout pour s'assurer que le DOM est mis à jour
       setTimeout(async () => {
-        const sel = document.getElementById('modal-edit-role');
-        if (sel) {
-          // Si rolesCache est vide, le charger d'abord
-          if (!rolesCache || rolesCache.length === 0) {
-            try {
-              const rs = await getDocs(collection(fb.db, 'roles'));
-              rolesCache = rs.docs.map(d => ({ id: d.id, ...d.data() }));
-            } catch (err) {
-              console.error('Erreur chargement rôles:', err);
-            }
+        const entrepriseSelect = document.getElementById('modal-edit-role-entreprise');
+        const employeSelect = document.getElementById('modal-edit-role-employe');
+        if (!rolesCache || rolesCache.length === 0) {
+          try {
+            const rs = await getDocs(collection(fb.db, 'roles'));
+            rolesCache = rs.docs.map(d => ({ id: d.id, ...d.data() }));
+            rolesById = new Map(rolesCache.map(r => [r.id, r]));
+          } catch (err) {
+            console.error('Erreur chargement rôles:', err);
           }
-          // Remplir le select avec les rôles disponibles - uniquement les rôles de l'espace Entreprise
+        }
+        if (entrepriseSelect) {
           const entrepriseRoles = rolesCache.filter(r => r.permissions && r.permissions.entreprise === true);
-          const currentRoleEntrepriseId = user.roleEntreprise;
-          let currentRoleName = '';
-          if (currentRoleEntrepriseId && currentRoleEntrepriseId !== "" && currentRoleEntrepriseId !== null) {
-            const currentRoleData = rolesCache.find(r => r.id === currentRoleEntrepriseId);
-            if (currentRoleData) {
-              currentRoleName = (currentRoleData.name || '').toLowerCase();
-            }
-          }
-          sel.innerHTML = entrepriseRoles.map(r => {
-            const v = (r.name||'').toLowerCase();
-            const selected = v === currentRoleName;
-            return `<option value="${v}" ${selected ? 'selected' : ''}>${r.name}</option>`;
-          }).join('') || '<option value="">Aucun rôle disponible</option>';
+          entrepriseSelect.innerHTML = buildRoleOptions(entrepriseRoles, { includeNoAccess: false, includeEmpty: true, currentValue: user.roleEntreprise ?? '' });
+        }
+        if (employeSelect) {
+          const employeRoles = rolesCache.filter(r => r.permissions && r.permissions.employe === true);
+          employeSelect.innerHTML = buildRoleOptions(employeRoles, { includeNoAccess: true, includeEmpty: true, currentValue: user.roleEmploye ?? null });
         }
       }, 10);
       return;
@@ -723,7 +1090,6 @@ function generateTempPassword(length = 10) {
     }
   });
 
-  let rolesCache = [];
   (async () => {
     try {
       const fb = getFirebase();
@@ -757,12 +1123,29 @@ function generateTempPassword(length = 10) {
       try {
         const rs = await getDocs(collection(fb.db, 'roles'));
         rolesCache = rs.docs.map(d => ({ id: d.id, ...d.data() }));
+        rolesById = new Map(rolesCache.map(r => [r.id, r]));
         const rf = document.getElementById('role-filter');
         if (rf) {
-          // Filtrer uniquement les rôles de l'espace Entreprise
           const entrepriseRoles = rolesCache.filter(r => r.permissions && r.permissions.entreprise === true);
-          rf.innerHTML = '<option value="">Tous les rôles</option>' +
-            (entrepriseRoles.map(r => `<option value="${(r.name||'').toLowerCase()}">${r.name}</option>`).join('') || '<option value="">Aucun rôle disponible</option>');
+          const employeRoles = rolesCache.filter(r => r.permissions && r.permissions.employe === true);
+          
+          const entrepriseOptions = entrepriseRoles.length > 0
+            ? `<optgroup label="Espace Entreprise">
+                <option value="entreprise:${ROLE_OPTION_EMPTY}">Sans rôle</option>
+                <option value="entreprise:${ROLE_OPTION_NONE}">Pas d'accès</option>
+                ${entrepriseRoles.map(r => `<option value="entreprise:${r.id}">${r.name}</option>`).join('')}
+              </optgroup>`
+            : '';
+          
+          const employeOptions = employeRoles.length > 0
+            ? `<optgroup label="Espace Employé">
+                <option value="employe:${ROLE_OPTION_EMPTY}">Sans rôle</option>
+                <option value="employe:${ROLE_OPTION_NONE}">Pas d'accès</option>
+                ${employeRoles.map(r => `<option value="employe:${r.id}">${r.name}</option>`).join('')}
+              </optgroup>`
+            : '';
+
+          rf.innerHTML = `<option value="">Tous les rôles</option>${entrepriseOptions}${employeOptions}` || '<option value="">Aucun rôle disponible</option>';
         }
       } catch {}
 

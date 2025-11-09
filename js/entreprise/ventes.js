@@ -29,7 +29,14 @@ export function viewVentes(root) {
                 <div id="sb-email" class="user-handle text-xs opacity-70">—</div>
               </div>
             </div>
-            <div id="sb-role" class="badge-role badge-employe mt-2 inline-block text-xs">Employé</div>
+            <div
+              id="sb-role"
+              class="badge-role badge-employe mt-2 inline-block text-xs"
+              data-role-field="roleEntreprise"
+              data-default-label="Sans rôle"
+              data-empty-label="Sans rôle"
+              data-role-class="badge-employe"
+            >Employé</div>
           </a>
           <div class="section-title">Entreprise</div>
           <nav class="nav-links">
@@ -173,11 +180,16 @@ export function viewVentes(root) {
 
           <!-- Tab 1: Gestion Ventes -->
           <div id="tab-ventes" class="tab-content active">
-            <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
               <h3 class="font-medium text-lg">Liste complète des ventes</h3>
-              <button id="btn-new-vente" class="btn-primary flex items-center gap-2">
-                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span> Nouvelle vente
-              </button>
+              <div class="flex items-center gap-2 flex-wrap">
+                <button id="btn-new-vente" class="btn-primary flex items-center gap-2">
+                  <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span> Nouvelle vente
+                </button>
+                <button id="btn-new-vente-par-employe" class="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 transition">
+                  <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span> Nouvelle vente par employé
+                </button>
+              </div>
             </div>
             <div class="user-table">
               <table>
@@ -464,6 +476,20 @@ export function viewVentes(root) {
     const parts = num.toFixed(2).split('.');
     const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
     return integerPart + ',' + parts[1];
+  }
+
+  function splitFullName(fullName = '') {
+    const parts = (fullName || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) {
+      return { prenom: '', nom: '' };
+    }
+    if (parts.length === 1) {
+      return { prenom: parts[0], nom: '' };
+    }
+    return {
+      prenom: parts[0],
+      nom: parts.slice(1).join(' ')
+    };
   }
 
   async function loadStats() {
@@ -1370,6 +1396,179 @@ export function viewVentes(root) {
     }
     document.getElementById('modal-date').valueAsDate = new Date();
   });
+
+  const btnNewVenteParEmploye = card.querySelector('#btn-new-vente-par-employe');
+  if (btnNewVenteParEmploye) {
+    btnNewVenteParEmploye.addEventListener('click', async () => {
+      try {
+        const fb = getFirebase();
+        if (!fb || !fb.db) {
+          alertModal({ title: 'Erreur', message: 'Connexion à la base de données indisponible.', type: 'danger' });
+          return;
+        }
+
+        if (!ressourcesCache || !ressourcesCache.length) {
+          const resSnap = await getDocs(collection(fb.db, 'ressources'));
+          ressourcesCache = resSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        }
+
+        if (!usersCache || !usersCache.length) {
+          const usersSnap = await getDocs(collection(fb.db, 'users'));
+          usersCache = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        }
+
+        const employesDisponibles = (usersCache || []).filter(u => u.active !== false);
+        if (!employesDisponibles.length) {
+          alertModal({ title: 'Aucun employé', message: 'Aucun employé actif n’a été trouvé pour enregistrer une vente.', type: 'warning' });
+          return;
+        }
+
+        if (!ressourcesCache.length) {
+          alertModal({ title: 'Aucune ressource', message: 'Aucune ressource disponible pour enregistrer une vente.', type: 'warning' });
+          return;
+        }
+
+        const body = `
+          <div class="modal-field">
+            <label>Employé concerné *</label>
+            <select id="modal-employe-vente" required></select>
+            <div id="modal-employe-vente-info" class="text-sm text-slate-500 dark:text-slate-400 mt-2"></div>
+          </div>
+          <div class="modal-field">
+            <label>Date de la vente *</label>
+            <input id="modal-date-delegue" type="date" required />
+          </div>
+          <div class="modal-field">
+            <label>Type de ressource *</label>
+            <select id="modal-ressource-delegue" required></select>
+          </div>
+          <div class="modal-field">
+            <label>Nombre de ressources *</label>
+            <input id="modal-quantite-delegue" type="number" min="1" required placeholder="1" />
+          </div>
+        `;
+
+        createModal({
+          title: 'Nouvelle vente par employé',
+          body,
+          confirmText: 'Créer',
+          onConfirm: async () => {
+            const dateStr = document.getElementById('modal-date-delegue').value;
+            const ressourceId = document.getElementById('modal-ressource-delegue').value;
+            const quantite = parseInt(document.getElementById('modal-quantite-delegue').value, 10);
+            const employeId = document.getElementById('modal-employe-vente').value;
+
+            if (!employeId || !dateStr || !ressourceId || Number.isNaN(quantite) || quantite <= 0) {
+              alertModal({ title: 'Champs requis', message: 'Employé, date, ressource et quantité sont requis.', type: 'warning' });
+              return;
+            }
+
+            const selectedEmploye = usersCache.find(u => u.id === employeId) || null;
+            const selectedRessource = ressourcesCache.find(r => r.id === ressourceId) || null;
+
+            if (!selectedRessource) {
+              alertModal({ title: 'Ressource introuvable', message: 'La ressource sélectionnée est introuvable.', type: 'danger' });
+              return;
+            }
+
+            const { prenom, nom } = splitFullName(selectedEmploye?.name || '');
+            const telephone = selectedEmploye?.phone || '';
+            const tailleObjet = selectedRessource?.tailleObjet || 1;
+
+            try {
+              const dateVente = new Date(dateStr);
+              await addDoc(collection(fb.db, 'ventes'), {
+                dateVente,
+                typeRessourceId: ressourceId,
+                quantite,
+                tailleObjet,
+                employeId,
+                prenom,
+                nom,
+                telephone,
+                statut: 'en attente',
+                createdAt: serverTimestamp()
+              });
+
+              await addLogEntry(fb, { 
+                type: 'action', 
+                action: 'vente_create_deleguee', 
+                category: 'ventes',
+                message: `Création d'une vente pour ${selectedEmploye?.name || selectedEmploye?.email || employeId}: ${quantite} x ${selectedRessource?.nom || ressourceId}` 
+              });
+
+              loadStats();
+              loadVentes();
+              loadStockage();
+              if (currentTab === 'ventes-employe') {
+                const selectEmployeTab = document.getElementById('select-employe');
+                if (selectEmployeTab && selectEmployeTab.value === employeId) {
+                  loadVentesEmploye();
+                }
+              }
+
+              alertModal({ 
+                title: 'Succès', 
+                message: `Vente enregistrée pour ${selectedEmploye?.name || selectedEmploye?.email || 'l\'employé sélectionné'}.`, 
+                type: 'success' 
+              });
+            } catch (error) {
+              console.error('Erreur création vente déléguée:', error);
+              alertModal({ title: 'Erreur', message: 'Erreur lors de la création de la vente.', type: 'danger' });
+            }
+          }
+        });
+
+        const selEmploye = document.getElementById('modal-employe-vente');
+        const selRessource = document.getElementById('modal-ressource-delegue');
+        const infoEmploye = document.getElementById('modal-employe-vente-info');
+        const dateInput = document.getElementById('modal-date-delegue');
+
+        if (selEmploye) {
+          const sortedEmployes = [...employesDisponibles].sort((a, b) => {
+            const nameA = (a.name || a.email || '').toLowerCase();
+            const nameB = (b.name || b.email || '').toLowerCase();
+            return nameA.localeCompare(nameB);
+          });
+          selEmploye.innerHTML = sortedEmployes
+            .map(u => `<option value="${u.id}">${(u.name || u.email || u.id)}</option>`)
+            .join('');
+
+          if (infoEmploye) {
+            infoEmploye.style.whiteSpace = 'pre-line';
+            const updateInfo = () => {
+              const selected = sortedEmployes.find(u => u.id === selEmploye.value) || null;
+              if (!selected) {
+                infoEmploye.textContent = 'Sélectionnez un employé pour afficher ses informations.';
+                return;
+              }
+              infoEmploye.textContent = [
+                `Nom complet : ${selected.name || '—'}`,
+                `Email : ${selected.email || '—'}`,
+                `Téléphone : ${selected.phone || '—'}`
+              ].join('\n');
+            };
+            selEmploye.addEventListener('change', updateInfo);
+            updateInfo();
+          }
+        }
+
+        if (selRessource) {
+          const sortedRessources = [...ressourcesCache].sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
+          selRessource.innerHTML = sortedRessources
+            .map(r => `<option value="${r.id}">${r.nom || r.id}</option>`)
+            .join('');
+        }
+
+        if (dateInput) {
+          dateInput.valueAsDate = new Date();
+        }
+      } catch (err) {
+        console.error('Erreur lors de l’ouverture du modal de vente déléguée:', err);
+        alertModal({ title: 'Erreur', message: 'Impossible d’ouvrir la création de vente déléguée.', type: 'danger' });
+      }
+    });
+  }
 
   // New ressource
   card.querySelector('#btn-new-ressource').addEventListener('click', () => {
