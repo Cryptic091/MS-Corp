@@ -1,4 +1,4 @@
-import { html, mount, getCachedProfile, loadUserProfile, createModal, updateNavPermissions, alertModal, updateAvatar, isAuthenticated, updateRoleBadge } from '../utils.js';
+import { html, mount, getCachedProfile, loadUserProfile, createModal, updateNavPermissions, alertModal, updateAvatar, isAuthenticated, updateRoleBadge, applyPagePermissions } from '../utils.js';
 import { getFirebase, waitForFirebase, collection, getDocs, query, orderBy, limit, where, addDoc, serverTimestamp, signOut, doc, getDoc } from '../firebase.js';
 import { addLogEntry } from '../firebase.js';
 import { formatDate } from '../utils.js';
@@ -27,7 +27,6 @@ export function viewFinance(root) {
           <div class="section-title">Entreprise</div>
           <nav class="nav-links">
             <a href="#/entreprise" class="nav-item"><span class="nav-icon"></span>Gestion Employé</a>
-            <a href="#/entreprise/roles" class="nav-item"><span class="nav-icon"></span>Rôle & Permission</a>
             <a href="#/entreprise/ventes" class="nav-item"><span class="nav-icon"></span>Gestion Vente</a>
             <a href="#/entreprise/finance" class="active nav-item"><span class="nav-icon"></span>Gestion Finance</a>
             <a href="#/entreprise/flotte" class="nav-item"><span class="nav-icon"></span>Gestion Flotte</a>
@@ -311,6 +310,13 @@ export function viewFinance(root) {
 
       // Mettre à jour la navigation selon les permissions
       await updateNavPermissions();
+      
+      // Appliquer les permissions pour les actions de la page
+      await applyPagePermissions({
+        create: 'finance',
+        edit: 'finance',
+        delete: 'finance'
+      });
 
       loadFinance();
     } catch (e) { console.error(e); }

@@ -1,4 +1,4 @@
-import { html, mount, getCachedProfile, loadUserProfile, updateAvatar, isAuthenticated, updateNavPermissions, updateRoleBadge } from '../utils.js';
+import { html, mount, getCachedProfile, loadUserProfile, updateAvatar, isAuthenticated, updateNavPermissions, updateRoleBadge, applyPagePermissions } from '../utils.js';
 import { getFirebase, waitForFirebase, signOut } from '../firebase.js';
 import { addLogEntry } from '../firebase.js';
 
@@ -26,7 +26,6 @@ export function viewCalculatrice(root) {
           <div class="section-title">Entreprise</div>
           <nav class="nav-links">
             <a href="#/entreprise" class="nav-item"><span class="nav-icon"></span>Gestion Employé</a>
-            <a href="#/entreprise/roles" class="nav-item"><span class="nav-icon"></span>Rôle & Permission</a>
             <a href="#/entreprise/ventes" class="nav-item"><span class="nav-icon"></span>Gestion Vente</a>
             <a href="#/entreprise/finance" class="nav-item"><span class="nav-icon"></span>Gestion Finance</a>
             <a href="#/entreprise/flotte" class="nav-item"><span class="nav-icon"></span>Gestion Flotte</a>
@@ -151,6 +150,13 @@ export function viewCalculatrice(root) {
     const rb = document.getElementById('sb-role');
     if (rb) await updateRoleBadge(rb);
     updateNavPermissions();
+    
+    // Appliquer les permissions pour les actions de la page
+    await applyPagePermissions({
+      create: 'calculatrice',
+      edit: 'calculatrice',
+      delete: 'calculatrice'
+    });
   })();
 
   // Logique de la calculatrice

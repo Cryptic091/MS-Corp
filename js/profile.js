@@ -1,4 +1,4 @@
-import { html, mount, getCachedProfile, loadUserProfile, formatDate, checkPermission, createModal, alertModal, confirmModal, getRoleDisplayName } from './utils.js';
+import { html, mount, getCachedProfile, loadUserProfile, formatDate, checkPermission, createModal, alertModal, confirmModal, getRoleDisplayName, updateAvatar } from './utils.js';
 import { getFirebase, waitForFirebase, collection, getDocs, query, where, doc, getDoc, addDoc, serverTimestamp, updateDoc, deleteDoc, ref, uploadBytes, getDownloadURL, deleteObject, addLogEntry } from './firebase.js';
 
 function getInitials(name) {
@@ -76,6 +76,12 @@ export function viewProfile(root, context = 'entreprise') {
                 <div class="flex items-center gap-3 flex-wrap">
                   <div id="profile-role-badge" class="badge-role badge-employe">Employé</div>
                   <div id="profile-status-badge" class="badge-role badge-actif">Actif</div>
+                </div>
+                <div class="mt-4">
+                  <div class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">Accès aux Espaces</div>
+                  <div id="profile-spaces-access" class="flex flex-wrap gap-2">
+                    <!-- Les espaces accessibles seront injectés dynamiquement -->
+                  </div>
                 </div>
               </div>
               <div class="flex-shrink-0 text-right">
@@ -312,24 +318,17 @@ export function viewProfile(root, context = 'entreprise') {
       }
       
       // Mettre à jour la carte profil principale
-      const initials = getInitials(profile.name || profile.email || 'MS');
       const profileAvatar = document.getElementById('profile-avatar');
       if (profileAvatar) {
-        profileAvatar.style.backgroundImage = "url('images/MScorp.png')";
-        profileAvatar.style.backgroundSize = 'cover';
-        profileAvatar.style.backgroundPosition = 'center';
-        profileAvatar.textContent = '';
+        updateAvatar(profileAvatar, profile);
       }
       
       // Mettre à jour la prévisualisation de la photo dans les paramètres
       const photoPreview = document.getElementById('profile-photo-preview');
       if (photoPreview) {
-        photoPreview.style.backgroundImage = "url('images/MScorp.png')";
-        photoPreview.style.backgroundSize = 'cover';
-        photoPreview.style.backgroundPosition = 'center';
-        photoPreview.textContent = '';
+        updateAvatar(photoPreview, profile);
         const btnRemovePhoto = document.getElementById('btn-remove-photo');
-        if (btnRemovePhoto) btnRemovePhoto.style.display = 'none';
+        if (btnRemovePhoto) btnRemovePhoto.style.display = profile.photoUrl ? 'block' : 'none';
       }
       const profileName = document.getElementById('profile-name');
       if (profileName) profileName.textContent = profile.name || 'Utilisateur';
@@ -358,6 +357,9 @@ export function viewProfile(root, context = 'entreprise') {
         }
       }
       
+      // Afficher les accès aux espaces
+      await displaySpacesAccess(profile);
+      
       // Vérifier les permissions pour afficher les onglets
       const hasEmploye = await checkPermission('employe');
       
@@ -382,6 +384,89 @@ export function viewProfile(root, context = 'entreprise') {
       console.error('Erreur chargement profil:', e);
     }
   })();
+}
+
+async function displaySpacesAccess(profile) {
+  try {
+    const spacesContainer = document.getElementById('profile-spaces-access');
+    if (!spacesContainer) return;
+    
+    const fb = getFirebase();
+    if (!fb || !fb.db) return;
+    
+    // Charger les rôles depuis Firestore
+    const rolesSnap = await getDocs(collection(fb.db, 'roles'));
+    const rolesCache = rolesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    
+    const espacesAccessibles = [];
+    
+    // Vérifier chaque espace et récupérer le rôle correspondant
+    if (profile.roleEntreprise && profile.roleEntreprise !== "" && profile.roleEntreprise !== null) {
+      const role = rolesCache.find(r => r.id === profile.roleEntreprise);
+      const roleName = role ? role.name : 'Sans rôle';
+      espacesAccessibles.push({
+        name: 'Entreprise',
+        role: roleName,
+        color: 'blue'
+      });
+    }
+    
+    if (profile.roleEmploye && profile.roleEmploye !== "" && profile.roleEmploye !== null) {
+      const role = rolesCache.find(r => r.id === profile.roleEmploye);
+      const roleName = role ? role.name : 'Sans rôle';
+      espacesAccessibles.push({
+        name: 'Employé',
+        role: roleName,
+        color: 'green'
+      });
+    }
+    
+    if (profile.roleIllegale && profile.roleIllegale !== "" && profile.roleIllegale !== null) {
+      const role = rolesCache.find(r => r.id === profile.roleIllegale);
+      const roleName = role ? role.name : 'Sans rôle';
+      espacesAccessibles.push({
+        name: 'Illégale',
+        role: roleName,
+        color: 'red'
+      });
+    }
+    
+    if (profile.roleGestionGenerale && profile.roleGestionGenerale !== "" && profile.roleGestionGenerale !== null) {
+      const role = rolesCache.find(r => r.id === profile.roleGestionGenerale);
+      const roleName = role ? role.name : 'Sans rôle';
+      espacesAccessibles.push({
+        name: 'Gestion Générale',
+        role: roleName,
+        color: 'purple'
+      });
+    }
+    
+    if (espacesAccessibles.length === 0) {
+      spacesContainer.innerHTML = '<span class="text-xs text-slate-400">Aucun espace accessible</span>';
+    } else {
+      spacesContainer.innerHTML = espacesAccessibles.map(espace => {
+        const colorClasses = {
+          blue: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+          green: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300',
+          red: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
+          purple: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+        };
+        return `
+          <div class="px-3 py-1.5 rounded-lg text-xs font-medium ${colorClasses[espace.color]} flex items-center gap-2">
+            <span>${espace.name}</span>
+            <span class="opacity-70">•</span>
+            <span class="opacity-80">${espace.role}</span>
+          </div>
+        `;
+      }).join('');
+    }
+  } catch (e) {
+    console.error('Erreur affichage accès espaces:', e);
+    const spacesContainer = document.getElementById('profile-spaces-access');
+    if (spacesContainer) {
+      spacesContainer.innerHTML = '<span class="text-xs text-slate-400">Erreur lors du chargement</span>';
+    }
+  }
 }
 
 async function setupTabs(hasEmploye) {

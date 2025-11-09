@@ -1,5 +1,4 @@
 import { viewEmployes } from './entreprise/employes.js';
-import { viewRoles } from './entreprise/roles.js';
 import { viewVentes } from './entreprise/ventes.js';
 import { viewFinance } from './entreprise/finance.js';
 import { viewFlotte } from './entreprise/flotte.js';
@@ -13,8 +12,6 @@ export function viewEntreprise(root) {
   
   if (hash === '#/entreprise' || hash.startsWith('#/entreprise/employes')) {
     viewEmployes(root);
-  } else if (hash === '#/entreprise/roles') {
-    viewRoles(root);
   } else if (hash === '#/entreprise/ventes') {
     viewVentes(root);
   } else if (hash === '#/entreprise/finance') {

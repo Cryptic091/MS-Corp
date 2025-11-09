@@ -1,6 +1,8 @@
 import { viewDashboard } from './dashboard.js';
 import { viewEntreprise } from './entreprise.js';
 import { viewEmploye } from './employe.js';
+import { viewIllegale } from './illegale.js';
+import { viewGestionGenerale } from './gestion-generale.js';
 import { viewAuth } from './auth.js';
 import { isAuthenticated, checkPermission, alertModal } from './utils.js';
 import { viewHome } from './home.js';
@@ -15,7 +17,6 @@ const app = document.getElementById('app');
 const routePermissions = {
   '#/entreprise': 'entreprise',
   '#/entreprise/employes': 'employes',
-  '#/entreprise/roles': 'roles',
   '#/entreprise/ventes': 'ventes',
   '#/entreprise/finance': 'finance',
   '#/entreprise/flotte': 'entreprise',
@@ -32,6 +33,8 @@ const routes = {
   '#/dashboard': () => requireAuth(viewDashboard),
   '#/entreprise': () => requireAuthWithPermission(viewEntreprise, 'entreprise'),
   '#/employe': () => requireAuthWithPermission(viewEmploye, 'employe'),
+  '#/illegale': () => requireAuthWithPermission(viewIllegale, 'illegale'),
+  '#/gestion-generale': () => requireAuthWithPermission(viewGestionGenerale, 'gestion-generale'),
   '#/auth': () => viewAuth(app),
 };
 
@@ -114,12 +117,24 @@ async function render() {
     // Ensuite vérifier la permission spécifique à la page
     let permission = 'entreprise';
     if (key.includes('/employes')) permission = 'employes';
-    else if (key.includes('/roles')) permission = 'roles';
     else if (key.includes('/ventes')) permission = 'ventes';
     else if (key.includes('/finance')) permission = 'finance';
-    else if (key.includes('/flotte')) permission = 'entreprise';
-    else if (key.includes('/calcul')) permission = 'entreprise';
+    else if (key.includes('/flotte')) permission = 'flotte';
+    else if (key.includes('/calcul')) permission = 'calcul';
+    else if (key.includes('/calculatrice')) permission = 'calculatrice';
     else if (key.includes('/logs')) permission = 'logs';
+    
+    // Vérifier d'abord l'accès à l'espace, puis la permission spécifique de la page
+    const hasPagePermission = await checkPermission(permission);
+    if (!hasPagePermission) {
+      alertModal({
+        title: 'Accès refusé',
+        message: 'Vous n\'avez pas la permission d\'accéder à cette page.',
+        type: 'warning'
+      });
+      location.hash = '#/home';
+      return;
+    }
     
     await requireAuthWithPermission(viewEntreprise, permission);
     return;
@@ -132,10 +147,157 @@ async function render() {
         location.hash = '#/auth';
         return;
       }
+      const hasEmployeAccess = await checkPermission('employe');
+      if (!hasEmployeAccess) {
+        alertModal({
+          title: 'Accès refusé',
+          message: 'Vous n\'avez pas la permission d\'accéder à l\'Espace Employé.',
+          type: 'warning'
+        });
+        location.hash = '#/home';
+        return;
+      }
       viewProfile(app, 'employe');
       return;
     }
-    await requireAuthWithPermission(viewEmploye, 'employe');
+    
+    // Vérifier l'accès à l'espace Employé
+    const hasEmployeAccess = await checkPermission('employe');
+    if (!hasEmployeAccess) {
+      alertModal({
+        title: 'Accès refusé',
+        message: 'Vous n\'avez pas la permission d\'accéder à l\'Espace Employé.',
+        type: 'warning'
+      });
+      location.hash = '#/home';
+      return;
+    }
+    
+    // Vérifier la permission spécifique à la page
+    let permission = 'employe';
+    if (key.includes('/ventes') || key === '#/employe') permission = 'employe-ventes';
+    else if (key.includes('/flotte')) permission = 'employe-flotte';
+    else if (key.includes('/calcul')) permission = 'employe-calcul';
+    else if (key.includes('/calculatrice')) permission = 'employe-calculatrice';
+    
+    const hasPagePermission = await checkPermission(permission);
+    if (!hasPagePermission) {
+      alertModal({
+        title: 'Accès refusé',
+        message: 'Vous n\'avez pas la permission d\'accéder à cette page.',
+        type: 'warning'
+      });
+      location.hash = '#/home';
+      return;
+    }
+    
+    await requireAuthWithPermission(viewEmploye, permission);
+    return;
+  }
+  
+  if (key.startsWith('#/illegale')) {
+    if (key === '#/illegale/profile') {
+      if (!isAuthenticated()) {
+        location.hash = '#/auth';
+        return;
+      }
+      const hasIllegaleAccess = await checkPermission('illegale');
+      if (!hasIllegaleAccess) {
+        alertModal({
+          title: 'Accès refusé',
+          message: 'Vous n\'avez pas la permission d\'accéder à l\'Espace Illégale.',
+          type: 'warning'
+        });
+        location.hash = '#/home';
+        return;
+      }
+      viewProfile(app, 'illegale');
+      return;
+    }
+    
+    // Vérifier l'accès à l'espace Illégale
+    const hasIllegaleAccess = await checkPermission('illegale');
+    if (!hasIllegaleAccess) {
+      alertModal({
+        title: 'Accès refusé',
+        message: 'Vous n\'avez pas la permission d\'accéder à l\'Espace Illégale.',
+        type: 'warning'
+      });
+      location.hash = '#/home';
+      return;
+    }
+    
+    // Vérifier la permission spécifique à la page
+    let permission = 'illegale-points';
+    if (key.includes('/points') || key === '#/illegale') permission = 'illegale-points';
+    else if (key.includes('/armes')) permission = 'illegale-armes';
+    else if (key.includes('/gestion-points')) permission = 'illegale-gestion-points';
+    else if (key.includes('/gestion-armes')) permission = 'illegale-gestion-armes';
+    
+    const hasPagePermission = await checkPermission(permission);
+    if (!hasPagePermission) {
+      alertModal({
+        title: 'Accès refusé',
+        message: 'Vous n\'avez pas la permission d\'accéder à cette page.',
+        type: 'warning'
+      });
+      location.hash = '#/home';
+      return;
+    }
+    
+    await requireAuthWithPermission(viewIllegale, permission);
+    return;
+  }
+  
+  if (key.startsWith('#/gestion-generale')) {
+    if (key === '#/gestion-generale/profile') {
+      if (!isAuthenticated()) {
+        location.hash = '#/auth';
+        return;
+      }
+      const hasGestionAccess = await checkPermission('gestion-generale');
+      if (!hasGestionAccess) {
+        alertModal({
+          title: 'Accès refusé',
+          message: 'Vous n\'avez pas la permission d\'accéder à la Gestion Générale.',
+          type: 'warning'
+        });
+        location.hash = '#/home';
+        return;
+      }
+      viewProfile(app, 'gestion-generale');
+      return;
+    }
+    
+    // Vérifier l'accès à l'espace Gestion Générale
+    const hasGestionAccess = await checkPermission('gestion-generale');
+    if (!hasGestionAccess) {
+      alertModal({
+        title: 'Accès refusé',
+        message: 'Vous n\'avez pas la permission d\'accéder à la Gestion Générale.',
+        type: 'warning'
+      });
+      location.hash = '#/home';
+      return;
+    }
+    
+    // Vérifier la permission spécifique à la page
+    let permission = 'gestion-generale-utilisateurs';
+    if (key === '#/gestion-generale' || key.includes('/utilisateurs')) permission = 'gestion-generale-utilisateurs';
+    else if (key.includes('/roles')) permission = 'gestion-generale-roles';
+    
+    const hasPagePermission = await checkPermission(permission);
+    if (!hasPagePermission) {
+      alertModal({
+        title: 'Accès refusé',
+        message: 'Vous n\'avez pas la permission d\'accéder à cette page.',
+        type: 'warning'
+      });
+      location.hash = '#/home';
+      return;
+    }
+    
+    await requireAuthWithPermission(viewGestionGenerale, permission);
     return;
   }
   

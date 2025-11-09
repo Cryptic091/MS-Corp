@@ -172,6 +172,20 @@ export function hasRole(role) {
   return p.role === role;
 }
 
+// Fonction pour vérifier rapidement les permissions stockées dans le DOM
+export function hasStoredPermission(action) {
+  try {
+    const storedPerms = document.body.getAttribute('data-page-permissions');
+    if (storedPerms) {
+      const checks = JSON.parse(storedPerms);
+      return checks[action] === true;
+    }
+  } catch (e) {
+    // Ignorer les erreurs
+  }
+  return false;
+}
+
 export async function checkPermission(permission) {
   try {
     const fb = getFirebase();
@@ -180,42 +194,129 @@ export async function checkPermission(permission) {
     const profile = getCachedProfile();
     if (!profile) return false;
     
-    // Récupérer le rôle depuis le profil utilisateur
-    let roleName = profile.role || 'employe';
+    // Déterminer quel rôle utiliser selon la permission demandée
+    let roleValue = null;
     
-    // Si le rôle est 'admin' ou 'employe', convertir en nom Firestore
-    // Sinon, utiliser le rôle tel quel (pour les rôles personnalisés)
-    if (roleName === 'admin') {
-      roleName = 'Admin';
-    } else if (roleName === 'employe') {
-      roleName = 'Employé';
+    // Mapping des permissions vers les espaces et leurs rôles correspondants
+    const permissionToSpace = {
+      // Permissions d'accès aux espaces
+      'entreprise': 'roleEntreprise',
+      'employe': 'roleEmploye',
+      'illegale': 'roleIllegale',
+      'gestion-generale': 'roleGestionGenerale',
+      // Permissions de l'espace Entreprise
+      'employes': 'roleEntreprise',
+      'ventes': 'roleEntreprise',
+      'finance': 'roleEntreprise',
+      'flotte': 'roleEntreprise',
+      'calcul': 'roleEntreprise',
+      'calculatrice': 'roleEntreprise',
+      'logs': 'roleEntreprise',
+      // Permissions de l'espace Employé
+      'employe-ventes': 'roleEmploye',
+      'employe-flotte': 'roleEmploye',
+      'employe-calcul': 'roleEmploye',
+      'employe-calculatrice': 'roleEmploye',
+      // Permissions de l'espace Illégale
+      'illegale-points': 'roleIllegale',
+      'illegale-armes': 'roleIllegale',
+      'illegale-gestion-points': 'roleIllegale',
+      'illegale-gestion-armes': 'roleIllegale',
+      // Permissions de l'espace Gestion Générale
+      'gestion-generale-utilisateurs': 'roleGestionGenerale',
+      'gestion-generale-roles': 'roleGestionGenerale',
+    };
+    
+    // Récupérer le rôle correspondant à la permission
+    const roleField = permissionToSpace[permission];
+    if (roleField) {
+      roleValue = profile[roleField];
+    } else {
+      // Fallback : utiliser le rôle par défaut si la permission n'est pas mappée
+      roleValue = profile.role || profile.roleEmploye || 'employe';
     }
-    // Pour les rôles personnalisés, roleName reste tel quel
     
-    // Récupérer le rôle depuis Firestore (chercher par nom, insensible à la casse)
-    const rolesQuery = query(collection(fb.db, 'roles'), where('name', '==', roleName));
-    const rolesDocs = await getDocs(rolesQuery);
+    // Pour les permissions d'accès aux espaces (entreprise, employe, illegale, gestion-generale),
+    // une chaîne vide "" ou un rôle non-null signifie que l'utilisateur a accès à l'espace
+    // Pour les autres permissions (employes, ventes, etc.), un rôle est requis
+    const isSpaceAccessPermission = ['entreprise', 'employe', 'illegale', 'gestion-generale'].includes(permission);
     
-    if (rolesDocs.empty) {
-      // Si aucun rôle trouvé avec le nom exact, essayer avec le nom en minuscules
-      // pour gérer les cas où le rôle est stocké différemment
-      const allRoles = await getDocs(collection(fb.db, 'roles'));
-      const matchingRole = allRoles.docs.find(doc => {
-        const docRoleName = doc.data().name || '';
-        return docRoleName.toLowerCase() === roleName.toLowerCase();
-      });
-      
-      if (!matchingRole) {
-        console.warn(`Rôle "${roleName}" non trouvé dans Firestore`);
+    if (isSpaceAccessPermission) {
+      // Pour l'accès aux espaces : si le champ existe et n'est pas null, l'utilisateur a accès
+      // Une chaîne vide "" signifie accès sans rôle spécifique, mais l'accès est autorisé
+      if (roleValue === null || roleValue === undefined) {
         return false;
       }
-      
-      const roleData = matchingRole.data();
-      return Boolean(roleData.permissions?.[permission]);
+      // Si roleValue est une chaîne vide "", l'utilisateur a accès mais sans rôle spécifique
+      // Dans ce cas, on retourne true pour l'accès à l'espace
+      if (roleValue === "") {
+        return true;
+      }
+    } else {
+      // Pour les permissions internes aux espaces, un rôle valide est requis
+      if (!roleValue || roleValue === "" || roleValue === null || roleValue === undefined) {
+        return false;
+      }
     }
     
-    const roleData = rolesDocs.docs[0].data();
-    return Boolean(roleData.permissions?.[permission]);
+    let roleData = null;
+    
+    // Vérifier si roleValue est un ID (longue chaîne aléatoire) ou un nom
+    // Les IDs Firestore font généralement 20 caractères, les noms sont plus courts
+    if (roleValue.length > 15 && !roleValue.includes(' ')) {
+      // C'est probablement un ID, récupérer directement par ID
+      try {
+        const roleDoc = await getDoc(doc(fb.db, 'roles', roleValue));
+        if (roleDoc.exists()) {
+          roleData = roleDoc.data();
+        }
+      } catch (e) {
+        console.warn('Erreur récupération rôle par ID:', e);
+      }
+    }
+    
+    // Si ce n'est pas un ID ou si la récupération par ID a échoué, essayer par nom
+    if (!roleData) {
+      let roleName = roleValue;
+      
+      // Si le rôle est 'admin' ou 'employe', convertir en nom Firestore
+      // Sinon, utiliser le rôle tel quel (pour les rôles personnalisés)
+      if (roleName === 'admin') {
+        roleName = 'Admin';
+      } else if (roleName === 'employe') {
+        roleName = 'Employé';
+      }
+      
+      // Récupérer le rôle depuis Firestore (chercher par nom, insensible à la casse)
+      const rolesQuery = query(collection(fb.db, 'roles'), where('name', '==', roleName));
+      const rolesDocs = await getDocs(rolesQuery);
+      
+      if (!rolesDocs.empty) {
+        roleData = rolesDocs.docs[0].data();
+      } else {
+        // Si aucun rôle trouvé avec le nom exact, essayer avec le nom en minuscules
+        // pour gérer les cas où le rôle est stocké différemment
+        const allRoles = await getDocs(collection(fb.db, 'roles'));
+        const matchingRole = allRoles.docs.find(doc => {
+          const docRoleName = doc.data().name || '';
+          return docRoleName.toLowerCase() === roleName.toLowerCase();
+        });
+        
+        if (matchingRole) {
+          roleData = matchingRole.data();
+        } else {
+          console.warn(`Rôle "${roleName}" non trouvé dans Firestore`);
+          return false;
+        }
+      }
+    }
+    
+    // Vérifier la permission dans le rôle
+    // Pour les permissions d'accès aux espaces (entreprise, employe, illegale, gestion-generale),
+    // on vérifie directement dans permissions
+    // Pour les permissions internes aux espaces (employes, roles, ventes, etc.),
+    // elles sont également dans permissions mais gérées par les rôles de l'espace concerné
+    return Boolean(roleData?.permissions?.[permission]);
   } catch (e) {
     console.error('Erreur vérification permission:', e);
     return false;
@@ -245,59 +346,279 @@ export function formatDate(ts) {
 // Fonction pour masquer les liens de navigation selon les permissions
 export async function updateNavPermissions() {
   try {
+    // Vérifier toutes les permissions nécessaires
     const hasEntreprise = await checkPermission('entreprise');
     const hasEmployes = await checkPermission('employes');
-    const hasRoles = await checkPermission('roles');
     const hasVentes = await checkPermission('ventes');
     const hasFinance = await checkPermission('finance');
+    const hasFlotte = await checkPermission('flotte');
+    const hasCalcul = await checkPermission('calcul');
+    const hasCalculatrice = await checkPermission('calculatrice');
     const hasLogs = await checkPermission('logs');
-    const hasCalcul = await checkPermission('entreprise'); // Calcul utilise la permission entreprise
+    
+    // Permissions Espace Employé
+    const hasEmploye = await checkPermission('employe');
+    const hasEmployeVentes = await checkPermission('employe-ventes');
+    const hasEmployeFlotte = await checkPermission('employe-flotte');
+    const hasEmployeCalcul = await checkPermission('employe-calcul');
+    const hasEmployeCalculatrice = await checkPermission('employe-calculatrice');
+    
+    // Permissions Espace Illégale
+    const hasIllegale = await checkPermission('illegale');
+    const hasIllegalePoints = await checkPermission('illegale-points');
+    const hasIllegaleArmes = await checkPermission('illegale-armes');
+    const hasIllegaleGestionPoints = await checkPermission('illegale-gestion-points');
+    const hasIllegaleGestionArmes = await checkPermission('illegale-gestion-armes');
+    
+    // Permissions Espace Gestion Générale
+    const hasGestionGenerale = await checkPermission('gestion-generale');
+    const hasGestionGeneraleUtilisateurs = await checkPermission('gestion-generale-utilisateurs');
+    const hasGestionGeneraleRoles = await checkPermission('gestion-generale-roles');
     
     // Masquer les liens de navigation
     const navLinks = document.querySelectorAll('.nav-links a');
     navLinks.forEach(link => {
       const href = link.getAttribute('href');
+      
+      // Navigation Espace Entreprise
       if (href === '#/entreprise' || href === '#/entreprise/employes') {
-        // Le lien principal nécessite la permission 'entreprise' ET 'employes'
-        if (!hasEntreprise || !hasEmployes) {
-          link.style.display = 'none';
-        } else {
-          link.style.display = '';
-        }
-      } else if (href === '#/entreprise/roles') {
-        if (!hasEntreprise || !hasRoles) {
-          link.style.display = 'none';
-        } else {
-          link.style.display = '';
-        }
+        link.style.display = (hasEntreprise && hasEmployes) ? '' : 'none';
       } else if (href === '#/entreprise/ventes') {
-        if (!hasEntreprise || !hasVentes) {
-          link.style.display = 'none';
-        } else {
-          link.style.display = '';
-        }
+        link.style.display = (hasEntreprise && hasVentes) ? '' : 'none';
       } else if (href === '#/entreprise/finance') {
-        if (!hasEntreprise || !hasFinance) {
-          link.style.display = 'none';
-        } else {
-          link.style.display = '';
-        }
+        link.style.display = (hasEntreprise && hasFinance) ? '' : 'none';
+      } else if (href === '#/entreprise/flotte') {
+        link.style.display = (hasEntreprise && hasFlotte) ? '' : 'none';
       } else if (href === '#/entreprise/calcul') {
-        if (!hasEntreprise || !hasCalcul) {
-          link.style.display = 'none';
-        } else {
-          link.style.display = '';
-        }
+        link.style.display = (hasEntreprise && hasCalcul) ? '' : 'none';
+      } else if (href === '#/entreprise/calculatrice') {
+        link.style.display = (hasEntreprise && hasCalculatrice) ? '' : 'none';
       } else if (href === '#/entreprise/logs') {
-        if (!hasEntreprise || !hasLogs) {
-          link.style.display = 'none';
-        } else {
-          link.style.display = '';
-        }
+        link.style.display = (hasEntreprise && hasLogs) ? '' : 'none';
+      }
+      // Navigation Espace Employé
+      else if (href === '#/employe' || href === '#/employe/ventes') {
+        link.style.display = (hasEmploye && hasEmployeVentes) ? '' : 'none';
+      } else if (href === '#/employe/flotte') {
+        link.style.display = (hasEmploye && hasEmployeFlotte) ? '' : 'none';
+      } else if (href === '#/employe/calcul') {
+        link.style.display = (hasEmploye && hasEmployeCalcul) ? '' : 'none';
+      } else if (href === '#/employe/calculatrice') {
+        link.style.display = (hasEmploye && hasEmployeCalculatrice) ? '' : 'none';
+      }
+      // Navigation Espace Illégale
+      else if (href === '#/illegale' || href === '#/illegale/points') {
+        link.style.display = (hasIllegale && hasIllegalePoints) ? '' : 'none';
+      } else if (href === '#/illegale/armes') {
+        link.style.display = (hasIllegale && hasIllegaleArmes) ? '' : 'none';
+      } else if (href === '#/illegale/gestion-points') {
+        link.style.display = (hasIllegale && hasIllegaleGestionPoints) ? '' : 'none';
+      } else if (href === '#/illegale/gestion-armes') {
+        link.style.display = (hasIllegale && hasIllegaleGestionArmes) ? '' : 'none';
+      }
+      // Navigation Espace Gestion Générale
+      else if (href === '#/gestion-generale' || href === '#/gestion-generale/utilisateurs') {
+        link.style.display = (hasGestionGenerale && hasGestionGeneraleUtilisateurs) ? '' : 'none';
+      } else if (href === '#/gestion-generale/roles') {
+        link.style.display = (hasGestionGenerale && hasGestionGeneraleRoles) ? '' : 'none';
       }
     });
   } catch (e) {
-    console.error('Erreur mise à jour navigation:', e);
+    console.error('Erreur mise à jour permissions navigation:', e);
+  }
+}
+
+// Fonction pour appliquer les permissions dans les pages
+// Masque/affiche les éléments selon les permissions de l'utilisateur
+export async function applyPagePermissions(permissions) {
+  try {
+    // permissions est un objet avec les clés suivantes :
+    // - create: permission pour créer (ex: 'employes', 'ventes')
+    // - edit: permission pour modifier
+    // - delete: permission pour supprimer
+    // - view: permission pour voir (optionnel, par défaut true si on a accès à la page)
+    
+    const checks = {};
+    
+    // Vérifier chaque permission
+    for (const [action, permission] of Object.entries(permissions)) {
+      if (permission) {
+        checks[action] = await checkPermission(permission);
+      }
+    }
+    
+    // Masquer/afficher les boutons de création
+    if (permissions.create !== undefined) {
+      const createSelectors = [
+        '[data-permission="create"]',
+        '#btn-new-user',
+        '#btn-new-vente',
+        '#btn-new-vente-points',
+        '#btn-new-vente-armes',
+        '#btn-new-points-illegaux',
+        'button[id*="new"]',
+        'button[id*="create"]',
+        'button:has-text("Nouveau")',
+        'button:has-text("Créer")'
+      ];
+      
+      createSelectors.forEach(selector => {
+        try {
+          const buttons = document.querySelectorAll(selector);
+          buttons.forEach(btn => {
+            if (checks.create === false) {
+              btn.style.display = 'none';
+              btn.disabled = true;
+            } else {
+              btn.style.display = '';
+              btn.disabled = false;
+            }
+          });
+        } catch (e) {
+          // Ignorer les sélecteurs invalides
+        }
+      });
+    }
+    
+    // Masquer/afficher les boutons d'édition
+    if (permissions.edit !== undefined) {
+      const editSelectors = [
+        '[data-permission="edit"]',
+        '.btn-edit',
+        'button.btn-edit',
+        'button[id*="edit"]',
+        'button:has-text("Modifier")'
+      ];
+      
+      editSelectors.forEach(selector => {
+        try {
+          const buttons = document.querySelectorAll(selector);
+          buttons.forEach(btn => {
+            if (checks.edit === false) {
+              btn.style.display = 'none';
+              btn.disabled = true;
+            } else {
+              btn.style.display = '';
+              btn.disabled = false;
+            }
+          });
+        } catch (e) {
+          // Ignorer les sélecteurs invalides
+        }
+      });
+    }
+    
+    // Masquer/afficher les boutons de suppression
+    if (permissions.delete !== undefined) {
+      const deleteSelectors = [
+        '[data-permission="delete"]',
+        '.btn-delete',
+        'button.btn-delete',
+        'button[id*="delete"]',
+        'button:has-text("Supprimer")'
+      ];
+      
+      deleteSelectors.forEach(selector => {
+        try {
+          const buttons = document.querySelectorAll(selector);
+          buttons.forEach(btn => {
+            if (checks.delete === false) {
+              btn.style.display = 'none';
+              btn.disabled = true;
+            } else {
+              btn.style.display = '';
+              btn.disabled = false;
+            }
+          });
+        } catch (e) {
+          // Ignorer les sélecteurs invalides
+        }
+      });
+    }
+    
+    // Masquer/afficher les colonnes d'actions si aucune action n'est disponible
+    const hasAnyAction = (permissions.create && checks.create) || 
+                        (permissions.edit && checks.edit) || 
+                        (permissions.delete && checks.delete);
+    
+    if (!hasAnyAction && (permissions.create || permissions.edit || permissions.delete)) {
+      // Masquer la colonne Actions dans les tableaux
+      const tables = document.querySelectorAll('table');
+      tables.forEach(table => {
+        const headers = table.querySelectorAll('thead th');
+        headers.forEach((th, index) => {
+          if (th.textContent.trim().toUpperCase().includes('ACTION')) {
+            th.style.display = 'none';
+            // Masquer aussi les cellules correspondantes
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+              const cells = row.querySelectorAll('td');
+              if (cells[index]) {
+                cells[index].style.display = 'none';
+              }
+            });
+          }
+        });
+      });
+    }
+    
+    // Stocker les permissions dans le DOM pour les utiliser lors de la création dynamique d'éléments
+    document.body.setAttribute('data-page-permissions', JSON.stringify(checks));
+    
+    // Créer un observer pour réappliquer les permissions quand de nouveaux éléments sont ajoutés au DOM
+    if (!window.pagePermissionsObserver) {
+      window.pagePermissionsObserver = new MutationObserver(() => {
+        // Réappliquer les permissions après un court délai pour éviter trop d'appels
+        if (window.pagePermissionsTimeout) {
+          clearTimeout(window.pagePermissionsTimeout);
+        }
+        window.pagePermissionsTimeout = setTimeout(() => {
+          const storedPerms = document.body.getAttribute('data-page-permissions');
+          if (storedPerms) {
+            try {
+              const checks = JSON.parse(storedPerms);
+              // Réappliquer les permissions sur les nouveaux éléments
+              if (checks.create === false) {
+                document.querySelectorAll('.btn-edit, button[id*="new"], button[id*="create"]').forEach(btn => {
+                  if (!btn.closest('.modal-overlay')) {
+                    btn.style.display = 'none';
+                    btn.disabled = true;
+                  }
+                });
+              }
+              if (checks.edit === false) {
+                document.querySelectorAll('.btn-edit, button[id*="edit"]').forEach(btn => {
+                  if (!btn.closest('.modal-overlay')) {
+                    btn.style.display = 'none';
+                    btn.disabled = true;
+                  }
+                });
+              }
+              if (checks.delete === false) {
+                document.querySelectorAll('.btn-delete, button[id*="delete"]').forEach(btn => {
+                  if (!btn.closest('.modal-overlay')) {
+                    btn.style.display = 'none';
+                    btn.disabled = true;
+                  }
+                });
+              }
+            } catch (e) {
+              // Ignorer les erreurs de parsing
+            }
+          }
+        }, 100);
+      });
+      
+      window.pagePermissionsObserver.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+    }
+    
+    return checks;
+  } catch (e) {
+    console.error('Erreur application permissions page:', e);
+    return {};
   }
 }
 
@@ -633,10 +954,26 @@ function getInitials(name) {
 
 export function updateAvatar(element, profile) {
   if (!element) return;
-  element.style.backgroundImage = "url('images/MScorp.png')";
+  
+  // Si l'utilisateur a une photo de profil, l'utiliser
+  if (profile?.photoUrl) {
+    element.style.backgroundImage = `url('${profile.photoUrl}')`;
   element.style.backgroundSize = 'cover';
   element.style.backgroundPosition = 'center';
   element.textContent = '';
+  } else {
+    // Sinon, utiliser les initiales avec un gradient
+    const name = profile?.name || profile?.email || 'MS';
+    const initials = getInitials(name);
+    element.style.backgroundImage = '';
+    element.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+    element.textContent = initials;
+    element.style.display = 'flex';
+    element.style.alignItems = 'center';
+    element.style.justifyContent = 'center';
+    element.style.color = 'white';
+    element.style.fontWeight = '600';
+  }
 }
 
 

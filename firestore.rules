@@ -70,5 +70,33 @@ service cloud.firestore {
       allow read: if isAuthed();
       allow create, update, delete: if isAuthed();
     }
+
+    // Collection: ventesPointsIllegaux
+    // Contient les ventes de points illégaux (dateVente, nomClient, points, prixUnitaire, montantTotal, vendeurId, statut, createdAt)
+    match /ventesPointsIllegaux/{venteId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed();
+    }
+
+    // Collection: ventesPacksArmes
+    // Contient les ventes de packs d'armes (dateVente, nomClient, typePack, quantite, prixUnitaire, montantTotal, vendeurId, statut, createdAt)
+    match /ventesPacksArmes/{venteId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed();
+    }
+
+    // Collection: typesPointsIllegaux
+    // Contient les types de points illégaux disponibles (nom, prixUnitaire, description, createdAt)
+    match /typesPointsIllegaux/{typeId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed();
+    }
+
+    // Collection: typesPacksArmes
+    // Contient les types de packs d'armes disponibles (nom, prixUnitaire, description, createdAt)
+    match /typesPacksArmes/{typeId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if isAuthed();
+    }
   }
 }

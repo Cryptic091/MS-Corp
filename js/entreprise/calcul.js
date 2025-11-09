@@ -1,4 +1,4 @@
-import { html, mount, getCachedProfile, loadUserProfile, updateAvatar, isAuthenticated, alertModal, updateNavPermissions, updateRoleBadge } from '../utils.js';
+import { html, mount, getCachedProfile, loadUserProfile, updateAvatar, isAuthenticated, alertModal, updateNavPermissions, updateRoleBadge, applyPagePermissions } from '../utils.js';
 import { getFirebase, waitForFirebase, collection, getDocs, signOut } from '../firebase.js';
 import { addLogEntry } from '../firebase.js';
 
@@ -26,7 +26,6 @@ export function viewCalcul(root) {
           <div class="section-title">Entreprise</div>
           <nav class="nav-links">
             <a href="#/entreprise" class="nav-item"><span class="nav-icon"></span>Gestion Employé</a>
-            <a href="#/entreprise/roles" class="nav-item"><span class="nav-icon"></span>Rôle & Permission</a>
             <a href="#/entreprise/ventes" class="nav-item"><span class="nav-icon"></span>Gestion Vente</a>
             <a href="#/entreprise/finance" class="nav-item"><span class="nav-icon"></span>Gestion Finance</a>
             <a href="#/entreprise/flotte" class="nav-item"><span class="nav-icon"></span>Gestion Flotte</a>
@@ -266,6 +265,13 @@ export function viewCalcul(root) {
 
       // Mettre à jour la navigation selon les permissions
       await updateNavPermissions();
+      
+      // Appliquer les permissions pour les actions de la page
+      await applyPagePermissions({
+        create: 'calcul',
+        edit: 'calcul',
+        delete: 'calcul'
+      });
 
       // Charger les ressources
       const resSnap = await getDocs(collection(fb.db, 'ressources'));

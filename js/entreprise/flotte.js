@@ -1,4 +1,4 @@
-    import { html, mount, createModal, getCachedProfile, loadUserProfile, updateNavPermissions, alertModal, updateAvatar, isAuthenticated, updateRoleBadge } from '../utils.js'
+    import { html, mount, createModal, getCachedProfile, loadUserProfile, updateNavPermissions, alertModal, updateAvatar, isAuthenticated, updateRoleBadge, applyPagePermissions } from '../utils.js'
 import { getFirebase, getFlotteFirebase, waitForFirebase, collection, getDocs, getDoc, query, orderBy, where, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, signOut } from '../firebase.js';
 import { addLogEntry } from '../firebase.js';
 
@@ -26,7 +26,6 @@ export function viewFlotte(root) {
           <div class="section-title">Entreprise</div>
           <nav class="nav-links">
             <a href="#/entreprise" class="nav-item"><span class="nav-icon"></span>Gestion Employé</a>
-            <a href="#/entreprise/roles" class="nav-item"><span class="nav-icon"></span>Rôle & Permission</a>
             <a href="#/entreprise/ventes" class="nav-item"><span class="nav-icon"></span>Gestion Vente</a>
             <a href="#/entreprise/finance" class="nav-item"><span class="nav-icon"></span>Gestion Finance</a>
             <a href="#/entreprise/flotte" class="active nav-item"><span class="nav-icon"></span>Gestion Flotte</a>
@@ -423,7 +422,7 @@ export function viewFlotte(root) {
               </div>
 
               <!-- Résumé global -->
-              <div id="comparateur-summary" class="hidden mt-6 grid grid-cols-1 md:grid-cols-5 gap-4">
+              <div id="comparateur-summary" class="hidden mt-6 grid grid-cols-1 md:grid-cols-7 gap-4">
                 <div class="card p-4">
                   <div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Total véhicules</div>
                   <div id="summary-total-vehicules" class="text-2xl font-bold text-slate-900 dark:text-white">0</div>
@@ -443,6 +442,99 @@ export function viewFlotte(root) {
                 <div class="card p-4">
                   <div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Total avec assurances</div>
                   <div id="summary-total-avec-assurances" class="text-2xl font-bold text-indigo-600 dark:text-indigo-400">0 €</div>
+                </div>
+                <div class="card p-4">
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Frais de paiement</div>
+                  <div id="summary-frais-paiement" class="text-2xl font-bold text-orange-600 dark:text-orange-400">0 €</div>
+                </div>
+                <div class="card p-4">
+                  <div class="text-xs text-slate-500 dark:text-slate-400 mb-1">Total final</div>
+                  <div id="summary-total-final" class="text-2xl font-bold text-red-600 dark:text-red-400">0 €</div>
+                </div>
+              </div>
+              
+              <!-- Sélection du mode de paiement -->
+              <div class="mt-6">
+                <h4 class="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">Mode de paiement</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <!-- Option Espèce -->
+                  <label 
+                    for="paiement-espece"
+                    class="comparateur-paiement-card relative p-5 rounded-xl border-2 border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 cursor-pointer transition-all hover:shadow-lg hover:border-green-400 dark:hover:border-green-500 group"
+                    onclick="document.getElementById('paiement-espece').checked = true; window.updateComparateurPaiement('espece');"
+                  >
+                    <input 
+                      type="radio" 
+                      name="comparateur-paiement" 
+                      value="espece" 
+                      id="paiement-espece"
+                      class="sr-only"
+                      checked
+                      onchange="window.updateComparateurPaiement('espece')"
+                    />
+                    <div class="flex items-start gap-4">
+                      <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center group-hover:bg-green-200 dark:group-hover:bg-green-900/50 transition-colors">
+                        <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between mb-1">
+                          <h5 class="font-semibold text-slate-900 dark:text-white text-base">Espèce</h5>
+                          <div class="comparateur-paiement-check w-5 h-5 rounded-full border-2 border-slate-300 dark:border-white/30 flex items-center justify-center transition-all">
+                            <svg class="w-3 h-3 text-white hidden" fill="currentColor" viewBox="0 0 20 20">
+                              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                            </svg>
+                          </div>
+                        </div>
+                        <p class="text-sm text-slate-600 dark:text-slate-400 mb-2">Paiement en espèces</p>
+                        <div class="flex items-center gap-2">
+                          <span class="px-2.5 py-1 rounded-md text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                            +3% de frais
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </label>
+
+                  <!-- Option Carte bancaire -->
+                  <label 
+                    for="paiement-carte"
+                    class="comparateur-paiement-card relative p-5 rounded-xl border-2 border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 cursor-pointer transition-all hover:shadow-lg hover:border-blue-400 dark:hover:border-blue-500 group"
+                    onclick="document.getElementById('paiement-carte').checked = true; window.updateComparateurPaiement('carte');"
+                  >
+                    <input 
+                      type="radio" 
+                      name="comparateur-paiement" 
+                      value="carte" 
+                      id="paiement-carte"
+                      class="sr-only"
+                      onchange="window.updateComparateurPaiement('carte')"
+                    />
+                    <div class="flex items-start gap-4">
+                      <div class="flex-shrink-0 w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-colors">
+                        <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                        </svg>
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between mb-1">
+                          <h5 class="font-semibold text-slate-900 dark:text-white text-base">Carte bancaire</h5>
+                          <div class="comparateur-paiement-check w-5 h-5 rounded-full border-2 border-slate-300 dark:border-white/30 flex items-center justify-center transition-all">
+                            <svg class="w-3 h-3 text-white hidden" fill="currentColor" viewBox="0 0 20 20">
+                              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                            </svg>
+                          </div>
+                        </div>
+                        <p class="text-sm text-slate-600 dark:text-slate-400 mb-2">Paiement par carte</p>
+                        <div class="flex items-center gap-2">
+                          <span class="px-2.5 py-1 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                            +4% de frais
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </label>
                 </div>
               </div>
             </div>
@@ -779,6 +871,13 @@ export function viewFlotte(root) {
 
       // Mettre à jour la navigation selon les permissions
       await updateNavPermissions();
+      
+      // Appliquer les permissions pour les actions de la page
+      await applyPagePermissions({
+        create: 'flotte',
+        edit: 'flotte',
+        delete: 'flotte'
+      });
 
       if (currentTab === 'liste-a4l') {
         loadFlotte();
@@ -1892,6 +1991,7 @@ export function viewFlotte(root) {
   // ========== COMPARATEUR VÉHICULE ==========
   
   let comparateurFilteredVehicules = []; // Véhicules filtrés actuellement affichés
+  let comparateurModePaiement = 'espece'; // 'espece' (3%) ou 'carte' (4%)
   
   function setupComparateur() {
     // Remplir le select des types
@@ -2297,6 +2397,11 @@ export function viewFlotte(root) {
     const totalAssurances = totalAssuranceT1 + totalAssuranceT2 + totalAssuranceT3 + totalAssuranceT4;
     const totalAvecAssurances = totalPrix + totalAssurances;
     
+    // Calculer les frais de paiement
+    const tauxFrais = comparateurModePaiement === 'espece' ? 0.03 : 0.04;
+    const fraisPaiement = totalAvecAssurances * tauxFrais;
+    const totalFinal = totalAvecAssurances + fraisPaiement;
+    
     totalsFoot.innerHTML = `
       <tr class="bg-slate-100 dark:bg-white/10">
         <td class="px-4 py-3 text-sm font-semibold text-slate-900 dark:text-white">TOTAL</td>
@@ -2306,7 +2411,21 @@ export function viewFlotte(root) {
         <td class="px-4 py-3 text-right text-sm font-semibold text-green-600 dark:text-green-400">${formatNumber(totalPlaces)}</td>
         <td class="px-4 py-3 text-center text-sm text-slate-500 dark:text-slate-400">—</td>
         <td class="px-4 py-3 text-right text-sm font-semibold text-purple-600 dark:text-purple-400">${totalAssurances > 0 ? formatAmount(totalAssurances) + ' €' : '—'}</td>
-        <td class="px-4 py-3 text-right text-sm font-semibold text-indigo-600 dark:text-indigo-400 text-lg">${formatAmount(totalAvecAssurances)} €</td>
+        <td class="px-4 py-3 text-right text-sm font-semibold text-indigo-600 dark:text-indigo-400">${formatAmount(totalAvecAssurances)} €</td>
+        <td class="px-4 py-3"></td>
+      </tr>
+      <tr class="bg-slate-50 dark:bg-white/5">
+        <td colspan="7" class="px-4 py-2 text-right text-xs text-slate-500 dark:text-slate-400">
+          Frais de paiement (${comparateurModePaiement === 'espece' ? 'Espèce' : 'Carte'} - ${(tauxFrais * 100).toFixed(0)}%)
+        </td>
+        <td class="px-4 py-2 text-right text-sm font-semibold text-orange-600 dark:text-orange-400">${formatAmount(fraisPaiement)} €</td>
+        <td class="px-4 py-2"></td>
+      </tr>
+      <tr class="bg-blue-50 dark:bg-blue-900/20 border-t-2 border-blue-500">
+        <td colspan="7" class="px-4 py-3 text-right text-sm font-bold text-slate-900 dark:text-white">
+          TOTAL FINAL
+        </td>
+        <td class="px-4 py-3 text-right text-lg font-bold text-red-600 dark:text-red-400">${formatAmount(totalFinal)} €</td>
         <td class="px-4 py-3"></td>
       </tr>
     `;
@@ -2318,6 +2437,10 @@ export function viewFlotte(root) {
     document.getElementById('summary-assurances-totales').textContent = formatAmount(totalAssurances) + ' €';
     const totalAvecAssurancesEl = document.getElementById('summary-total-avec-assurances');
     if (totalAvecAssurancesEl) totalAvecAssurancesEl.textContent = formatAmount(totalAvecAssurances) + ' €';
+    const fraisPaiementEl = document.getElementById('summary-frais-paiement');
+    if (fraisPaiementEl) fraisPaiementEl.textContent = formatAmount(fraisPaiement) + ' €';
+    const totalFinalEl = document.getElementById('summary-total-final');
+    if (totalFinalEl) totalFinalEl.textContent = formatAmount(totalFinal) + ' €';
   }
   
   // Fonction globale pour mettre à jour la quantité
@@ -2338,6 +2461,12 @@ export function viewFlotte(root) {
       // Forcer la mise à jour immédiate
       updateComparateurDisplay();
     }
+  };
+  
+  // Fonction globale pour mettre à jour le mode de paiement
+  window.updateComparateurPaiement = function(mode) {
+    comparateurModePaiement = mode;
+    updateComparateurDisplay();
   };
   
   // Fonction globale pour retirer un véhicule

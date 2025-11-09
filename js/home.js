@@ -133,6 +133,66 @@ export async function viewHome(root) {
             </div>
             <div class="space-card-accent profile-accent"></div>
           </a>
+          <a href="#/illegale" id="card-illegale" class="space-card">
+            <div class="space-card-header">
+              <div class="space-card-icon" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                </svg>
+              </div>
+              <div class="space-card-badge" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white;">Illégale</div>
+            </div>
+            <div class="space-card-content">
+              <h3 class="space-card-title">Espace Illégale</h3>
+              <p class="space-card-desc">Gérez les ventes de points illégaux et de packs d'armes.</p>
+              <div class="space-card-features">
+                <div class="feature-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  <span>Points Illégaux</span>
+                </div>
+                <div class="feature-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  <span>Packs d'Armes</span>
+                </div>
+              </div>
+            </div>
+            <div class="space-card-accent" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);"></div>
+          </a>
+          <a href="#/gestion-generale" id="card-gestion-generale" class="space-card">
+            <div class="space-card-header">
+              <div class="space-card-icon" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="3" y1="9" x2="21" y2="9"></line>
+                  <line x1="9" y1="21" x2="9" y2="9"></line>
+                </svg>
+              </div>
+              <div class="space-card-badge" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white;">Gestion Générale</div>
+            </div>
+            <div class="space-card-content">
+              <h3 class="space-card-title">Gestion Générale</h3>
+              <p class="space-card-desc">Vue d'ensemble des utilisateurs et gestion des accès aux espaces.</p>
+              <div class="space-card-features">
+                <div class="feature-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  <span>Utilisateurs</span>
+                </div>
+                <div class="feature-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  <span>Vue d'ensemble</span>
+                </div>
+              </div>
+            </div>
+            <div class="space-card-accent" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);"></div>
+          </a>
           <a href="#/public" class="space-card">
             <div class="space-card-header">
               <div class="space-card-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
@@ -172,17 +232,30 @@ export async function viewHome(root) {
   // Vérifier les permissions et masquer les cartes si nécessaire
   const hasEntreprise = await checkPermission('entreprise');
   const hasEmploye = await checkPermission('employe');
+  const hasIllegale = await checkPermission('illegale');
+  const hasGestionGenerale = await checkPermission('gestion-generale');
   
   const cardEntreprise = document.getElementById('card-entreprise');
   const cardEmploye = document.getElementById('card-employe');
+  const cardIllegale = document.getElementById('card-illegale');
+  const cardGestionGenerale = document.getElementById('card-gestion-generale');
   const cardProfile = document.getElementById('card-profile');
   
-  if (!hasEntreprise && cardEntreprise) {
-    cardEntreprise.style.display = 'none';
+  // Afficher ou masquer les cartes selon les permissions
+  if (cardEntreprise) {
+    cardEntreprise.style.display = hasEntreprise ? '' : 'none';
   }
   
-  if (!hasEmploye && cardEmploye) {
-    cardEmploye.style.display = 'none';
+  if (cardEmploye) {
+    cardEmploye.style.display = hasEmploye ? '' : 'none';
+  }
+  
+  if (cardIllegale) {
+    cardIllegale.style.display = hasIllegale ? '' : 'none';
+  }
+  
+  if (cardGestionGenerale) {
+    cardGestionGenerale.style.display = hasGestionGenerale ? '' : 'none';
   }
   
   // Définir le lien du profil selon les permissions

@@ -1,4 +1,4 @@
-import { html, mount, createModal, getCachedProfile, loadUserProfile, updateNavPermissions, alertModal, updateAvatar, formatDate, isAuthenticated, updateRoleBadge } from '../utils.js';
+import { html, mount, createModal, getCachedProfile, loadUserProfile, updateNavPermissions, alertModal, updateAvatar, formatDate, isAuthenticated, updateRoleBadge, applyPagePermissions, hasStoredPermission, checkPermission } from '../utils.js';
 import { getFirebase, waitForFirebase, collection, getDocs, query, where, setDoc, doc, updateDoc, deleteDoc, serverTimestamp, signOut, createUserWithEmailAndPassword, fetchSignInMethodsForEmail } from '../firebase.js';
 import { addLogEntry } from '../firebase.js';
 
@@ -33,7 +33,6 @@ export function viewEmployes(root) {
           <div class="section-title">Entreprise</div>
           <nav class="nav-links">
             <a href="#/entreprise" class="active nav-item"><span class="nav-icon"></span>Gestion Employé</a>
-            <a href="#/entreprise/roles" class="nav-item"><span class="nav-icon"></span>Rôle & Permission</a>
             <a href="#/entreprise/ventes" class="nav-item"><span class="nav-icon"></span>Gestion Vente</a>
             <a href="#/entreprise/finance" class="nav-item"><span class="nav-icon"></span>Gestion Finance</a>
             <a href="#/entreprise/flotte" class="nav-item"><span class="nav-icon"></span>Gestion Flotte</a>
@@ -184,14 +183,23 @@ function generateTempPassword(length = 10) {
   function renderRows(list) {
     const tbody = document.getElementById('users-tbody');
     tbody.innerHTML = '';
+    
+    // Vérifier les permissions une seule fois pour toutes les lignes
+    const hasEdit = hasStoredPermission('edit');
+    const hasDelete = hasStoredPermission('delete');
+    
     list.forEach(u => {
       const tr = document.createElement('tr');
       const initials = getInitials(u.name || u.email);
-      const roleValue = (u.role || 'employe').toLowerCase();
-      // Trouver le nom d'affichage du rôle depuis rolesCache
-      const roleDisplay = rolesCache.find(r => (r.name || '').toLowerCase() === roleValue)?.name || 
-                         (roleValue === 'admin' ? 'Administrateur' : 'Employé');
-      const roleBadgeClass = roleValue === 'admin' ? 'badge-admin' : 'badge-employe';
+      // Utiliser roleEntreprise au lieu de role
+      const roleEntrepriseId = u.roleEntreprise;
+      // Trouver le rôle dans rolesCache par ID
+      let roleData = null;
+      if (roleEntrepriseId && roleEntrepriseId !== "" && roleEntrepriseId !== null) {
+        roleData = rolesCache.find(r => r.id === roleEntrepriseId);
+      }
+      const roleDisplay = roleData ? roleData.name : (roleEntrepriseId === "" ? 'Sans rôle' : '—');
+      const roleBadgeClass = roleData ? 'badge-employe' : 'badge-employe';
       const isActive = u.active !== false;
       tr.innerHTML = `
         <td>
@@ -221,8 +229,8 @@ function generateTempPassword(length = 10) {
         <td>${formatDate(u.createdAt)}</td>
         <td>
           <div class="action-buttons" data-user-id="${u.id || ''}" data-user-email="${u.email || ''}">
-            <button class="action-btn btn-edit" title="Modifier"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg></span></button>
-            <button class="action-btn btn-delete" title="Supprimer"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2"></path></svg></span></button>
+            ${hasEdit ? `<button class="action-btn btn-edit" title="Modifier"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg></span></button>` : ''}
+            ${hasDelete ? `<button class="action-btn btn-delete" title="Supprimer"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2"></path></svg></span></button>` : ''}
             <button class="action-btn btn-view" title="Voir"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></span></button>
           </div>
         </td>`;
@@ -230,11 +238,13 @@ function generateTempPassword(length = 10) {
     });
     if (!list.length) tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="6">Aucun utilisateur</td></tr>';
     
-    // Update stats
+    // Update stats - utiliser roleEntreprise
     document.getElementById('stat-total').textContent = String(cache.length);
     document.getElementById('stat-active').textContent = String(cache.filter(u => u.active !== false).length);
-    document.getElementById('stat-admin').textContent = String(cache.filter(u => (u.role || 'employe').toLowerCase() === 'admin').length);
-    document.getElementById('stat-employe').textContent = String(cache.filter(u => (u.role || 'employe').toLowerCase() !== 'admin').length);
+    // Compter les utilisateurs avec un rôle Entreprise (non null et non vide)
+    const usersWithRoleEntreprise = cache.filter(u => u.roleEntreprise && u.roleEntreprise !== "" && u.roleEntreprise !== null);
+    document.getElementById('stat-admin').textContent = String(usersWithRoleEntreprise.length);
+    document.getElementById('stat-employe').textContent = String(cache.length - usersWithRoleEntreprise.length);
   }
 
   function applyFilters() {
@@ -243,7 +253,21 @@ function generateTempPassword(length = 10) {
     const sf = document.getElementById('status-filter')?.value || '';
     const filtered = cache.filter(u => {
       const match = (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q);
-      const roleMatch = !rf || (u.role || 'employe') === rf;
+      // Filtrer par roleEntreprise
+      let roleMatch = true;
+      if (rf) {
+        const roleEntrepriseId = u.roleEntreprise;
+        if (roleEntrepriseId && roleEntrepriseId !== "" && roleEntrepriseId !== null) {
+          const roleData = rolesCache.find(r => r.id === roleEntrepriseId);
+          if (roleData) {
+            roleMatch = (roleData.name || '').toLowerCase() === rf;
+          } else {
+            roleMatch = false;
+          }
+        } else {
+          roleMatch = false;
+        }
+      }
       const statusMatch = !sf || (sf === 'actif' && u.active !== false) || (sf === 'inactif' && u.active === false);
       return match && roleMatch && statusMatch;
     });
@@ -267,7 +291,17 @@ function generateTempPassword(length = 10) {
     } catch {}
   });
 
-  document.getElementById('btn-new-user').addEventListener('click', () => {
+  document.getElementById('btn-new-user').addEventListener('click', async () => {
+    // Vérifier la permission avant d'ouvrir le modal
+    const hasCreate = hasStoredPermission('create') || await checkPermission('employes');
+    if (!hasCreate) {
+      alertModal({ 
+        title: 'Permission refusée', 
+        message: 'Vous n\'avez pas la permission de créer des utilisateurs.', 
+        type: 'warning' 
+      });
+      return;
+    }
     const body = `
       <div class="modal-field">
         <label>Nom complet *</label>
@@ -390,19 +424,23 @@ function generateTempPassword(length = 10) {
           const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
           const createdBy = authState?.uid || null;
 
+          // Trouver le rôle par nom dans rolesCache pour obtenir l'ID
+          const selectedRole = rolesCache.find(r => (r.name || '').toLowerCase() === role.toLowerCase());
+          const roleEntrepriseId = selectedRole ? selectedRole.id : null;
+          
           const cred = await createUserWithEmailAndPassword(fbInstance.auth, email, tempPassword);
           await setDoc(doc(fbInstance.db, 'users', cred.user.uid), {
             name,
             email,
             phone: phone || null,
-            role,
+            roleEntreprise: roleEntrepriseId || "",
             active: true,
             initialPassword: tempPassword,
             createdAt: serverTimestamp(),
             createdBy
           });
 
-          cache.push({ id: cred.user.uid, name, email, phone, role, active: true, initialPassword: tempPassword, createdAt: new Date() });
+          cache.push({ id: cred.user.uid, name, email, phone, roleEntreprise: roleEntrepriseId || "", active: true, initialPassword: tempPassword, createdAt: new Date() });
           renderRows(cache);
           await addLogEntry(fbInstance, { 
             type: 'action', 
@@ -428,10 +466,11 @@ function generateTempPassword(length = 10) {
         }
       }
     });
-    // Remplir la liste des rôles depuis la BDD
+    // Remplir la liste des rôles depuis la BDD - uniquement les rôles de l'espace Entreprise
     const sel = document.getElementById('modal-role');
     if (sel) {
-      sel.innerHTML = rolesCache.map(r => `<option value="${(r.name||'').toLowerCase()}">${r.name}</option>`).join('') || '<option value="employe">Employé</option>';
+      const entrepriseRoles = rolesCache.filter(r => r.permissions && r.permissions.entreprise === true);
+      sel.innerHTML = entrepriseRoles.map(r => `<option value="${(r.name||'').toLowerCase()}">${r.name}</option>`).join('') || '<option value="">Aucun rôle disponible</option>';
     }
     const tempField = document.getElementById('modal-temp-password');
     if (tempField) {
@@ -443,6 +482,30 @@ function generateTempPassword(length = 10) {
   document.addEventListener('click', async (e) => {
     const btn = e.target.closest('.action-btn');
     if (!btn) return;
+    
+    // Vérifier les permissions avant d'exécuter les actions
+    if (btn.classList.contains('btn-edit')) {
+      const hasEdit = hasStoredPermission('edit') || await checkPermission('employes');
+      if (!hasEdit) {
+        alertModal({ 
+          title: 'Permission refusée', 
+          message: 'Vous n\'avez pas la permission de modifier les utilisateurs.', 
+          type: 'warning' 
+        });
+        return;
+      }
+    }
+    if (btn.classList.contains('btn-delete')) {
+      const hasDelete = hasStoredPermission('delete') || await checkPermission('employes');
+      if (!hasDelete) {
+        alertModal({ 
+          title: 'Permission refusée', 
+          message: 'Vous n\'avez pas la permission de supprimer les utilisateurs.', 
+          type: 'warning' 
+        });
+        return;
+      }
+    }
     const container = btn.closest('.action-buttons');
     const fb = getFirebase();
     const id = container?.getAttribute('data-user-id');
@@ -479,9 +542,18 @@ function generateTempPassword(length = 10) {
           <div class="view-section">
             <div class="view-section-title">Rôle & Statut</div>
             <div class="view-item">
-              <div class="view-item-label">Rôle</div>
+              <div class="view-item-label">Rôle (Espace Entreprise)</div>
               <div class="view-item-value">
-                <span class="view-badge badge-role ${user.role === 'admin' ? 'badge-admin' : 'badge-employe'}">${user.role === 'admin' ? 'Administrateur' : 'Employé'}</span>
+                ${(() => {
+                  const roleEntrepriseId = user.roleEntreprise;
+                  if (roleEntrepriseId && roleEntrepriseId !== "" && roleEntrepriseId !== null) {
+                    const roleData = rolesCache.find(r => r.id === roleEntrepriseId);
+                    const roleName = roleData ? roleData.name : 'Rôle non trouvé';
+                    return `<span class="view-badge badge-role badge-employe">${roleName}</span>`;
+                  } else {
+                    return '<span class="view-badge badge-role badge-employe">Sans rôle</span>';
+                  }
+                })()}
               </div>
             </div>
             <div class="view-item">
@@ -530,18 +602,22 @@ function generateTempPassword(length = 10) {
           const name = document.getElementById('modal-edit-name').value.trim();
           const email = document.getElementById('modal-edit-email').value.trim();
           const phone = document.getElementById('modal-edit-phone').value.trim();
-          const role = document.getElementById('modal-edit-role').value;
+          const roleName = document.getElementById('modal-edit-role').value;
           const active = document.getElementById('modal-edit-active').classList.contains('on');
           if (!name || !email) {
             alertModal({ title: 'Champs requis', message: 'Nom et email sont requis.', type: 'warning' });
             return;
           }
-          if (!role) {
+          if (!roleName) {
             alertModal({ title: 'Rôle requis', message: 'Veuillez sélectionner un rôle.', type: 'warning' });
             return;
           }
           try {
-            await updateDoc(doc(fb.db, 'users', id), { name, email, phone: phone || null, role, active });
+            // Trouver le rôle par nom dans rolesCache pour obtenir l'ID
+            const selectedRole = rolesCache.find(r => (r.name || '').toLowerCase() === roleName.toLowerCase());
+            const roleEntrepriseId = selectedRole ? selectedRole.id : "";
+            
+            await updateDoc(doc(fb.db, 'users', id), { name, email, phone: phone || null, roleEntreprise: roleEntrepriseId, active });
             
             // Si c'est l'utilisateur connecté qui a été modifié, invalider le cache du profil
             const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
@@ -578,7 +654,7 @@ function generateTempPassword(length = 10) {
               type: 'action', 
               action: 'user_update', 
               category: 'utilisateurs',
-              message: `Modification de l'utilisateur "${name || email}" - Rôle: ${role}` 
+              message: `Modification de l'utilisateur "${name || email}" - Rôle Entreprise: ${roleName}` 
             });
             alertModal({ title: 'Succès', message: 'Utilisateur modifié avec succès.', type: 'success' });
           } catch (err) {
@@ -601,13 +677,21 @@ function generateTempPassword(length = 10) {
               console.error('Erreur chargement rôles:', err);
             }
           }
-          // Remplir le select avec les rôles disponibles
-          const currentRole = (user.role || 'employe').toLowerCase();
-          sel.innerHTML = rolesCache.map(r => {
+          // Remplir le select avec les rôles disponibles - uniquement les rôles de l'espace Entreprise
+          const entrepriseRoles = rolesCache.filter(r => r.permissions && r.permissions.entreprise === true);
+          const currentRoleEntrepriseId = user.roleEntreprise;
+          let currentRoleName = '';
+          if (currentRoleEntrepriseId && currentRoleEntrepriseId !== "" && currentRoleEntrepriseId !== null) {
+            const currentRoleData = rolesCache.find(r => r.id === currentRoleEntrepriseId);
+            if (currentRoleData) {
+              currentRoleName = (currentRoleData.name || '').toLowerCase();
+            }
+          }
+          sel.innerHTML = entrepriseRoles.map(r => {
             const v = (r.name||'').toLowerCase();
-            const selected = v === currentRole;
+            const selected = v === currentRoleName;
             return `<option value="${v}" ${selected ? 'selected' : ''}>${r.name}</option>`;
-          }).join('') || `<option value="${currentRole}" selected>${user.role === 'admin' ? 'Administrateur' : 'Employé'}</option>`;
+          }).join('') || '<option value="">Aucun rôle disponible</option>';
         }
       }, 10);
       return;
@@ -661,6 +745,13 @@ function generateTempPassword(length = 10) {
 
       // Mettre à jour la navigation selon les permissions
       await updateNavPermissions();
+      
+      // Appliquer les permissions pour les actions de la page
+      await applyPagePermissions({
+        create: 'employes',
+        edit: 'employes',
+        delete: 'employes'
+      });
 
       // roles for selects/filters
       try {
@@ -668,8 +759,10 @@ function generateTempPassword(length = 10) {
         rolesCache = rs.docs.map(d => ({ id: d.id, ...d.data() }));
         const rf = document.getElementById('role-filter');
         if (rf) {
+          // Filtrer uniquement les rôles de l'espace Entreprise
+          const entrepriseRoles = rolesCache.filter(r => r.permissions && r.permissions.entreprise === true);
           rf.innerHTML = '<option value="">Tous les rôles</option>' +
-            (rolesCache.map(r => `<option value="${(r.name||'').toLowerCase()}">${r.name}</option>`).join('') || '<option value="employe">Employé</option>');
+            (entrepriseRoles.map(r => `<option value="${(r.name||'').toLowerCase()}">${r.name}</option>`).join('') || '<option value="">Aucun rôle disponible</option>');
         }
       } catch {}
 
