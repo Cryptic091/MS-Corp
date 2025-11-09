@@ -21,7 +21,14 @@ export function viewFlotte(root) {
                 <div id="sb-email" class="user-handle text-xs opacity-70">—</div>
               </div>
             </div>
-            <div id="sb-role" class="badge-role badge-employe mt-2 inline-block text-xs">Employé</div>
+            <div
+              id="sb-role"
+              class="badge-role badge-employe mt-2 inline-block text-xs"
+              data-role-field="roleEntreprise"
+              data-default-label="Sans rôle"
+              data-empty-label="Sans rôle"
+              data-role-class="badge-employe"
+            >Employé</div>
           </a>
           <div class="section-title">Entreprise</div>
           <nav class="nav-links">
@@ -1147,18 +1154,31 @@ export function viewFlotte(root) {
         // Déterminer quel tier d'assurance
         let assuranceTier = '—';
         let assuranceMontant = 0;
-        if (v.assuranceTier1) {
-          assuranceTier = `Tier 1: ${formatAmount(v.assuranceTier1)} €`;
-          assuranceMontant = v.assuranceTier1;
-        } else if (v.assuranceTier2) {
-          assuranceTier = `Tier 2: ${formatAmount(v.assuranceTier2)} €`;
-          assuranceMontant = v.assuranceTier2;
-        } else if (v.assuranceTier3) {
-          assuranceTier = `Tier 3: ${formatAmount(v.assuranceTier3)} €`;
-          assuranceMontant = v.assuranceTier3;
-        } else if (v.assuranceTier4) {
-          assuranceTier = `Tier 4: ${formatAmount(v.assuranceTier4)} €`;
-          assuranceMontant = v.assuranceTier4;
+        const tierSelection = typeof v.assuranceTierSelection === 'string' ? v.assuranceTierSelection.trim().toLowerCase() : null;
+        const resolveAssurance = (tierKey, montant) => {
+          assuranceTier = `Tier ${tierKey}: ${formatAmount(montant)} €`;
+          assuranceMontant = montant;
+        };
+
+        if (tierSelection && tierSelection.startsWith('tier')) {
+          const tierNum = tierSelection.replace('tier', '');
+          const field = `assuranceTier${tierNum}`;
+          const montant = v[field];
+          if (montant) {
+            resolveAssurance(tierNum, montant);
+          }
+        }
+
+        if (assuranceMontant === 0) {
+          if (v.assuranceTier1) {
+            resolveAssurance('1', v.assuranceTier1);
+          } else if (v.assuranceTier2) {
+            resolveAssurance('2', v.assuranceTier2);
+          } else if (v.assuranceTier3) {
+            resolveAssurance('3', v.assuranceTier3);
+          } else if (v.assuranceTier4) {
+            resolveAssurance('4', v.assuranceTier4);
+          }
         }
         
         const montantTotal = (v.prixAchat || 0) + assuranceMontant;
@@ -1202,6 +1222,7 @@ export function viewFlotte(root) {
               <button class="action-btn btn-view" title="Voir"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></span></button>
               <button class="action-btn btn-repayer-assurance" title="Repayer assurance" style="background: #10b981; color: white;"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></span></button>
               <button class="action-btn btn-controle-technique" title="Payer contrôle technique" style="background: #f59e0b; color: white;"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg></span></button>
+              <button class="action-btn btn-delete-achete" title="Supprimer véhicule acheté" style="background: #dc2626; color: white;"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></span></button>
             </div>
           </td>`;
         tbody.appendChild(tr);
@@ -1438,7 +1459,8 @@ export function viewFlotte(root) {
     const vehicule = flotteCache.find(v => v.id === vehiculeId);
     if (!vehicule) return;
 
-    const fb = getFirebase();
+    const fbFlotte = getFlotteFirebase();
+    const fbMain = getFirebase();
 
     if (e.target.closest('.btn-view')) {
       const dateAchat = vehicule.dateAchat ? 
@@ -1669,8 +1691,12 @@ export function viewFlotte(root) {
             if (notes) data.notes = notes;
             else data.notes = null;
 
-            await updateDoc(doc(fb.db, 'flotte', vehiculeId), data);
-            await addLogEntry(fb, { 
+            if (!fbFlotte || !fbFlotte.db) {
+              alertModal({ title: 'Erreur', message: 'Base flotte indisponible.', type: 'danger' });
+              return;
+            }
+            await updateDoc(doc(fbFlotte.db, 'flotte', vehiculeId), data);
+            await addLogEntry(fbMain || fbFlotte, { 
               type: 'action', 
               action: 'flotte_update', 
               category: 'flotte',
@@ -1819,6 +1845,11 @@ export function viewFlotte(root) {
           }
 
           try {
+            if (!fbFlotte || !fbFlotte.db) {
+              alertModal({ title: 'Erreur', message: 'Base flotte indisponible.', type: 'danger' });
+              return;
+            }
+
             const montantTotal = (vehicule.prixAchat || 0) + assuranceMontant;
             const dateAchat = new Date();
             
@@ -1845,16 +1876,28 @@ export function viewFlotte(root) {
               dateExpirationAssurance: dateExpirationAssurance,
               dateDernierPaiementAssurance: serverTimestamp(),
               vehiculeSourceId: vehiculeId, // Référence au véhicule source dans la liste A4L
-              createdAt: serverTimestamp()
+              createdAt: serverTimestamp(),
+              assuranceTierSelection: selectedTier
             };
             
             // Créer le nouveau document pour le véhicule acheté
-            const nouveauVehiculeRef = await addDoc(collection(fb.db, 'flotte'), vehiculeAcheteData);
+            const nouveauVehiculeRef = await addDoc(collection(fbFlotte.db, 'flotte'), vehiculeAcheteData);
             
             // Utiliser la première base pour la finance
-            const fbMain = getFirebase();
             // Créer la transaction financière (retrait)
-            await addDoc(collection(fbMain.db, 'finance'), {
+            if (fbMain && fbMain.db) {
+              await addDoc(collection(fbMain.db, 'finance'), {
+                type: 'depense',
+                montant: montantTotal,
+                description: `Achat véhicule: ${vehicule.type} ${vehicule.modele} (${immatriculation}) - Assurance ${selectedTier.toUpperCase()}`,
+                category: 'flotte',
+                vehiculeId: nouveauVehiculeRef.id,
+                vehiculeSourceId: vehiculeId,
+                date: serverTimestamp(),
+                createdAt: serverTimestamp()
+              });
+            } else {
+              await addDoc(collection(fbFlotte.db, 'finance'), {
               type: 'depense',
               montant: montantTotal,
               description: `Achat véhicule: ${vehicule.type} ${vehicule.modele} (${immatriculation}) - Assurance ${selectedTier.toUpperCase()}`,
@@ -1864,8 +1907,9 @@ export function viewFlotte(root) {
               date: serverTimestamp(),
               createdAt: serverTimestamp()
             });
+            }
             
-            await addLogEntry(fb, { 
+            await addLogEntry(fbMain || fbFlotte, { 
               type: 'action', 
               action: 'flotte_acheter', 
               category: 'flotte',
@@ -1967,8 +2011,12 @@ export function viewFlotte(root) {
         confirmText: 'Supprimer',
         onConfirm: async () => {
           try {
-            await deleteDoc(doc(fb.db, 'flotte', vehiculeId));
-            await addLogEntry(fb, { 
+            if (!fbFlotte || !fbFlotte.db) {
+              alertModal({ title: 'Erreur', message: 'Base flotte indisponible.', type: 'danger' });
+              return;
+            }
+            await deleteDoc(doc(fbFlotte.db, 'flotte', vehiculeId));
+            await addLogEntry(fbMain || fbFlotte, { 
               type: 'action', 
               action: 'flotte_delete', 
               category: 'flotte',
@@ -2499,6 +2547,12 @@ export function viewFlotte(root) {
       
       const fb = getFlotteFirebase();
       if (!fb || !fb.db) return;
+      const fbMain = getFirebase();
+      const financeDb = fbMain?.db || fb.db;
+      if (!financeDb) {
+        alertModal({ title: 'Erreur', message: 'Base finance indisponible.', type: 'danger' });
+        return;
+      }
       
       try {
         // Récupérer le véhicule complet depuis Firestore
@@ -2519,7 +2573,7 @@ export function viewFlotte(root) {
         // On filtre et trie en mémoire
         const transactionsSnap = await getDocs(
           query(
-            collection(fb.db, 'finance'),
+            collection(financeDb, 'finance'),
             where('vehiculeId', '==', vehiculeId)
           )
         );
@@ -2775,6 +2829,12 @@ export function viewFlotte(root) {
       // Récupérer le véhicule depuis la collection
       const fb = getFlotteFirebase();
       if (!fb || !fb.db) return;
+      const fbMain = getFirebase();
+      const financeDb = fbMain?.db || fb.db;
+      if (!financeDb) {
+        alertModal({ title: 'Erreur', message: 'Base finance indisponible.', type: 'danger' });
+        return;
+      }
       
       // Variables pour la sélection (déclarées dans le scope du gestionnaire)
       let selectedTier = null;
@@ -2918,11 +2978,12 @@ export function viewFlotte(root) {
               
               await updateDoc(doc(fb.db, 'flotte', vehiculeId), {
                 dateExpirationAssurance: nouvelleDateExpirationManuelleConfirm,
-                dateDernierPaiementAssurance: serverTimestamp()
+                dateDernierPaiementAssurance: serverTimestamp(),
+                assuranceTierSelection: selectedTier
               });
               
               // Créer la transaction financière (retrait)
-              await addDoc(collection(fb.db, 'finance'), {
+              await addDoc(collection(financeDb, 'finance'), {
                 type: 'depense',
                 montant: assuranceMontant,
                 description: `Renouvellement assurance: ${vehicule.type} ${vehicule.modele} (${vehicule.immatriculation}) - ${selectedTier.toUpperCase()}`,
@@ -2932,7 +2993,7 @@ export function viewFlotte(root) {
                 createdAt: serverTimestamp()
               });
               
-              await addLogEntry(fb, { 
+              await addLogEntry(fbMain || fb, { 
                 type: 'action', 
                 action: 'flotte_repayer_assurance', 
                 category: 'flotte',
@@ -3027,6 +3088,92 @@ export function viewFlotte(root) {
     }
   });
 
+  // Gestionnaire pour la suppression d'un véhicule acheté dans Flotte MS Corp
+  page.addEventListener('click', async (e) => {
+    if (e.target.closest('.btn-delete-achete')) {
+      const container = e.target.closest('.action-buttons');
+      if (!container) return;
+      const vehiculeId = container.getAttribute('data-vehicule-id');
+      if (!vehiculeId) return;
+
+      const vehicule = flotteAcheteeCache.find(v => v.id === vehiculeId);
+      const vehiculeLabel = vehicule ? `${vehicule.type || ''} ${vehicule.modele || ''}`.trim() : 'ce véhicule';
+      const immat = vehicule?.immatriculation ? ` (${vehicule.immatriculation})` : '';
+
+      createModal({
+        title: 'Supprimer véhicule acheté',
+        body: `
+          <div style="padding: 1rem 0;">
+            <p style="margin-bottom: 1rem; color: #dc2626; font-weight: 600;">
+              ⚠️ Cette action est irréversible.
+            </p>
+            <p style="margin-bottom: 0.75rem;">
+              Voulez-vous vraiment supprimer <strong>${vehiculeLabel || 'ce véhicule'}</strong>${immat} de la flotte MS&nbsp;Corp&nbsp;?
+            </p>
+            <p style="color: rgb(100,116,139); font-size: 0.875rem;">
+              Toutes les transactions financières liées à ce véhicule seront également retirées.
+            </p>
+          </div>
+        `,
+        confirmText: 'Supprimer',
+        cancelText: 'Annuler',
+        confirmStyle: 'background: #dc2626; color: white;',
+        onConfirm: async () => {
+          try {
+            const fbFlotte = getFlotteFirebase();
+            if (!fbFlotte || !fbFlotte.db) {
+              alertModal({ title: 'Erreur', message: 'Base flotte indisponible.', type: 'danger' });
+              return;
+            }
+
+            const fbMain = getFirebase();
+            const financeDb = fbMain?.db || fbFlotte.db;
+
+            // Supprimer les transactions financières associées
+            if (financeDb) {
+              try {
+                const financeSnap = await getDocs(
+                  query(collection(financeDb, 'finance'), where('vehiculeId', '==', vehiculeId))
+                );
+                for (const docSnap of financeSnap.docs) {
+                  await deleteDoc(doc(financeDb, 'finance', docSnap.id));
+                }
+              } catch (financeError) {
+                console.warn('Erreur suppression finance pour véhicule', vehiculeId, financeError);
+              }
+            }
+
+            // Supprimer le véhicule
+            await deleteDoc(doc(fbFlotte.db, 'flotte', vehiculeId));
+
+            await addLogEntry(fbMain || fbFlotte, {
+              type: 'action',
+              action: 'flotte_delete_achete',
+              category: 'flotte',
+              message: `Suppression du véhicule acheté: ${vehiculeLabel || vehiculeId}${immat}`
+            });
+
+            await loadFlotteAchetee();
+            await loadStats();
+
+            alertModal({
+              title: 'Véhicule supprimé',
+              message: `${vehiculeLabel || 'Le véhicule'} a été retiré de la flotte.`,
+              type: 'success'
+            });
+          } catch (error) {
+            console.error('Erreur suppression véhicule acheté:', error);
+            alertModal({
+              title: 'Erreur',
+              message: 'Impossible de supprimer le véhicule. Réessayez plus tard.',
+              type: 'danger'
+            });
+          }
+        }
+      });
+    }
+  });
+
   // Gestionnaire pour le bouton "Contrôle technique" dans Flotte MS Corp
   page.addEventListener('click', async (e) => {
     if (e.target.closest('.btn-controle-technique')) {
@@ -3046,6 +3193,12 @@ export function viewFlotte(root) {
       // Récupérer le véhicule depuis la collection
       const fb = getFlotteFirebase();
       if (!fb || !fb.db) return;
+      const fbMain = getFirebase();
+      const financeDb = fbMain?.db || fb.db;
+      if (!financeDb) {
+        alertModal({ title: 'Erreur', message: 'Base finance indisponible.', type: 'danger' });
+        return;
+      }
       
       try {
         const vehiculeDoc = await getDoc(doc(fb.db, 'flotte', vehiculeId));
@@ -3114,7 +3267,7 @@ export function viewFlotte(root) {
               });
               
               // Créer la transaction financière (retrait)
-              await addDoc(collection(fb.db, 'finance'), {
+              await addDoc(collection(financeDb, 'finance'), {
                 type: 'depense',
                 montant: prixControle,
                 description: `Contrôle technique: ${vehicule.type} ${vehicule.modele} (${vehicule.immatriculation})`,
@@ -3124,7 +3277,7 @@ export function viewFlotte(root) {
                 createdAt: serverTimestamp()
               });
               
-              await addLogEntry(fb, { 
+              await addLogEntry(fbMain || fb, { 
                 type: 'action', 
                 action: 'flotte_controle_technique', 
                 category: 'flotte',
