@@ -80,15 +80,6 @@ export function viewEmployes(root) {
             <div class="page-sub">Gérez les comptes utilisateurs de l'entreprise</div>
           </div>
           <div class="flex gap-2 flex-wrap justify-end">
-            <button id="btn-refresh" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-sm flex items-center gap-2">
-              <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0114.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0020.49 15"></path></svg></span> Actualiser
-            </button>
-            <button id="btn-new-vente-par-employe" class="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 transition">
-              <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span> Nouvelle vente par employé
-            </button>
-            <button id="btn-new-user" class="btn-primary flex items-center gap-2">
-              <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span> Nouvel utilisateur
-            </button>
           </div>
         </div>
 
@@ -201,175 +192,176 @@ const ROLE_OPTION_NONE = '__none__';
 const ROLE_OPTION_EMPTY = '__empty__';
 let ressourcesVenteCache = [];
 
-  const delegatedSaleBtn = document.getElementById('btn-new-vente-par-employe');
-  if (delegatedSaleBtn) {
-    delegatedSaleBtn.addEventListener('click', async () => {
-      try {
-        let fbInstance = getFirebase();
-        if (!fbInstance || !fbInstance.db) {
-          fbInstance = await waitForFirebase();
-        }
-
-        if (!fbInstance || !fbInstance.db) {
-          alertModal({ title: 'Erreur', message: 'Connexion à la base de données indisponible.', type: 'danger' });
-          return;
-        }
-
-        if (!ressourcesVenteCache || !ressourcesVenteCache.length) {
-          const resSnap = await getDocs(collection(fbInstance.db, 'ressources'));
-          ressourcesVenteCache = resSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        }
-
-        let employesDisponibles = Array.isArray(cache) && cache.length ? cache.slice() : [];
-        if (!employesDisponibles.length) {
-          const usersSnap = await getDocs(collection(fbInstance.db, 'users'));
-          employesDisponibles = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-          cache = employesDisponibles;
-        }
-
-        employesDisponibles = employesDisponibles.filter(u => u.active !== false);
-
-        if (!employesDisponibles.length) {
-          alertModal({ title: 'Aucun employé', message: 'Aucun employé actif n’a été trouvé pour enregistrer une vente.', type: 'warning' });
-          return;
-        }
-
-        if (!ressourcesVenteCache.length) {
-          alertModal({ title: 'Aucune ressource', message: 'Aucune ressource disponible pour enregistrer une vente.', type: 'warning' });
-          return;
-        }
-
-        const body = `
-          <div class="modal-field">
-            <label>Employé concerné *</label>
-            <select id="modal-employe-vente" required></select>
-            <div id="modal-employe-vente-info" class="text-sm text-slate-500 dark:text-slate-400 mt-2"></div>
-          </div>
-          <div class="modal-field">
-            <label>Date de la vente *</label>
-            <input id="modal-date-delegue" type="date" required />
-          </div>
-          <div class="modal-field">
-            <label>Type de ressource *</label>
-            <select id="modal-ressource-delegue" required></select>
-          </div>
-          <div class="modal-field">
-            <label>Nombre de ressources *</label>
-            <input id="modal-quantite-delegue" type="number" min="1" required placeholder="1" />
-          </div>
-        `;
-
-        createModal({
-          title: 'Nouvelle vente par employé',
-          body,
-          confirmText: 'Créer',
-          onConfirm: async () => {
-            const dateStr = document.getElementById('modal-date-delegue').value;
-            const ressourceId = document.getElementById('modal-ressource-delegue').value;
-            const quantite = parseInt(document.getElementById('modal-quantite-delegue').value, 10);
-            const employeId = document.getElementById('modal-employe-vente').value;
-
-            if (!employeId || !dateStr || !ressourceId || Number.isNaN(quantite) || quantite <= 0) {
-              alertModal({ title: 'Champs requis', message: 'Employé, date, ressource et quantité sont requis.', type: 'warning' });
-              return;
-            }
-
-            const selectedEmploye = employesDisponibles.find(u => u.id === employeId) || null;
-            const selectedRessource = ressourcesVenteCache.find(r => r.id === ressourceId) || null;
-
-            if (!selectedRessource) {
-              alertModal({ title: 'Ressource introuvable', message: 'La ressource sélectionnée est introuvable.', type: 'danger' });
-              return;
-            }
-
-            const { prenom, nom } = splitFullName(selectedEmploye?.name || '');
-            const telephone = selectedEmploye?.phone || '';
-            const tailleObjet = selectedRessource?.tailleObjet || 1;
-
-            try {
-              const dateVente = new Date(dateStr);
-              await addDoc(collection(fbInstance.db, 'ventes'), {
-                dateVente,
-                typeRessourceId: ressourceId,
-                quantite,
-                tailleObjet,
-                employeId,
-                prenom,
-                nom,
-                telephone,
-                statut: 'en attente',
-                createdAt: serverTimestamp()
-              });
-
-              await addLogEntry(fbInstance, { 
-                type: 'action', 
-                action: 'vente_create_deleguee', 
-                category: 'ventes',
-                message: `Création d'une vente pour ${selectedEmploye?.name || selectedEmploye?.email || employeId}: ${quantite} x ${selectedRessource?.nom || ressourceId}` 
-              });
-
-              alertModal({ 
-                title: 'Succès', 
-                message: `Vente enregistrée pour ${selectedEmploye?.name || selectedEmploye?.email || 'l\'employé sélectionné'}.`, 
-                type: 'success' 
-              });
-            } catch (error) {
-              console.error('Erreur création vente déléguée (Gestion Employé):', error);
-              alertModal({ title: 'Erreur', message: 'Erreur lors de la création de la vente.', type: 'danger' });
-            }
-          }
-        });
-
-        const selEmploye = document.getElementById('modal-employe-vente');
-        const selRessource = document.getElementById('modal-ressource-delegue');
-        const infoEmploye = document.getElementById('modal-employe-vente-info');
-        const dateInput = document.getElementById('modal-date-delegue');
-
-        if (selEmploye) {
-          const sortedEmployes = [...employesDisponibles].sort((a, b) => {
-            const nameA = (a.name || a.email || '').toLowerCase();
-            const nameB = (b.name || b.email || '').toLowerCase();
-            return nameA.localeCompare(nameB);
-          });
-          selEmploye.innerHTML = sortedEmployes
-            .map(u => `<option value="${u.id}">${(u.name || u.email || u.id)}</option>`)
-            .join('');
-
-          if (infoEmploye) {
-            infoEmploye.style.whiteSpace = 'pre-line';
-            const updateInfo = () => {
-              const selected = sortedEmployes.find(u => u.id === selEmploye.value) || null;
-              if (!selected) {
-                infoEmploye.textContent = 'Sélectionnez un employé pour afficher ses informations.';
-                return;
-              }
-              infoEmploye.textContent = [
-                `Nom complet : ${selected.name || '—'}`,
-                `Email : ${selected.email || '—'}`,
-                `Téléphone : ${selected.phone || '—'}`
-              ].join('\n');
-            };
-            selEmploye.addEventListener('change', updateInfo);
-            updateInfo();
-          }
-        }
-
-        if (selRessource) {
-          const sortedRessources = [...ressourcesVenteCache].sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
-          selRessource.innerHTML = sortedRessources
-            .map(r => `<option value="${r.id}">${r.nom || r.id}</option>`)
-            .join('');
-        }
-
-        if (dateInput) {
-          dateInput.valueAsDate = new Date();
-        }
-      } catch (error) {
-        console.error('Erreur lors de l’ouverture du modal de vente déléguée (Gestion Employé):', error);
-        alertModal({ title: 'Erreur', message: 'Impossible d’ouvrir la création de vente déléguée.', type: 'danger' });
-      }
-    });
-  }
+  // Bouton "Nouvelle vente par employé" retiré
+  // const delegatedSaleBtn = document.getElementById('btn-new-vente-par-employe');
+  // if (delegatedSaleBtn) {
+  //   delegatedSaleBtn.addEventListener('click', async () => {
+  //     try {
+  //       let fbInstance = getFirebase();
+  //       if (!fbInstance || !fbInstance.db) {
+  //         fbInstance = await waitForFirebase();
+  //       }
+  //
+  //       if (!fbInstance || !fbInstance.db) {
+  //         alertModal({ title: 'Erreur', message: 'Connexion à la base de données indisponible.', type: 'danger' });
+  //         return;
+  //       }
+  //
+  //       if (!ressourcesVenteCache || !ressourcesVenteCache.length) {
+  //         const resSnap = await getDocs(collection(fbInstance.db, 'ressources'));
+  //         ressourcesVenteCache = resSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  //       }
+  //
+  //       let employesDisponibles = Array.isArray(cache) && cache.length ? cache.slice() : [];
+  //       if (!employesDisponibles.length) {
+  //         const usersSnap = await getDocs(collection(fbInstance.db, 'users'));
+  //         employesDisponibles = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  //         cache = employesDisponibles;
+  //       }
+  //
+  //       employesDisponibles = employesDisponibles.filter(u => u.active !== false);
+  //
+  //       if (!employesDisponibles.length) {
+  //         alertModal({ title: 'Aucun employé', message: 'Aucun employé actif n'a été trouvé pour enregistrer une vente.', type: 'warning' });
+  //         return;
+  //       }
+  //
+  //       if (!ressourcesVenteCache.length) {
+  //         alertModal({ title: 'Aucune ressource', message: 'Aucune ressource disponible pour enregistrer une vente.', type: 'warning' });
+  //         return;
+  //       }
+  //
+  //       const body = `
+  //         <div class="modal-field">
+  //           <label>Employé concerné *</label>
+  //           <select id="modal-employe-vente" required></select>
+  //           <div id="modal-employe-vente-info" class="text-sm text-slate-500 dark:text-slate-400 mt-2"></div>
+  //         </div>
+  //         <div class="modal-field">
+  //           <label>Date de la vente *</label>
+  //           <input id="modal-date-delegue" type="date" required />
+  //         </div>
+  //         <div class="modal-field">
+  //           <label>Type de ressource *</label>
+  //           <select id="modal-ressource-delegue" required></select>
+  //         </div>
+  //         <div class="modal-field">
+  //           <label>Nombre de ressources *</label>
+  //           <input id="modal-quantite-delegue" type="number" min="1" required placeholder="1" />
+  //         </div>
+  //       `;
+  //
+  //       createModal({
+  //         title: 'Nouvelle vente par employé',
+  //         body,
+  //         confirmText: 'Créer',
+  //         onConfirm: async () => {
+  //           const dateStr = document.getElementById('modal-date-delegue').value;
+  //           const ressourceId = document.getElementById('modal-ressource-delegue').value;
+  //           const quantite = parseInt(document.getElementById('modal-quantite-delegue').value, 10);
+  //           const employeId = document.getElementById('modal-employe-vente').value;
+  //
+  //           if (!employeId || !dateStr || !ressourceId || Number.isNaN(quantite) || quantite <= 0) {
+  //             alertModal({ title: 'Champs requis', message: 'Employé, date, ressource et quantité sont requis.', type: 'warning' });
+  //             return;
+  //           }
+  //
+  //           const selectedEmploye = employesDisponibles.find(u => u.id === employeId) || null;
+  //           const selectedRessource = ressourcesVenteCache.find(r => r.id === ressourceId) || null;
+  //
+  //           if (!selectedRessource) {
+  //             alertModal({ title: 'Ressource introuvable', message: 'La ressource sélectionnée est introuvable.', type: 'danger' });
+  //             return;
+  //           }
+  //
+  //           const { prenom, nom } = splitFullName(selectedEmploye?.name || '');
+  //           const telephone = selectedEmploye?.phone || '';
+  //           const tailleObjet = selectedRessource?.tailleObjet || 1;
+  //
+  //           try {
+  //             const dateVente = new Date(dateStr);
+  //             await addDoc(collection(fbInstance.db, 'ventes'), {
+  //               dateVente,
+  //               typeRessourceId: ressourceId,
+  //               quantite,
+  //               tailleObjet,
+  //               employeId,
+  //               prenom,
+  //               nom,
+  //               telephone,
+  //               statut: 'en attente',
+  //               createdAt: serverTimestamp()
+  //             });
+  //
+  //             await addLogEntry(fbInstance, { 
+  //               type: 'action', 
+  //               action: 'vente_create_deleguee', 
+  //               category: 'ventes',
+  //               message: `Création d'une vente pour ${selectedEmploye?.name || selectedEmploye?.email || employeId}: ${quantite} x ${selectedRessource?.nom || ressourceId}` 
+  //             });
+  //
+  //             alertModal({ 
+  //               title: 'Succès', 
+  //               message: `Vente enregistrée pour ${selectedEmploye?.name || selectedEmploye?.email || 'l\'employé sélectionné'}.`, 
+  //               type: 'success' 
+  //             });
+  //           } catch (error) {
+  //             console.error('Erreur création vente déléguée (Gestion Employé):', error);
+  //             alertModal({ title: 'Erreur', message: 'Erreur lors de la création de la vente.', type: 'danger' });
+  //           }
+  //         }
+  //       });
+  //
+  //       const selEmploye = document.getElementById('modal-employe-vente');
+  //       const selRessource = document.getElementById('modal-ressource-delegue');
+  //       const infoEmploye = document.getElementById('modal-employe-vente-info');
+  //       const dateInput = document.getElementById('modal-date-delegue');
+  //
+  //       if (selEmploye) {
+  //         const sortedEmployes = [...employesDisponibles].sort((a, b) => {
+  //           const nameA = (a.name || a.email || '').toLowerCase();
+  //           const nameB = (b.name || b.email || '').toLowerCase();
+  //           return nameA.localeCompare(nameB);
+  //         });
+  //         selEmploye.innerHTML = sortedEmployes
+  //           .map(u => `<option value="${u.id}">${(u.name || u.email || u.id)}</option>`)
+  //           .join('');
+  //
+  //         if (infoEmploye) {
+  //           infoEmploye.style.whiteSpace = 'pre-line';
+  //           const updateInfo = () => {
+  //             const selected = sortedEmployes.find(u => u.id === selEmploye.value) || null;
+  //             if (!selected) {
+  //               infoEmploye.textContent = 'Sélectionnez un employé pour afficher ses informations.';
+  //               return;
+  //             }
+  //             infoEmploye.textContent = [
+  //               `Nom complet : ${selected.name || '—'}`,
+  //               `Email : ${selected.email || '—'}`,
+  //               `Téléphone : ${selected.phone || '—'}`
+  //             ].join('\n');
+  //           };
+  //           selEmploye.addEventListener('change', updateInfo);
+  //           updateInfo();
+  //         }
+  //       }
+  //
+  //       if (selRessource) {
+  //         const sortedRessources = [...ressourcesVenteCache].sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
+  //         selRessource.innerHTML = sortedRessources
+  //           .map(r => `<option value="${r.id}">${r.nom || r.id}</option>`)
+  //           .join('');
+  //       }
+  //
+  //       if (dateInput) {
+  //         dateInput.valueAsDate = new Date();
+  //       }
+  //     } catch (error) {
+  //       console.error('Erreur lors de l'ouverture du modal de vente déléguée (Gestion Employé):', error);
+  //       alertModal({ title: 'Erreur', message: 'Impossible d'ouvrir la création de vente déléguée.', type: 'danger' });
+  //     }
+  //   });
+  // }
 
 function generateTempPassword(length = 10) {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
@@ -582,62 +574,65 @@ function buildRoleOptions(roles, { includeNoAccess = true, includeEmpty = true, 
     if (e.target && ['user-search', 'role-filter', 'status-filter'].includes(e.target.id)) applyFilters();
   });
 
-  document.getElementById('btn-refresh').addEventListener('click', async () => {
-    const fb = getFirebase();
-    if (!fb || !fb.db) return;
-    try {
-      const snap = await getDocs(collection(fb.db, 'users'));
-      cache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      applyFilters();
-    } catch {}
-  });
+  // Bouton "Actualiser" retiré
+  // document.getElementById('btn-refresh').addEventListener('click', async () => {
+  //   const fb = getFirebase();
+  //   if (!fb || !fb.db) return;
+  //   try {
+  //     const snap = await getDocs(collection(fb.db, 'users'));
+  //     cache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  //     applyFilters();
+  //   } catch {}
+  // });
 
-  document.getElementById('btn-new-user').addEventListener('click', async () => {
+  // Bouton "Nouvel utilisateur" retiré
+  // document.getElementById('btn-new-user').addEventListener('click', async () => {
     // Vérifier la permission avant d'ouvrir le modal
-    const hasCreate = hasStoredPermission('create') || await checkPermission('employes');
-    if (!hasCreate) {
-      alertModal({ 
-        title: 'Permission refusée', 
-        message: 'Vous n\'avez pas la permission de créer des utilisateurs.', 
-        type: 'warning' 
-      });
-      return;
-    }
-    const body = `
-      <div class="modal-field">
-        <label>Nom complet *</label>
-        <input id="modal-name" type="text" required placeholder="Jean Dupont" />
-      </div>
-      <div class="modal-field">
-        <label>Email (peut être fictif, optionnel)</label>
-        <input id="modal-email" type="text" placeholder="jean.dupont@entreprise.com ou laissez vide pour générer" />
-        <p class="text-xs text-slate-500 mt-1">L'email peut être fictif. Si vide, un email sera généré automatiquement à partir du nom.</p>
-      </div>
-      <div class="modal-field">
-        <label>Téléphone</label>
-        <input id="modal-phone" type="tel" placeholder="0612345678" />
-      </div>
-      <div class="modal-field">
-        <label>Rôle (Espace Entreprise) *</label>
-        <select id="modal-role-entreprise" required></select>
-        <p class="text-xs text-slate-500 mt-1">Définit les permissions dans l'espace Entreprise.</p>
-      </div>
-      <div class="modal-field">
-        <label>Rôle (Espace Employé)</label>
-        <select id="modal-role-employe"></select>
-        <p class="text-xs text-slate-500 mt-1">Définit les permissions dans l'espace Employé. Choisissez "Pas d'accès" pour retirer l'accès.</p>
-      </div>
-      <div class="modal-field">
-        <label>Mot de passe initial *</label>
-        <input id="modal-temp-password" type="text" required placeholder="Ex: Az123456" />
-        <p class="text-xs text-slate-500 mt-1">Communiquez ce mot de passe à l'utilisateur.</p>
-      </div>
-    `;
-    createModal({
-      title: 'Nouvel utilisateur',
-      body,
-      confirmText: 'Créer',
-      onConfirm: async () => {
+    // const hasCreate = hasStoredPermission('create') || await checkPermission('employes');
+    // if (!hasCreate) {
+    //   alertModal({ 
+    //     title: 'Permission refusée', 
+    //     message: 'Vous n\'avez pas la permission de créer des utilisateurs.', 
+    //     type: 'warning' 
+    //   });
+    //   return;
+    // }
+    // const body = `
+    //   <div class="modal-field">
+    //     <label>Nom complet *</label>
+    //     <input id="modal-name" type="text" required placeholder="Jean Dupont" />
+    //   </div>
+    //   <div class="modal-field">
+    //     <label>Email (peut être fictif, optionnel)</label>
+    //     <input id="modal-email" type="text" placeholder="jean.dupont@entreprise.com ou laissez vide pour générer" />
+    //     <p class="text-xs text-slate-500 mt-1">L'email peut être fictif. Si vide, un email sera généré automatiquement à partir du nom.</p>
+    //   </div>
+    //   <div class="modal-field">
+    //     <label>Téléphone</label>
+    //     <input id="modal-phone" type="tel" placeholder="0612345678" />
+    //   </div>
+    //   <div class="modal-field">
+    //     <label>Rôle (Espace Entreprise) *</label>
+    //     <select id="modal-role-entreprise" required></select>
+    //     <p class="text-xs text-slate-500 mt-1">Définit les permissions dans l'espace Entreprise.</p>
+    //   </div>
+    //   <div class="modal-field">
+    //     <label>Rôle (Espace Employé)</label>
+    //     <select id="modal-role-employe"></select>
+    //     <p class="text-xs text-slate-500 mt-1">Définit les permissions dans l'espace Employé. Choisissez "Pas d'accès" pour retirer l'accès.</p>
+    //   </div>
+    //   <div class="modal-field">
+    //     <label>Mot de passe initial *</label>
+    //     <input id="modal-temp-password" type="text" required placeholder="Ex: Az123456" />
+    //     <p class="text-xs text-slate-500 mt-1">Communiquez ce mot de passe à l'utilisateur.</p>
+    //   </div>
+    // `;
+    // createModal({
+    //   title: 'Nouvel utilisateur',
+    //   body,
+    //   confirmText: 'Créer',
+    //   onConfirm: async () => {
+        (async () => {
         const fb = getFirebase();
         const name = document.getElementById('modal-name').value.trim();
         let emailRaw = document.getElementById('modal-email').value.trim();
@@ -806,38 +801,38 @@ function buildRoleOptions(roles, { includeNoAccess = true, includeEmpty = true, 
           }
           alertModal({ title: 'Erreur', message, type: 'danger' });
         }
-      }
-    });
+        })();
+    // });
     // Remplir la liste des rôles depuis la BDD - uniquement les rôles de l'espace Entreprise
-    const entrepriseSelect = document.getElementById('modal-role-entreprise');
-    const employeSelect = document.getElementById('modal-role-employe');
-    if (entrepriseSelect || employeSelect) {
-      if (!rolesCache || rolesCache.length === 0) {
-        try {
-          const fbInstance = getFirebase();
-          if (fbInstance?.db) {
-            const rs = await getDocs(collection(fbInstance.db, 'roles'));
-            rolesCache = rs.docs.map(d => ({ id: d.id, ...d.data() }));
-            rolesById = new Map(rolesCache.map(r => [r.id, r]));
-          }
-        } catch (err) {
-          console.error('Erreur chargement rôles:', err);
-        }
-      }
-    }
-    if (entrepriseSelect) {
-      const entrepriseRoles = rolesCache.filter(r => r.permissions && r.permissions.entreprise === true);
-      entrepriseSelect.innerHTML = buildRoleOptions(entrepriseRoles, { includeNoAccess: false, includeEmpty: true, currentValue: '' });
-    }
-    if (employeSelect) {
-      const employeRoles = rolesCache.filter(r => r.permissions && r.permissions.employe === true);
-      employeSelect.innerHTML = buildRoleOptions(employeRoles, { includeNoAccess: true, includeEmpty: true, currentValue: null });
-    }
-    const tempField = document.getElementById('modal-temp-password');
-    if (tempField) {
-      tempField.value = generateTempPassword();
-    }
-  });
+    // const entrepriseSelect = document.getElementById('modal-role-entreprise');
+    // const employeSelect = document.getElementById('modal-role-employe');
+    // if (entrepriseSelect || employeSelect) {
+    //   if (!rolesCache || rolesCache.length === 0) {
+    //     try {
+    //       const fbInstance = getFirebase();
+    //       if (fbInstance?.db) {
+    //         const rs = await getDocs(collection(fbInstance.db, 'roles'));
+    //         rolesCache = rs.docs.map(d => ({ id: d.id, ...d.data() }));
+    //         rolesById = new Map(rolesCache.map(r => [r.id, r]));
+    //       }
+    //     } catch (err) {
+    //       console.error('Erreur chargement rôles:', err);
+    //     }
+    //   }
+    // }
+    // if (entrepriseSelect) {
+    //   const entrepriseRoles = rolesCache.filter(r => r.permissions && r.permissions.entreprise === true);
+    //   entrepriseSelect.innerHTML = buildRoleOptions(entrepriseRoles, { includeNoAccess: false, includeEmpty: true, currentValue: '' });
+    // }
+    // if (employeSelect) {
+    //   const employeRoles = rolesCache.filter(r => r.permissions && r.permissions.employe === true);
+    //   employeSelect.innerHTML = buildRoleOptions(employeRoles, { includeNoAccess: true, includeEmpty: true, currentValue: null });
+    // }
+    // const tempField = document.getElementById('modal-temp-password');
+    // if (tempField) {
+    //   tempField.value = generateTempPassword();
+    // }
+  // });
 
   // Delegated actions for edit/delete/view
   document.addEventListener('click', async (e) => {

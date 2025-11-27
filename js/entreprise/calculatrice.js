@@ -56,27 +56,28 @@ export function viewCalculatrice(root) {
           <div class="page-head">
             <div>
               <div class="page-title">Calculatrice</div>
-              <div class="page-sub">Calculatrice simple</div>
+              <div class="page-sub">Outil de calcul professionnel</div>
             </div>
           </div>
 
-          <div class="max-w-sm mx-auto mt-8">
-            <div class="card p-6 shadow-lg">
-              <div id="calculator-display" class="mb-6 p-6 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border-2 border-slate-200 dark:border-white/10 text-right text-4xl font-bold text-slate-900 dark:text-white min-h-[100px] flex items-center justify-end overflow-hidden">
-                <span class="break-all">0</span>
+          <div class="max-w-md mx-auto mt-8">
+            <div class="card p-8 shadow-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5">
+              <div class="mb-2">
+                <h3 class="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Calculatrice</h3>
+              </div>
+              <div id="calculator-display" class="mb-8 p-6 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 text-right text-5xl font-light text-slate-900 dark:text-white min-h-[120px] flex items-center justify-end overflow-hidden font-mono">
+                <span class="break-all select-all">0</span>
               </div>
               
-              <div class="grid grid-cols-4 gap-3">
+              <div class="grid grid-cols-4 gap-2.5">
                 <button class="calc-btn calc-btn-clear" data-action="clear">
                   <span class="calc-btn-text">C</span>
                 </button>
-                <button class="calc-btn calc-btn-operator" data-action="backspace">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
-                    <path d="M3 6h18"></path>
-                    <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"></path>
-                    <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
-                    <path d="M10 11v6"></path>
-                    <path d="M14 11v6"></path>
+                <button class="calc-btn calc-btn-operator" data-action="backspace" title="Effacer">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
                   </svg>
                 </button>
                 <button class="calc-btn calc-btn-operator" data-value="/">

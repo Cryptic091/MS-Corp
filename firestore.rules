@@ -115,9 +115,24 @@ service cloud.firestore {
 
     // Collection: centraleServices
     // Suivi des prises de service des employés (statut en service)
+    // Permet à tous les utilisateurs authentifiés de gérer leur propre service
     match /centraleServices/{serviceId} {
       allow read: if isAuthed();
-      allow create, update, delete: if isAuthed();
+      // Permettre à n'importe quel utilisateur authentifié de créer/mettre à jour son propre service
+      allow create, update: if isAuthed() && (request.resource.data.uid == request.auth.uid || serviceId == request.auth.uid);
+      // Permettre la suppression seulement pour son propre service
+      allow delete: if isAuthed() && serviceId == request.auth.uid;
+    }
+
+    // Collection: centraleServiceHistory
+    // Historique complet des prises et fins de service
+    // Permet à tous les utilisateurs authentifiés de créer leur propre historique
+    // Permet la lecture pour tous les utilisateurs authentifiés (pour voir l'historique)
+    match /centraleServiceHistory/{historyId} {
+      allow read: if isAuthed();
+      allow create: if isAuthed();
+      // Ne pas permettre la modification ou suppression pour préserver l'intégrité de l'historique
+      allow update, delete: if false;
     }
   }
 }

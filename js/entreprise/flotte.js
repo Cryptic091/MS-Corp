@@ -1,5 +1,5 @@
     import { html, mount, createModal, getCachedProfile, loadUserProfile, updateNavPermissions, alertModal, updateAvatar, isAuthenticated, updateRoleBadge, applyPagePermissions } from '../utils.js'
-import { getFirebase, getFlotteFirebase, waitForFirebase, collection, getDocs, getDoc, query, orderBy, where, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, signOut } from '../firebase.js';
+import { getFirebase, getFlotteFirebase, waitForFirebase, waitForFlotteFirebase, collection, getDocs, getDoc, query, orderBy, where, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, signOut } from '../firebase.js';
 import { addLogEntry } from '../firebase.js';
 
 export function viewFlotte(root) {
@@ -206,13 +206,6 @@ export function viewFlotte(root) {
             <div class="flex items-center justify-between mb-4">
               <h3 class="font-medium text-lg">Véhicules disponibles</h3>
               <div class="flex items-center gap-2">
-                <button id="btn-delete-all-a4l" class="px-3 py-1.5 rounded border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors flex items-center gap-2" title="Supprimer tous les véhicules A4L">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
-                  </svg>
-                  Supprimer tout A4L
-                </button>
                 <button id="btn-view-table" class="view-toggle-btn active flex items-center gap-2 px-3 py-1.5 rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm hover:bg-slate-50 dark:hover:bg-white/10 transition-colors" title="Vue tableau">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
                     <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
@@ -682,129 +675,7 @@ export function viewFlotte(root) {
     }
   }
   
-  // Supprimer tous les véhicules A4L
-  document.getElementById('btn-delete-all-a4l')?.addEventListener('click', async () => {
-    const a4lVehicules = flotteCache.filter(v => !v.vehiculeSourceId);
-    const count = a4lVehicules.length;
-    
-    if (count === 0) {
-      alertModal({
-        title: 'Aucun véhicule',
-        message: 'Il n\'y a aucun véhicule A4L à supprimer.',
-        type: 'info'
-      });
-      return;
-    }
-    
-    const confirmed = await new Promise((resolve) => {
-      createModal({
-        title: 'Supprimer tous les véhicules A4L',
-        body: `
-          <div style="padding: 1rem 0;">
-            <p style="margin-bottom: 1rem; color: rgb(239,68,68); font-weight: 600;">
-              ⚠️ Attention : Cette action est irréversible !
-            </p>
-            <p style="margin-bottom: 0.5rem;">
-              Vous êtes sur le point de supprimer <strong>${count} véhicule(s) A4L</strong>.
-            </p>
-            <p style="color: rgb(100,116,139); font-size: 0.875rem;">
-              Les véhicules achetés (Flotte MS Corp) ne seront pas affectés.
-            </p>
-          </div>
-        `,
-        confirmText: 'Supprimer tout',
-        cancelText: 'Annuler',
-        confirmStyle: 'background: rgb(239,68,68); color: white;',
-        onConfirm: () => resolve(true),
-        onCancel: () => resolve(false)
-      });
-    });
-    
-    if (!confirmed) return;
-    
-    try {
-      const fb = getFlotteFirebase();
-      if (!fb || !fb.db) {
-        alertModal({ title: 'Erreur', message: 'Erreur de connexion à la base de données.', type: 'danger' });
-        return;
-      }
-      
-      let deleted = 0;
-      let errors = 0;
-      
-      // Afficher un modal de progression
-      const progressModal = createModal({
-        title: 'Suppression en cours...',
-        body: `<div style="padding: 1rem 0; text-align: center;">
-          <div style="margin-bottom: 1rem;">Suppression de ${count} véhicule(s)...</div>
-          <div id="delete-progress" style="font-size: 0.875rem; color: rgb(100,116,139);">0/${count}</div>
-        </div>`,
-        confirmText: '',
-        cancelText: '',
-        isView: true
-      });
-      
-      // Supprimer chaque véhicule
-      for (const vehicule of a4lVehicules) {
-        try {
-          await deleteDoc(doc(fb.db, 'flotte', vehicule.id));
-          deleted++;
-          
-          // Mettre à jour la progression
-          const progressEl = document.getElementById('delete-progress');
-          if (progressEl) {
-            progressEl.textContent = `${deleted}/${count}`;
-          }
-        } catch (error) {
-          console.error(`Erreur suppression véhicule ${vehicule.id}:`, error);
-          errors++;
-        }
-      }
-      
-      // Fermer le modal de progression
-      const modalBackdrop = document.querySelector('.modal-backdrop');
-      if (modalBackdrop) {
-        modalBackdrop.classList.remove('show');
-        modalBackdrop.remove();
-      }
-      
-      // Log de l'action
-      await addLogEntry(fb, {
-        type: 'action',
-        action: 'flotte_delete_all_a4l',
-        category: 'flotte',
-        message: `Suppression de ${deleted} véhicule(s) A4L`
-      });
-      
-      // Recharger les données
-      await loadFlotte();
-      if (currentView === 'card') {
-        loadFlotteCards();
-      }
-      await loadStats();
-      
-      if (errors > 0) {
-        alertModal({
-          title: 'Suppression partielle',
-          message: `${deleted} véhicule(s) supprimé(s) avec succès. ${errors} erreur(s) rencontrée(s).`,
-          type: 'warning'
-        });
-      } else {
-        alertModal({
-          title: 'Succès',
-          message: `${deleted} véhicule(s) A4L supprimé(s) avec succès.`,
-          type: 'success'
-        });
-      }
-    } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
-      alertModal({
-        title: 'Erreur',
-        message: 'Erreur lors de la suppression des véhicules.',
-        type: 'danger'
-      });
-    }
-  });
+  // Supprimer tous les véhicules A4L - BOUTON RETIRÉ
   
   // Initialiser la vue
   switchView(currentView);
@@ -831,10 +702,9 @@ export function viewFlotte(root) {
           loadFlotteAchetee();
         } else if (tabId === 'comparateur') {
           // Attendre que la flotte soit chargée si nécessaire
+          // loadFlotte() appelle déjà setupComparateur() si currentTab === 'comparateur'
           if (flotteCache.length === 0) {
-            loadFlotte().then(() => {
-              setTimeout(() => setupComparateur(), 100);
-            });
+            loadFlotte();
           } else {
             setupComparateur();
           }
@@ -893,7 +763,12 @@ export function viewFlotte(root) {
       } else if (currentTab === 'flotte-ms-corp') {
         loadFlotteAchetee();
       } else if (currentTab === 'comparateur') {
-        setupComparateur();
+        // Charger la flotte d'abord (setupComparateur sera appelé automatiquement dans loadFlotte)
+        if (flotteCache.length === 0) {
+          loadFlotte();
+        } else {
+          setupComparateur();
+        }
       }
       
       // Configurer les event listeners pour les filtres
@@ -929,7 +804,7 @@ export function viewFlotte(root) {
 
   async function loadFlotte() {
     try {
-      const fb = getFlotteFirebase();
+      const fb = await waitForFlotteFirebase() || getFlotteFirebase();
       if (!fb || !fb.db) return;
       
       const snap = await getDocs(query(collection(fb.db, 'flotte'), orderBy('createdAt', 'desc')));
@@ -2165,10 +2040,17 @@ export function viewFlotte(root) {
       });
     }
     
-    // Initialiser avec tous les véhicules
-    comparateurFilteredVehicules = [...flotteCache];
-    updateComparateurFilteredList();
-    updateComparateurDisplay();
+    // Initialiser avec tous les véhicules (seulement si flotteCache contient des données)
+    if (flotteCache.length > 0) {
+      comparateurFilteredVehicules = [...flotteCache];
+      updateComparateurFilteredList();
+      updateComparateurDisplay();
+    } else {
+      // Si pas de données, réinitialiser quand même les listes vides
+      comparateurFilteredVehicules = [];
+      updateComparateurFilteredList();
+      updateComparateurDisplay();
+    }
   }
   
   function updateComparateurSelect() {

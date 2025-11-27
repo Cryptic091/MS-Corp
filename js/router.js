@@ -123,6 +123,14 @@ async function render() {
     else if (key.includes('/calcul')) permission = 'calcul';
     else if (key.includes('/calculatrice')) permission = 'calculatrice';
     else if (key.includes('/logs')) permission = 'logs';
+    // La page centrale permet la prise de service sans permission spéciale
+    // mais l'historique nécessite la permission 'centrale'
+    else if (key.includes('/centrale')) {
+      // Si c'est juste la prise de service, permettre l'accès sans permission
+      // L'historique sera géré dans la page elle-même
+      await requireAuthWithPermission(viewEntreprise, 'entreprise');
+      return;
+    }
     
     // Vérifier d'abord l'accès à l'espace, puis la permission spécifique de la page
     const hasPagePermission = await checkPermission(permission);

@@ -127,103 +127,139 @@ body { margin: 0; }
 }
 
 /* Styles pour la calculatrice */
+/* Calculatrice - Design sobre et professionnel */
 .calc-btn {
   padding: 1.25rem;
-  border: 1px solid rgba(226, 232, 240, 1);
-  border-radius: 0.75rem;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 0.625rem;
   background: white;
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: 1.375rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
-  color: rgb(15, 23, 42);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  color: rgb(30, 41, 59);
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 60px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  min-height: 64px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.calc-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.05);
+  transform: translate(-50%, -50%);
+  transition: width 0.3s ease, height 0.3s ease;
+}
+
+.calc-btn:active::before {
+  width: 300px;
+  height: 300px;
 }
 
 .dark .calc-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: rgba(248, 250, 252, 0.95);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.dark .calc-btn::before {
   background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.1);
-  color: rgba(248, 250, 252, 0.9);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .calc-btn:hover {
-  background: rgba(241, 245, 249, 1);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background: rgba(248, 250, 252, 1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+  border-color: rgba(203, 213, 225, 0.8);
 }
 
 .dark .calc-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .calc-btn:active {
   transform: translateY(0);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .calc-btn-text {
   user-select: none;
   pointer-events: none;
+  position: relative;
+  z-index: 1;
 }
 
 .calc-btn-clear {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.15) 100%);
+  background: rgba(239, 68, 68, 0.08);
   color: rgb(220, 38, 38);
-  border-color: rgba(239, 68, 68, 0.3);
+  border-color: rgba(239, 68, 68, 0.2);
+  font-weight: 600;
 }
 
 .dark .calc-btn-clear {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(220, 38, 38, 0.25) 100%);
+  background: rgba(239, 68, 68, 0.12);
   color: rgb(248, 113, 113);
-  border-color: rgba(239, 68, 68, 0.4);
+  border-color: rgba(239, 68, 68, 0.25);
 }
 
 .calc-btn-clear:hover {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(220, 38, 38, 0.25) 100%);
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 .dark .calc-btn-clear:hover {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.35) 0%, rgba(220, 38, 38, 0.35) 100%);
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.35);
 }
 
 .calc-btn-operator {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.15) 100%);
+  background: rgba(59, 130, 246, 0.08);
   color: rgb(37, 99, 235);
-  border-color: rgba(59, 130, 246, 0.3);
+  border-color: rgba(59, 130, 246, 0.2);
+  font-weight: 600;
 }
 
 .dark .calc-btn-operator {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(37, 99, 235, 0.25) 100%);
+  background: rgba(59, 130, 246, 0.12);
   color: rgb(96, 165, 250);
-  border-color: rgba(59, 130, 246, 0.4);
+  border-color: rgba(59, 130, 246, 0.25);
 }
 
 .calc-btn-operator:hover {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(37, 99, 235, 0.25) 100%);
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .dark .calc-btn-operator:hover {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.35) 0%, rgba(37, 99, 235, 0.35) 100%);
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.35);
 }
 
 .calc-btn-number {
-  background: rgba(248, 250, 252, 1);
-  color: rgb(15, 23, 42);
+  background: rgba(255, 255, 255, 1);
+  color: rgb(30, 41, 59);
+  font-weight: 500;
 }
 
 .dark .calc-btn-number {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.04);
   color: rgba(248, 250, 252, 0.95);
 }
 
 .calc-btn-number:hover {
-  background: rgba(241, 245, 249, 1);
+  background: rgba(248, 250, 252, 1);
 }
 
 .dark .calc-btn-number:hover {
@@ -231,22 +267,48 @@ body { margin: 0; }
 }
 
 .calc-btn-equals {
-  background: linear-gradient(135deg, #0055A4 0%, #EF4135 100%);
+  background: linear-gradient(135deg, #0055A4 0%, #003d7a 100%);
   color: white;
   border: none;
   grid-row: span 2;
-  box-shadow: 0 4px 12px rgba(0, 85, 164, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 85, 164, 0.25);
+  font-weight: 600;
 }
 
 .calc-btn-equals:hover {
-  background: linear-gradient(135deg, #004080 0%, #cc2e1a 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 85, 164, 0.4);
+  background: linear-gradient(135deg, #004080 0%, #002d5c 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(0, 85, 164, 0.35);
 }
 
 .calc-btn-equals:active {
   transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(0, 85, 164, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 85, 164, 0.25);
+}
+
+.dark .calc-btn-equals {
+  background: linear-gradient(135deg, #0066cc 0%, #004080 100%);
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+}
+
+.dark .calc-btn-equals:hover {
+  background: linear-gradient(135deg, #0052a3 0%, #003366 100%);
+  box-shadow: 0 6px 16px rgba(0, 102, 204, 0.4);
+}
+
+/* Amélioration de l'affichage de la calculatrice */
+#calculator-display,
+#calculator-display-emp {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', monospace;
+  letter-spacing: -0.02em;
+  word-break: break-all;
+  line-height: 1.2;
+}
+
+#calculator-display span,
+#calculator-display-emp span {
+  font-family: inherit;
+  letter-spacing: inherit;
 }
 
 /* Scrollbar personnalisée pour les tables */

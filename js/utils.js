@@ -1025,6 +1025,95 @@ export function alertModal({ title, message, type = 'info', onClose }) {
   return overlay;
 }
 
+// Système de notifications en haut à droite
+let notificationContainer = null;
+
+function initNotificationContainer() {
+  if (!notificationContainer) {
+    notificationContainer = document.createElement('div');
+    notificationContainer.id = 'notification-container';
+    notificationContainer.className = 'fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none';
+    document.body.appendChild(notificationContainer);
+  }
+  return notificationContainer;
+}
+
+export function showNotification({ message, type = 'success', duration = 3000 }) {
+  const container = initNotificationContainer();
+  
+  const notification = document.createElement('div');
+  notification.className = `notification pointer-events-auto transform transition-all duration-300 ease-out translate-x-full opacity-0`;
+  
+  const colors = {
+    success: 'bg-green-500 dark:bg-green-600 text-white',
+    error: 'bg-red-500 dark:bg-red-600 text-white',
+    warning: 'bg-yellow-500 dark:bg-yellow-600 text-white',
+    info: 'bg-blue-500 dark:bg-blue-600 text-white'
+  };
+  
+  const icons = {
+    success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>',
+    error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>',
+    warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>',
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>'
+  };
+  
+  notification.innerHTML = `
+    <div class="${colors[type]} rounded-lg shadow-lg px-4 py-3 flex items-center gap-3 min-w-[300px] max-w-[400px]">
+      <div class="flex-shrink-0">${icons[type]}</div>
+      <div class="flex-1 text-sm font-medium">${message}</div>
+      <button class="flex-shrink-0 hover:opacity-80 transition-opacity" data-close-notification>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+  `;
+  
+  container.appendChild(notification);
+  
+  // Animation d'entrée
+  setTimeout(() => {
+    notification.classList.remove('translate-x-full', 'opacity-0');
+    notification.classList.add('translate-x-0', 'opacity-100');
+  }, 10);
+  
+  const closeNotification = () => {
+    notification.classList.remove('translate-x-0', 'opacity-100');
+    notification.classList.add('translate-x-full', 'opacity-0');
+    setTimeout(() => {
+      if (notification.parentNode) {
+        notification.remove();
+      }
+    }, 300);
+  };
+  
+  // Bouton de fermeture
+  notification.querySelector('[data-close-notification]')?.addEventListener('click', closeNotification);
+  
+  // Fermeture automatique
+  if (duration > 0) {
+    setTimeout(closeNotification, duration);
+  }
+  
+  return notification;
+}
+
+// Fonction pour remplacer confirmModal par une notification automatique
+export function confirmAction({ message, onConfirm, type = 'success', autoConfirm = true }) {
+  if (autoConfirm) {
+    // Exécuter directement l'action et afficher une notification
+    if (onConfirm) {
+      onConfirm();
+    }
+    showNotification({ message, type, duration: 3000 });
+  } else {
+    // Garder le comportement modal pour les actions critiques
+    return confirmModal({ title: 'Confirmation', message, onConfirm, type });
+  }
+}
+
 function getInitials(name) {
   if (!name) return '??';
   const parts = name.trim().split(/\s+/);

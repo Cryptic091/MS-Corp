@@ -1,5 +1,5 @@
 import { html, mount, getCachedProfile, loadUserProfile, createModal, alertModal, updateAvatar, isAuthenticated, updateRoleBadge, updateNavPermissions, applyPagePermissions } from './utils.js';
-import { getFirebase, waitForFirebase, doc, getDoc, collection, getDocs, addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, where, signOut } from './firebase.js';
+import { getFirebase, getFlotteFirebase, waitForFirebase, waitForFlotteFirebase, doc, getDoc, collection, getDocs, addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, where, signOut } from './firebase.js';
 import { addLogEntry } from './firebase.js';
 import { formatDate } from './utils.js';
 
@@ -1540,7 +1540,7 @@ function viewFlotteEmploye(root) {
   // Charger tous les véhicules disponibles pour le comparateur
   async function loadFlotteComparateur() {
     try {
-      const fb = getFirebase();
+      const fb = await waitForFlotteFirebase() || getFlotteFirebase();
       if (!fb || !fb.db) return;
       
       const snap = await getDocs(query(collection(fb.db, 'flotte'), orderBy('createdAt', 'desc')));
@@ -2082,7 +2082,7 @@ function viewFlotteEmploye(root) {
 
   async function loadStats() {
     try {
-      const fb = getFirebase();
+      const fb = await waitForFlotteFirebase() || getFlotteFirebase();
       if (!fb || !fb.db) return;
 
       const snap = await getDocs(collection(fb.db, 'flotte'));
@@ -2109,7 +2109,7 @@ function viewFlotteEmploye(root) {
 
   async function loadFlotte() {
     try {
-      const fb = getFirebase();
+      const fb = await waitForFlotteFirebase() || getFlotteFirebase();
       if (!fb || !fb.db) return;
       
       const snap = await getDocs(query(collection(fb.db, 'flotte'), orderBy('dateAchat', 'desc')));
@@ -2430,27 +2430,28 @@ function viewCalculatriceEmploye(root) {
           <div class="page-head">
             <div>
               <div class="page-title">Calculatrice</div>
-              <div class="page-sub">Calculatrice simple</div>
+              <div class="page-sub">Outil de calcul professionnel</div>
             </div>
           </div>
 
-          <div class="max-w-sm mx-auto mt-8">
-            <div class="card p-6 shadow-lg">
-              <div id="calculator-display-emp" class="mb-6 p-6 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border-2 border-slate-200 dark:border-white/10 text-right text-4xl font-bold text-slate-900 dark:text-white min-h-[100px] flex items-center justify-end overflow-hidden">
-                <span class="break-all">0</span>
+          <div class="max-w-md mx-auto mt-8">
+            <div class="card p-8 shadow-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5">
+              <div class="mb-2">
+                <h3 class="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">Calculatrice</h3>
+              </div>
+              <div id="calculator-display-emp" class="mb-8 p-6 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 text-right text-5xl font-light text-slate-900 dark:text-white min-h-[120px] flex items-center justify-end overflow-hidden font-mono">
+                <span class="break-all select-all">0</span>
               </div>
               
-              <div class="grid grid-cols-4 gap-3">
+              <div class="grid grid-cols-4 gap-2.5">
                 <button class="calc-btn calc-btn-clear" data-action="clear">
                   <span class="calc-btn-text">C</span>
                 </button>
-                <button class="calc-btn calc-btn-operator" data-action="backspace">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
-                    <path d="M3 6h18"></path>
-                    <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"></path>
-                    <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
-                    <path d="M10 11v6"></path>
-                    <path d="M14 11v6"></path>
+                <button class="calc-btn calc-btn-operator" data-action="backspace" title="Effacer">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
                   </svg>
                 </button>
                 <button class="calc-btn calc-btn-operator" data-value="/">
@@ -2739,8 +2740,8 @@ function viewCentraleEmploye(root) {
                 <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0115-6.7L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 01-15 6.7L3 16"></path><path d="M8 16H3v5"></path></svg></span>
                 Actualiser
               </button>
-              <button id="btn-my-service-action" class="btn-primary flex items-center gap-2">
-                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7h-1l-1-2h-8l-1 2H6a2 2 0 00-2 2v9a2 2 0 002 2h13a2 2 0 002-2V9a2 2 0 00-2-2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg></span>
+              <button id="btn-my-service-action" class="btn-service-start">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
                 <span id="service-action-text">Prendre mon service</span>
               </button>
             </div>
@@ -2857,8 +2858,8 @@ function viewCentraleEmploye(root) {
         <td>
           ${canEndService ? `
             <div class="action-buttons" data-service-uid="${emp.uid}">
-              <button class="action-btn btn-stop-service" title="Mettre fin au service" style="background: #dc2626; color: white;">
-                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg></span>
+              <button class="btn-service-stop btn-stop-service" title="Mettre fin au service">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M18 6L6 18M6 6l12 12"></path></svg>
               </button>
             </div>
           ` : '—'}
@@ -2871,8 +2872,8 @@ function viewCentraleEmploye(root) {
   function renderMyServiceStatus() {
     const detailEl = document.getElementById('my-service-detail');
     const badgeEl = document.getElementById('my-service-badge');
-    const actionBtn = document.getElementById('btn-my-service-action');
-    const actionText = document.getElementById('service-action-text');
+    const actionBtns = document.querySelectorAll('#btn-my-service-action');
+    const actionTexts = document.querySelectorAll('#service-action-text');
 
     if (!myServiceStatus) {
       if (detailEl) detailEl.textContent = 'Hors service';
@@ -2880,8 +2881,20 @@ function viewCentraleEmploye(root) {
         badgeEl.textContent = 'Hors service';
         badgeEl.className = 'px-3 py-1 rounded-full text-sm font-medium bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300';
       }
-      if (actionText) actionText.textContent = 'Prendre mon service';
-      if (actionBtn) actionBtn.style.display = 'inline-flex';
+      actionTexts.forEach(text => {
+        if (text) text.textContent = 'Prendre mon service';
+      });
+      actionBtns.forEach(btn => {
+        if (btn) {
+          btn.style.display = 'inline-flex';
+          btn.classList.remove('btn-service-end');
+          btn.classList.add('btn-service-start');
+          btn.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            <span id="service-action-text">Prendre mon service</span>
+          `;
+        }
+      });
     } else {
       const startedAt = myServiceStatus.startedAt ? myServiceStatus.startedAt.toLocaleString('fr-FR') : '—';
       if (detailEl) detailEl.textContent = `En service depuis ${startedAt}`;
@@ -2889,8 +2902,20 @@ function viewCentraleEmploye(root) {
         badgeEl.textContent = 'En service';
         badgeEl.className = 'px-3 py-1 rounded-full text-sm font-medium bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300';
       }
-      if (actionText) actionText.textContent = 'Terminer mon service';
-      if (actionBtn) actionBtn.style.display = 'inline-flex';
+      actionTexts.forEach(text => {
+        if (text) text.textContent = 'Terminer mon service';
+      });
+      actionBtns.forEach(btn => {
+        if (btn) {
+          btn.style.display = 'inline-flex';
+          btn.classList.remove('btn-service-start');
+          btn.classList.add('btn-service-end');
+          btn.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+            <span id="service-action-text">Terminer mon service</span>
+          `;
+        }
+      });
     }
   }
 
@@ -2946,11 +2971,29 @@ function viewCentraleEmploye(root) {
 
       if (myServiceStatus) {
         // Terminer le service
+        const serviceDoc = await getDoc(doc(fb.db, 'centraleServices', currentUser.uid));
+        const serviceData = serviceDoc.exists() ? serviceDoc.data() : {};
+        const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+        const now = serverTimestamp();
+        
         await setDoc(doc(fb.db, 'centraleServices', currentUser.uid), {
           active: false,
-          endedAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
+          endedAt: now,
+          updatedAt: now
         }, { merge: true });
+
+        // Créer une entrée dans l'historique
+        await addDoc(collection(fb.db, 'centraleServiceHistory'), {
+          uid: currentUser.uid,
+          name: currentUser.name || currentUser.email || currentUser.uid,
+          email: currentUser.email || '',
+          phone: currentUser.phone || '',
+          type: 'end',
+          startedAt: serviceData.startedAt || null,
+          endedAt: now,
+          createdAt: now,
+          createdBy: authState?.uid || null
+        });
 
         await addLogEntry(fb, {
           type: 'action',
@@ -2963,17 +3006,31 @@ function viewCentraleEmploye(root) {
       } else {
         // Prendre le service
         const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+        const now = serverTimestamp();
+        
         await setDoc(doc(fb.db, 'centraleServices', currentUser.uid), {
           uid: currentUser.uid,
           name: currentUser.name || currentUser.email || currentUser.uid,
           email: currentUser.email || '',
           phone: currentUser.phone || '',
           active: true,
-          startedAt: serverTimestamp(),
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
+          startedAt: now,
+          createdAt: now,
+          updatedAt: now,
           createdBy: authState?.uid || null
         }, { merge: true });
+
+        // Créer une entrée dans l'historique
+        await addDoc(collection(fb.db, 'centraleServiceHistory'), {
+          uid: currentUser.uid,
+          name: currentUser.name || currentUser.email || currentUser.uid,
+          email: currentUser.email || '',
+          phone: currentUser.phone || '',
+          type: 'start',
+          startedAt: now,
+          createdAt: now,
+          createdBy: authState?.uid || null
+        });
 
         await addLogEntry(fb, {
           type: 'action',
@@ -2997,11 +3054,31 @@ function viewCentraleEmploye(root) {
       const fb = getFirebase();
       if (!fb || !fb.db) return;
 
+      // Récupérer les informations du service actuel
+      const serviceDoc = await getDoc(doc(fb.db, 'centraleServices', uid));
+      const serviceData = serviceDoc.exists() ? serviceDoc.data() : {};
+      const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+      const now = serverTimestamp();
+
       await setDoc(doc(fb.db, 'centraleServices', uid), {
         active: false,
-        endedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        endedAt: now,
+        updatedAt: now
       }, { merge: true });
+
+      // Créer une entrée dans l'historique
+      const empOption = employeOptions.find(e => e.uid === uid) || {};
+      await addDoc(collection(fb.db, 'centraleServiceHistory'), {
+        uid: uid,
+        name: serviceData.name || empOption.name || uid,
+        email: serviceData.email || empOption.email || '',
+        phone: serviceData.phone || empOption.phone || '',
+        type: 'end',
+        startedAt: serviceData.startedAt || null,
+        endedAt: now,
+        createdAt: now,
+        createdBy: authState?.uid || null
+      });
 
       const emp = serviceEmployees.find(e => e.uid === uid);
       await addLogEntry(fb, {
@@ -3260,8 +3337,8 @@ function viewSuiviEffectifEmploye(root) {
                     <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0115-6.7L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 01-15 6.7L3 16"></path><path d="M8 16H3v5"></path></svg></span>
                     Actualiser
                   </button>
-                  <button id="btn-my-service-action" class="btn-primary flex items-center gap-2">
-                    <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7h-1l-1-2h-8l-1 2H6a2 2 0 00-2 2v9a2 2 0 002 2h13a2 2 0 002-2V9a2 2 0 00-2-2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg></span>
+                  <button id="btn-my-service-action" class="btn-service-start">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
                     <span id="service-action-text">Prendre mon service</span>
                   </button>
                 </div>
@@ -3495,14 +3572,29 @@ function viewSuiviEffectifEmploye(root) {
       const fb = getFirebase();
       if (!fb || !fb.db) return;
       const snap = await getDocs(collection(fb.db, 'users'));
-      employeOptions = snap.docs.map(d => ({ uid: d.id, ...d.data() }))
-        .filter(u => !!u.roleEntreprise && !!u.roleEmploye)
+      employeOptions = snap.docs
+        .map(d => {
+          const data = d.data();
+          const uid = d.id;
+          return {
+            uid: uid,
+            data: data,
+            name: buildUserDisplayName({ ...data, uid: uid }),
+            email: data.email || '',
+            phone: data.phone || '',
+            avatar: data.photoUrl || ''
+          };
+        })
+        .filter(u => {
+          // Vérifier que l'utilisateur a les deux rôles
+          return !!u.data.roleEntreprise && !!u.data.roleEmploye;
+        })
         .map(u => ({
-          uid: u.uid || u.id || u.userId || d.id,
-          name: buildUserDisplayName({ ...u, uid: d.id }),
-          email: u.email || '',
-          phone: u.phone || '',
-          avatar: u.photoUrl || ''
+          uid: u.uid,
+          name: u.name,
+          email: u.email,
+          phone: u.phone,
+          avatar: u.avatar
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
     } catch (e) {
@@ -3557,17 +3649,32 @@ function viewSuiviEffectifEmploye(root) {
       if (!fb || !fb.db || !currentUser) return;
 
       const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+      const now = serverTimestamp();
+      
+      // Mettre à jour le statut actif
       await setDoc(doc(fb.db, 'centraleServices', currentUser.uid), {
         uid: currentUser.uid,
         name: currentUser.name || currentUser.email || currentUser.uid,
         email: currentUser.email || '',
         phone: currentUser.phone || '',
         active: true,
-        startedAt: serverTimestamp(),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        startedAt: now,
+        createdAt: now,
+        updatedAt: now,
         createdBy: authState?.uid || null
       }, { merge: true });
+
+      // Créer une entrée dans l'historique
+      await addDoc(collection(fb.db, 'centraleServiceHistory'), {
+        uid: currentUser.uid,
+        name: currentUser.name || currentUser.email || currentUser.uid,
+        email: currentUser.email || '',
+        phone: currentUser.phone || '',
+        type: 'start',
+        startedAt: now,
+        createdAt: now,
+        createdBy: authState?.uid || null
+      });
 
       await addLogEntry(fb, {
         type: 'action',
@@ -3590,11 +3697,31 @@ function viewSuiviEffectifEmploye(root) {
       const fb = getFirebase();
       if (!fb || !fb.db || !currentUser) return;
 
+      // Récupérer les informations du service actuel
+      const serviceDoc = await getDoc(doc(fb.db, 'centraleServices', currentUser.uid));
+      const serviceData = serviceDoc.exists() ? serviceDoc.data() : {};
+      const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+      const now = serverTimestamp();
+
+      // Mettre à jour le statut actif
       await setDoc(doc(fb.db, 'centraleServices', currentUser.uid), {
         active: false,
-        endedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        endedAt: now,
+        updatedAt: now
       }, { merge: true });
+
+      // Créer une entrée dans l'historique avec la durée
+      await addDoc(collection(fb.db, 'centraleServiceHistory'), {
+        uid: currentUser.uid,
+        name: currentUser.name || currentUser.email || currentUser.uid,
+        email: currentUser.email || '',
+        phone: currentUser.phone || '',
+        type: 'end',
+        startedAt: serviceData.startedAt || null,
+        endedAt: now,
+        createdAt: now,
+        createdBy: authState?.uid || null
+      });
 
       await addLogEntry(fb, {
         type: 'action',

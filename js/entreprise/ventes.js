@@ -1,4 +1,4 @@
-import { html, mount, createModal, getCachedProfile, loadUserProfile, updateNavPermissions, confirmModal, alertModal, updateAvatar, isAuthenticated, updateRoleBadge, applyPagePermissions } from '../utils.js';
+import { html, mount, createModal, getCachedProfile, loadUserProfile, updateNavPermissions, confirmModal, alertModal, updateAvatar, isAuthenticated, updateRoleBadge, applyPagePermissions, confirmAction, showNotification } from '../utils.js';
 import { getFirebase, waitForFirebase, collection, getDocs, query, orderBy, limit, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where, setDoc, getDoc, writeBatch, signOut, onSnapshot } from '../firebase.js';
 import { addLogEntry } from '../firebase.js';
 import { formatDate } from '../utils.js';
@@ -172,7 +172,8 @@ export function viewVentes(root) {
           <div class="tabs-container">
             <div class="tabs-list">
               <button class="tab-item active" data-tab="historique">Historique Ventes</button>
-              <button class="tab-item" data-tab="ventes">Gestion Ventes</button>
+              <button class="tab-item" data-tab="gestion-ventes">Gestion Ventes</button>
+              <button class="tab-item" data-tab="ventes">Vente Validé</button>
               <button class="tab-item" data-tab="traitement">Traitement</button>
               <button class="tab-item" data-tab="stockage-prive">Stockage Privé</button>
               <button class="tab-item" data-tab="ventes-employe">Gestion Ventes Employé</button>
@@ -201,12 +202,13 @@ export function viewVentes(root) {
                     <th>Quantité</th>
                     <th>Montant vente</th>
                     <th>Employé</th>
+                    <th>Validée par</th>
                     <th>Statut</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody id="historique-tbody">
-                  <tr><td class="py-3 text-center" colspan="7">Chargement…</td></tr>
+                  <tr><td class="py-3 text-center" colspan="8">Chargement…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -215,10 +217,37 @@ export function viewVentes(root) {
             </div>
           </div>
 
-          <!-- Tab 2: Gestion Ventes -->
+          <!-- Tab 2: Gestion Ventes (nouveau) -->
+          <div id="tab-gestion-ventes" class="tab-content">
+            <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+              <div>
+                <h3 class="font-medium text-lg">Gestion des ventes</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Validez, traitez et vendez les ressources efficacement</p>
+              </div>
+            </div>
+            <div class="user-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type ressource</th>
+                    <th>Quantité</th>
+                    <th>Employé</th>
+                    <th>Statut</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="gestion-ventes-tbody">
+                  <tr><td class="py-3 text-center" colspan="6">Chargement…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Tab 3: Vente Validé (ancien Gestion Ventes) -->
           <div id="tab-ventes" class="tab-content">
             <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
-              <h3 class="font-medium text-lg">Ventes à valider</h3>
+              <h3 class="font-medium text-lg">Ventes validées</h3>
               <div class="flex items-center gap-2 flex-wrap">
                 <button id="btn-new-vente" class="btn-primary flex items-center gap-2">
                   <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></span> Nouvelle vente
@@ -247,7 +276,7 @@ export function viewVentes(root) {
             </div>
           </div>
 
-          <!-- Tab 3: Traitement -->
+          <!-- Tab 4: Traitement -->
           <div id="tab-traitement" class="tab-content">
             <div class="flex items-center justify-between mb-4">
               <h3 class="font-medium text-lg">Ventes en traitement</h3>
@@ -274,7 +303,7 @@ export function viewVentes(root) {
             </div>
           </div>
 
-          <!-- Tab 4: Stockage Privé -->
+          <!-- Tab 5: Stockage Privé -->
           <div id="tab-stockage-prive" class="tab-content">
             <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
               <div>
@@ -325,7 +354,7 @@ export function viewVentes(root) {
             </div>
           </div>
 
-          <!-- Tab 5: Gestion Ventes Employé -->
+          <!-- Tab 6: Gestion Ventes Employé -->
           <div id="tab-ventes-employe" class="tab-content">
             <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
               <div>
@@ -489,7 +518,8 @@ export function viewVentes(root) {
       document.getElementById(`tab-${tabId}`).classList.add('active');
       currentTab = tabId;
       loadStats(); // Mettre à jour les stats à chaque changement d'onglet
-      if (tabId === 'ventes') loadVentes();
+      if (tabId === 'gestion-ventes') loadGestionVentes();
+      else if (tabId === 'ventes') loadVentes();
       else if (tabId === 'ventes-employe') {
         // S'assurer que les users sont chargés avant de remplir le select
         if (!usersCache || usersCache.length === 0) {
@@ -1028,13 +1058,81 @@ export function viewVentes(root) {
     } catch (e) { console.error(e); }
   }
 
+  async function loadGestionVentes() {
+    try {
+      const tbody = document.getElementById('gestion-ventes-tbody');
+      if (!tbody) return;
+
+      // Charger toutes les ventes (pas seulement en attente)
+      const fb = getFirebase();
+      if (!fb || !fb.db) {
+        tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="6">Erreur de connexion</td></tr>';
+        return;
+      }
+
+      const snap = await getDocs(query(collection(fb.db, 'ventes'), orderBy('dateVente', 'desc'), limit(100)));
+      const allVentes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      if (!allVentes.length) {
+        tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="6">Aucune vente</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '';
+      allVentes.forEach(v => {
+        const date = v.dateVente ? (v.dateVente.toDate ? v.dateVente.toDate() : new Date(v.dateVente)) : new Date();
+        const ressource = ressourcesCache.find(r => r.id === v.typeRessourceId) || {};
+        const statut = (v.statut || 'en attente').toLowerCase();
+        const tr = document.createElement('tr');
+        
+        // Déterminer les boutons selon le statut
+        let actionButtons = '';
+        if (statut === 'en attente') {
+          actionButtons = `
+            <button class="action-btn btn-validate-gestion" title="Valider"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span></button>
+            <button class="action-btn btn-cancel-gestion" title="Annuler"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></span></button>
+          `;
+        } else if (statut === 'valide') {
+          actionButtons = `
+            <button class="action-btn btn-traiter-gestion" title="Traiter"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg></span></button>
+            <button class="action-btn btn-stockage-prive-gestion" title="Passer en stockage privé"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg></span></button>
+          `;
+        } else if (statut === 'traite') {
+          actionButtons = `
+            <button class="action-btn btn-vendre-gestion" title="Vendre pour l'entreprise"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="2" x2="12" y2="22"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></span></button>
+          `;
+        }
+        
+        tr.innerHTML = `
+          <td>${date.toLocaleDateString('fr-FR')}</td>
+          <td>${ressource.nom || '—'}</td>
+          <td>${v.quantite || 0}</td>
+          <td>${(v.prenom || '')} ${(v.nom || '')} ${v.telephone ? ' — ' + v.telephone : ''}</td>
+          <td><span class="badge-role ${statut === 'valide' ? 'badge-actif' : statut === 'annule' ? 'badge-inactif' : statut === 'traite' ? 'badge-admin' : 'badge-employe'}">${formatStatus(statut)}</span></td>
+          <td>
+            <div class="action-buttons" data-vente-id="${v.id}" data-vente-original='${JSON.stringify(v)}'>
+              <button class="action-btn btn-view" title="Voir"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg></span></button>
+              ${actionButtons}
+            </div>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    } catch (e) { 
+      console.error('Erreur chargement gestion ventes:', e);
+      const tbody = document.getElementById('gestion-ventes-tbody');
+      if (tbody) {
+        tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="6">Erreur lors du chargement</td></tr>';
+      }
+    }
+  }
+
   function loadHistorique() {
     const tbody = document.getElementById('historique-tbody');
     const emptyState = document.getElementById('historique-empty');
     if (!tbody || !emptyState) return;
 
     if (ventesLoading) {
-      tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="7">Chargement…</td></tr>';
+      tbody.innerHTML = '<tr><td class="py-3 text-center" colspan="8">Chargement…</td></tr>';
       emptyState.classList.add('hidden');
       return;
     }
@@ -1067,6 +1165,7 @@ export function viewVentes(root) {
       else if (statut === 'annule') badgeClass = 'badge-inactif';
       else if (statut === 'traite') badgeClass = 'badge-admin';
 
+      const validatedBy = (v.validatedByName || v.validatedByEmail || v.validatedBy || '').trim() || '—';
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td>${date.toLocaleDateString('fr-FR')}</td>
@@ -1074,6 +1173,7 @@ export function viewVentes(root) {
         <td>${v.quantite || 0}</td>
         <td>${formatAmount(montantTotal)} €</td>
         <td>${(v.prenom || '')} ${(v.nom || '')}${v.telephone ? ' — ' + v.telephone : ''}</td>
+        <td>${validatedBy}</td>
         <td><span class="badge-role ${badgeClass}">${formatStatus(statut)}</span></td>
         <td>
           <div class="action-buttons" data-vente-id="${v.id}">
@@ -1549,7 +1649,7 @@ export function viewVentes(root) {
       ressourcesCache = sorted;
       loadRessources();
     } catch (e) {
-      alertModal({ title: 'Erreur', message: 'Impossible de réordonner la ressource.', type: 'danger' });
+      showNotification({ message: 'Impossible de réordonner la ressource.', type: 'error' });
     }
   }
 
@@ -1581,7 +1681,7 @@ export function viewVentes(root) {
         const ressourceId = document.getElementById('modal-ressource').value;
         const quantite = parseInt(document.getElementById('modal-quantite').value);
         if (!dateStr || !ressourceId || !quantite) {
-          alertModal({ title: 'Champs requis', message: 'Date, ressource et quantité sont requis.', type: 'warning' });
+          showNotification({ message: 'Date, ressource et quantité sont requis.', type: 'warning' });
           return;
         }
         // Récupérer automatiquement la taille depuis la ressource sélectionnée
@@ -1639,9 +1739,9 @@ export function viewVentes(root) {
           loadVentes();
           loadHistorique();
           loadStockage(); // Recharger le stockage pour mettre à jour le stock disponible
-          alertModal({ title: 'Succès', message: 'Vente créée avec succès.', type: 'success' });
-        } catch (e) { 
-          alertModal({ title: 'Erreur', message: 'Erreur lors de la création de la vente.', type: 'danger' });
+          showNotification({ message: 'Vente créée avec succès.', type: 'success' });
+        } catch (e) {
+          showNotification({ message: 'Erreur lors de la création de la vente.', type: 'error' });
           console.error(e); 
         }
       }
@@ -1659,7 +1759,7 @@ export function viewVentes(root) {
       try {
         const fb = getFirebase();
         if (!fb || !fb.db) {
-          alertModal({ title: 'Erreur', message: 'Connexion à la base de données indisponible.', type: 'danger' });
+          showNotification({ message: 'Connexion à la base de données indisponible.', type: 'error' });
           return;
         }
 
@@ -1675,12 +1775,12 @@ export function viewVentes(root) {
 
         const employesDisponibles = (usersCache || []).filter(u => u.active !== false);
         if (!employesDisponibles.length) {
-          alertModal({ title: 'Aucun employé', message: 'Aucun employé actif n’a été trouvé pour enregistrer une vente.', type: 'warning' });
+          showNotification({ message: 'Aucun employé actif n\'a été trouvé pour enregistrer une vente.', type: 'warning' });
           return;
         }
 
         if (!ressourcesCache.length) {
-          alertModal({ title: 'Aucune ressource', message: 'Aucune ressource disponible pour enregistrer une vente.', type: 'warning' });
+          showNotification({ message: 'Aucune ressource disponible pour enregistrer une vente.', type: 'warning' });
           return;
         }
 
@@ -1715,7 +1815,7 @@ export function viewVentes(root) {
             const employeId = document.getElementById('modal-employe-vente').value;
 
             if (!employeId || !dateStr || !ressourceId || Number.isNaN(quantite) || quantite <= 0) {
-              alertModal({ title: 'Champs requis', message: 'Employé, date, ressource et quantité sont requis.', type: 'warning' });
+              showNotification({ message: 'Employé, date, ressource et quantité sont requis.', type: 'warning' });
               return;
             }
 
@@ -1723,7 +1823,7 @@ export function viewVentes(root) {
             const selectedRessource = ressourcesCache.find(r => r.id === ressourceId) || null;
 
             if (!selectedRessource) {
-              alertModal({ title: 'Ressource introuvable', message: 'La ressource sélectionnée est introuvable.', type: 'danger' });
+              showNotification({ message: 'La ressource sélectionnée est introuvable.', type: 'error' });
               return;
             }
 
@@ -1764,14 +1864,13 @@ export function viewVentes(root) {
                 }
               }
 
-              alertModal({ 
-                title: 'Succès', 
+              showNotification({ 
                 message: `Vente enregistrée pour ${selectedEmploye?.name || selectedEmploye?.email || 'l\'employé sélectionné'}.`, 
                 type: 'success' 
               });
             } catch (error) {
               console.error('Erreur création vente déléguée:', error);
-              alertModal({ title: 'Erreur', message: 'Erreur lors de la création de la vente.', type: 'danger' });
+              showNotification({ message: 'Erreur lors de la création de la vente.', type: 'error' });
             }
           }
         });
@@ -1822,7 +1921,7 @@ export function viewVentes(root) {
         }
       } catch (err) {
         console.error('Erreur lors de l’ouverture du modal de vente déléguée:', err);
-        alertModal({ title: 'Erreur', message: 'Impossible d’ouvrir la création de vente déléguée.', type: 'danger' });
+        showNotification({ message: 'Impossible d\'ouvrir la création de vente déléguée.', type: 'error' });
       }
     });
   }
@@ -1867,7 +1966,7 @@ export function viewVentes(root) {
         const tailleObjet = parseFloat(document.getElementById('modal-res-taille').value);
         const legalite = document.getElementById('modal-res-legalite').value;
         if (!nom || isNaN(prixVente) || isNaN(prixBourse) || isNaN(tailleObjet) || !legalite) {
-          alertModal({ title: 'Champs requis', message: 'Tous les champs sont requis.', type: 'warning' });
+          showNotification({ message: 'Tous les champs sont requis.', type: 'warning' });
           return;
         }
         try {
@@ -1889,9 +1988,9 @@ export function viewVentes(root) {
           });
           loadRessources();
           ressourcesCache = (await getDocs(collection(fb.db, 'ressources'))).docs.map(d => ({ id: d.id, ...d.data() }));
-          alertModal({ title: 'Succès', message: 'Ressource créée avec succès.', type: 'success' });
-        } catch (e) { 
-          alertModal({ title: 'Erreur', message: 'Erreur lors de la création de la ressource.', type: 'danger' });
+          showNotification({ message: 'Ressource créée avec succès.', type: 'success' });
+        } catch (e) {
+          showNotification({ message: 'Erreur lors de la création de la ressource.', type: 'error' });
         }
       }
     });
@@ -1928,9 +2027,9 @@ export function viewVentes(root) {
         });
         loadStats();
         loadStockage();
-        alertModal({ title: 'Succès', message: 'Stock max mis à jour avec succès.', type: 'success' });
+        showNotification({ message: 'Stock max mis à jour avec succès.', type: 'success' });
       } catch (e) { 
-        alertModal({ title: 'Erreur', message: 'Erreur lors de la sauvegarde du stock max.', type: 'danger' });
+        showNotification({ message: 'Erreur lors de la sauvegarde du stock max.', type: 'error' });
         console.error(e); 
       }
       return;
@@ -1960,13 +2059,28 @@ export function viewVentes(root) {
       const telephone = entry.telephone || '—';
 
       if (e.target.closest('.btn-sell-stockage')) {
-        const montantBenefice = (quantite || 0) * prixBourse;
-        confirmModal({
-          title: 'Vendre depuis le stockage privé',
-          message: `Confirmez-vous la vente de ${formatNumber(quantite)} × ${ressourceNom} à l'entreprise pour ${formatAmount(montantBenefice)} € (prix bourse) ?`,
-          confirmText: 'Vendre',
+        const prixBase = prixBourse || 0;
+        const montantBase = (quantite || 0) * prixBase;
+        
+        createModal({
+          title: 'Vendre pour l\'entreprise',
+          body: `
+            <div class="modal-field">
+              <label>Prix unitaire (€) *</label>
+              <input id="modal-prix-vente-stockage" type="number" min="0" step="0.01" value="${prixBase.toFixed(2)}" required />
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Prix de base (bourse): ${prixBase.toFixed(2)} €</p>
+            </div>
+            <div class="modal-field">
+              <label>Montant total</label>
+              <div id="modal-montant-total-stockage" class="text-lg font-semibold text-blue-600 dark:text-blue-400">${montantBase.toFixed(2)} €</div>
+            </div>
+            <div class="modal-field">
+              <label>Quantité</label>
+              <div class="text-sm text-slate-600 dark:text-slate-400">${formatNumber(quantite)}</div>
+            </div>
+          `,
+          confirmText: 'Valider la vente',
           cancelText: 'Annuler',
-          type: 'warning',
           onConfirm: async () => {
             try {
               let fbInstance = fb;
@@ -1974,10 +2088,14 @@ export function viewVentes(root) {
                 fbInstance = await waitForFirebase();
               }
               if (!fbInstance || !fbInstance.db) {
-                alertModal({ title: 'Erreur', message: 'Firebase n\'est pas initialisé.', type: 'danger' });
+                showNotification({ message: 'Firebase n\'est pas initialisé.', type: 'error' });
                 return;
               }
-              const montant = Number(montantBenefice) || 0;
+              
+              const prixInput = document.getElementById('modal-prix-vente-stockage');
+              const prixVente = parseFloat(prixInput?.value || prixBase);
+              const montant = prixVente * (quantite || 0);
+              
               if (montant > 0) {
                 await addDoc(collection(fbInstance.db, 'finance'), {
                   type: 'benefice',
@@ -1986,7 +2104,7 @@ export function viewVentes(root) {
                   stockageId,
                   source: 'stockage',
                   date: serverTimestamp(),
-                  description: `Vente stockage: ${ressourceNom} x${quantite}`
+                  description: `Vente stockage: ${ressourceNom} x${quantite} (prix: ${prixVente.toFixed(2)}€)`
                 });
               }
 
@@ -1997,18 +2115,32 @@ export function viewVentes(root) {
                 type: 'action',
                 action: 'stockage_sell',
                 category: 'ventes',
-                message: `Vente depuis stockage privé (${ressourceNom} x${quantite})`
+                message: `Vente depuis stockage privé (${ressourceNom} x${quantite}) - ${montant.toFixed(2)}€`
               });
 
               loadStockagePrive();
               loadStats();
-              alertModal({ title: 'Succès', message: 'Vente enregistrée et stockage mis à jour.', type: 'success' });
+              showNotification({ message: `Vente enregistrée pour ${montant.toFixed(2)} €`, type: 'success' });
             } catch (error) {
               console.error(error);
-              alertModal({ title: 'Erreur', message: 'Impossible de finaliser la vente depuis le stockage privé.', type: 'danger' });
+              showNotification({ message: 'Impossible de finaliser la vente depuis le stockage privé.', type: 'error' });
             }
           }
         });
+        
+        // Mettre à jour le montant total quand le prix change
+        setTimeout(() => {
+          const prixInput = document.getElementById('modal-prix-vente-stockage');
+          const montantEl = document.getElementById('modal-montant-total-stockage');
+          if (prixInput && montantEl) {
+            prixInput.addEventListener('input', () => {
+              const prix = parseFloat(prixInput.value || prixBase);
+              const montant = prix * (quantite || 0);
+              montantEl.textContent = `${montant.toFixed(2)} €`;
+            });
+          }
+        }, 100);
+        
         return;
       }
 
@@ -2072,6 +2204,8 @@ export function viewVentes(root) {
         const ressource = ressourcesCache.find(r => r.id === vente.typeRessourceId) || {};
         const montantTotal = (ressource.prixVente || ressource.prix || 0) * (vente.quantite || 0);
         const statut = vente.statut || 'en attente';
+        const validatedAt = vente.validatedAt ? (vente.validatedAt.toDate ? vente.validatedAt.toDate() : new Date(vente.validatedAt)) : null;
+        const validatedByDisplay = (vente.validatedByName || vente.validatedByEmail || vente.validatedBy || '').trim() || '—';
         const body = `
           <div class="view-highlight">
             <div class="view-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 1.5rem; height: 1.5rem;"><line x1="12" y1="2" x2="12" y2="22"></line><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path></svg></div>
@@ -2119,6 +2253,14 @@ export function viewVentes(root) {
                 <div class="view-item-label">Montant total</div>
                 <div class="view-item-value" style="font-size: 1.25rem; color: #0055A4;">${montantTotal.toFixed(2)} €</div>
               </div>
+              <div class="view-item">
+                <div class="view-item-label">Validée par</div>
+                <div class="view-item-value">${validatedByDisplay}</div>
+              </div>
+              <div class="view-item">
+                <div class="view-item-label">Date de validation</div>
+                <div class="view-item-value">${validatedAt ? validatedAt.toLocaleString('fr-FR') : '—'}</div>
+              </div>
             </div>
           </div>
         `;
@@ -2150,7 +2292,7 @@ export function viewVentes(root) {
             const ressourceId = document.getElementById('modal-edit-ressource').value;
             const quantite = parseInt(document.getElementById('modal-edit-quantite').value);
             if (!dateStr || !ressourceId || !quantite) {
-              alertModal({ title: 'Champs requis', message: 'Date, ressource et quantité sont requis.', type: 'warning' });
+              showNotification({ message: 'Date, ressource et quantité sont requis.', type: 'warning' });
               return;
             }
             // Récupérer automatiquement la taille depuis la ressource sélectionnée
@@ -2172,9 +2314,9 @@ export function viewVentes(root) {
               loadStats();
               loadVentes();
               loadHistorique();
-              alertModal({ title: 'Succès', message: 'Vente modifiée avec succès.', type: 'success' });
+              showNotification({ message: 'Vente modifiée avec succès.', type: 'success' });
             } catch { 
-              alertModal({ title: 'Erreur', message: 'Erreur lors de la modification de la vente.', type: 'danger' });
+              showNotification({ message: 'Erreur lors de la modification de la vente.', type: 'error' });
             }
           }
         });
@@ -2185,26 +2327,63 @@ export function viewVentes(root) {
         return;
       }
       if (e.target.closest('.btn-validate')) {
-        confirmModal({
-          title: 'Valider la vente',
-          message: 'Cette vente sera déplacée en traitement.',
-          type: 'warning',
-          confirmText: 'Valider',
-          cancelText: 'Annuler',
+        confirmAction({
+          message: 'Vente validée et déplacée en traitement',
+          type: 'success',
           onConfirm: async () => {
         try {
           const ressource = ressourcesCache.find(r => r.id === vente.typeRessourceId) || {};
           const prixEntreprise = ressource.prixVente || ressource.prix || 0;
           const salaire = prixEntreprise * (vente.quantite || 0);
+
+          const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+          const validatorId = authState?.uid || null;
+          let validatorName = '';
+          let validatorEmail = '';
+          if (validatorId) {
+            let validatorData = Array.isArray(usersCache) ? usersCache.find(u => u.id === validatorId) : null;
+            if (!validatorData) {
+              try {
+                const validatorDoc = await getDoc(doc(fb.db, 'users', validatorId));
+                if (validatorDoc.exists()) {
+                  validatorData = { id: validatorDoc.id, ...validatorDoc.data() };
+                  if (Array.isArray(usersCache)) {
+                    usersCache.push(validatorData);
+                  } else {
+                    usersCache = [validatorData];
+                  }
+                }
+              } catch (err) {
+                console.warn('Erreur récupération validateur:', err);
+              }
+            }
+            if (validatorData) {
+              validatorName = validatorData.name || '';
+              validatorEmail = validatorData.email || '';
+            }
+          }
+          const validatorDisplayName = (validatorName || validatorEmail || validatorId || '').trim() || 'Inconnu';
+          const employeNom = `${vente.prenom || ''} ${vente.nom || ''}`.trim();
+          const now = serverTimestamp();
+
           await updateDoc(doc(fb.db, 'ventes', venteId), { 
             statut: 'valide',
-            updatedAt: serverTimestamp()
+            updatedAt: now,
+            validatedAt: now,
+            validatedBy: validatorId || null,
+            validatedByName: validatorDisplayName,
+            validatedByEmail: validatorEmail || ''
           });
           if (salaire > 0) {
             await addDoc(collection(fb.db, 'finance'), {
               type: 'salaire',
               montant: salaire,
               venteId,
+              employeId: vente.employeId || null,
+              employeNom: employeNom || null,
+              validatedBy: validatorId || null,
+              validatedByName: validatorDisplayName,
+              source: 'validation',
               date: serverTimestamp(),
               description: `Salaire employé: ${ressource.nom || ''} x${vente.quantite || 0}`
             });
@@ -2213,14 +2392,14 @@ export function viewVentes(root) {
             type: 'action', 
             action: 'vente_validate', 
             category: 'ventes',
-            message: `Validation de la vente ${venteId} - Salaire: ${salaire.toFixed(2)}€` 
+            message: `Validation de la vente ${venteId} par ${validatorDisplayName} - Salaire: ${salaire.toFixed(2)}€` 
           });
           loadStats();
           loadVentes();
           loadHistorique();
           if (currentTab === 'traitement') loadTraitement();
           loadStockage();
-          alertModal({ title: 'Succès', message: 'Vente validée avec succès.', type: 'success' });
+              showNotification({ message: 'Vente validée avec succès.', type: 'success' });
         } catch (e) { 
           alertModal({ title: 'Erreur', message: 'Erreur lors de la validation de la vente.', type: 'danger' });
           console.error(e); 
@@ -2250,9 +2429,8 @@ export function viewVentes(root) {
               loadVentes();
               loadHistorique();
               loadStockage(); // Recharger le stockage car la vente annulée libère le stock
-              alertModal({ title: 'Succès', message: 'Vente annulée avec succès.', type: 'success' });
             } catch (e) { 
-              alertModal({ title: 'Erreur', message: 'Erreur lors de l\'annulation de la vente.', type: 'danger' });
+              showNotification({ message: 'Erreur lors de l\'annulation de la vente.', type: 'error' });
               console.error(e); 
             }
           }
@@ -2264,6 +2442,8 @@ export function viewVentes(root) {
         const date = vente.dateVente ? (vente.dateVente.toDate ? vente.dateVente.toDate() : new Date(vente.dateVente)) : new Date();
         const ressource = ressourcesCache.find(r => r.id === vente.typeRessourceId) || {};
         const montantTotal = (ressource.prixVente || ressource.prix || 0) * (vente.quantite || 0);
+        const validatedAt = vente.validatedAt ? (vente.validatedAt.toDate ? vente.validatedAt.toDate() : new Date(vente.validatedAt)) : null;
+        const validatedByDisplay = (vente.validatedByName || vente.validatedByEmail || vente.validatedBy || '').trim() || '—';
         const body = `
           <div class="view-highlight">
             <div class="view-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 1.5rem; height: 1.5rem;"><line x1="12" y1="2" x2="12" y2="22"></line><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"></path></svg></div>
@@ -2297,6 +2477,14 @@ export function viewVentes(root) {
                 <div class="view-item-label">Montant total</div>
                 <div class="view-item-value" style="font-size: 1.25rem; color: #0055A4;">${montantTotal.toFixed(2)} €</div>
               </div>
+              <div class="view-item">
+                <div class="view-item-label">Validée par</div>
+                <div class="view-item-value">${validatedByDisplay}</div>
+              </div>
+              <div class="view-item">
+                <div class="view-item-label">Date de validation</div>
+                <div class="view-item-value">${validatedAt ? validatedAt.toLocaleString('fr-FR') : '—'}</div>
+              </div>
             </div>
           </div>
         `;
@@ -2304,12 +2492,9 @@ export function viewVentes(root) {
         return;
       }
       if (e.target.closest('.btn-validate-traitement')) {
-        confirmModal({
-          title: 'Valider le traitement',
-          message: 'Cette vente sera marquée comme traitée et ajoutée au stockage privé.',
-          type: 'warning',
-          confirmText: 'Valider',
-          cancelText: 'Annuler',
+        confirmAction({
+          message: 'Traitement validé avec succès. La vente est stockée.',
+          type: 'success',
           onConfirm: async () => {
             try {
               const ressource = ressourcesCache.find(r => r.id === vente.typeRessourceId) || {};
@@ -2345,13 +2530,306 @@ export function viewVentes(root) {
               loadHistorique();
               loadStockage();
               loadStockagePrive();
-              alertModal({ title: 'Succès', message: 'Traitement validé avec succès. La vente est stockée.', type: 'success' });
             } catch (e) { 
-              alertModal({ title: 'Erreur', message: 'Erreur lors de la validation du traitement.', type: 'danger' });
+              showNotification({ message: 'Erreur lors de la validation du traitement.', type: 'error' });
               console.error(e); 
             }
           }
         });
+        return;
+      }
+      
+      // Handlers pour le nouvel onglet "Gestion Ventes"
+      if (e.target.closest('.btn-validate-gestion')) {
+        confirmAction({
+          message: 'Vente validée et déplacée en traitement',
+          type: 'success',
+          onConfirm: async () => {
+            try {
+              const ressource = ressourcesCache.find(r => r.id === vente.typeRessourceId) || {};
+              const prixEntreprise = ressource.prixVente || ressource.prix || 0;
+              const salaire = prixEntreprise * (vente.quantite || 0);
+
+              const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+              const validatorId = authState?.uid || null;
+              let validatorName = '';
+              let validatorEmail = '';
+              if (validatorId) {
+                let validatorData = Array.isArray(usersCache) ? usersCache.find(u => u.id === validatorId) : null;
+                if (!validatorData) {
+                  try {
+                    const validatorDoc = await getDoc(doc(fb.db, 'users', validatorId));
+                    if (validatorDoc.exists()) {
+                      validatorData = { id: validatorDoc.id, ...validatorDoc.data() };
+                      if (Array.isArray(usersCache)) {
+                        usersCache.push(validatorData);
+                      } else {
+                        usersCache = [validatorData];
+                      }
+                    }
+                  } catch (err) {
+                    console.warn('Erreur récupération validateur:', err);
+                  }
+                }
+                if (validatorData) {
+                  validatorName = validatorData.name || '';
+                  validatorEmail = validatorData.email || '';
+                }
+              }
+              const validatorDisplayName = (validatorName || validatorEmail || validatorId || '').trim() || 'Inconnu';
+              const employeNom = `${vente.prenom || ''} ${vente.nom || ''}`.trim();
+              const now = serverTimestamp();
+
+              await updateDoc(doc(fb.db, 'ventes', venteId), { 
+                statut: 'valide',
+                updatedAt: now,
+                validatedAt: now,
+                validatedBy: validatorId || null,
+                validatedByName: validatorDisplayName,
+                validatedByEmail: validatorEmail || ''
+              });
+              if (salaire > 0) {
+                await addDoc(collection(fb.db, 'finance'), {
+                  type: 'salaire',
+                  montant: salaire,
+                  venteId,
+                  employeId: vente.employeId || null,
+                  employeNom: employeNom || null,
+                  validatedBy: validatorId || null,
+                  validatedByName: validatorDisplayName,
+                  source: 'validation',
+                  date: serverTimestamp(),
+                  description: `Salaire employé: ${ressource.nom || ''} x${vente.quantite || 0}`
+                });
+              }
+              await addLogEntry(fb, { 
+                type: 'action', 
+                action: 'vente_validate', 
+                category: 'ventes',
+                message: `Validation de la vente ${venteId} par ${validatorDisplayName} - Salaire: ${salaire.toFixed(2)}€` 
+              });
+              loadStats();
+              loadGestionVentes();
+              loadVentes();
+              loadHistorique();
+              if (currentTab === 'traitement') loadTraitement();
+              loadStockage();
+            } catch (e) { 
+              showNotification({ message: 'Erreur lors de la validation de la vente.', type: 'error' });
+              console.error(e); 
+            }
+          }
+        });
+        return;
+      }
+      
+      if (e.target.closest('.btn-cancel-gestion')) {
+        confirmModal({
+          title: 'Annuler la vente',
+          message: 'Cette vente sera marquée comme annulée.',
+          type: 'warning',
+          confirmText: 'Annuler',
+          cancelText: 'Retour',
+          onConfirm: async () => {
+            try {
+              await updateDoc(doc(fb.db, 'ventes', venteId), { statut: 'annule' });
+              await addLogEntry(fb, { 
+                type: 'action', 
+                action: 'vente_cancel', 
+                category: 'ventes',
+                message: `Annulation de la vente ${venteId}` 
+              });
+              loadStats();
+              loadGestionVentes();
+              loadVentes();
+              loadHistorique();
+              loadStockage();
+            } catch (e) { 
+              showNotification({ message: 'Erreur lors de l\'annulation de la vente.', type: 'error' });
+              console.error(e); 
+            }
+          }
+        });
+        return;
+      }
+      
+      if (e.target.closest('.btn-traiter-gestion')) {
+        confirmAction({
+          message: 'Traitement validé avec succès. La vente est stockée.',
+          type: 'success',
+          onConfirm: async () => {
+            try {
+              const ressource = ressourcesCache.find(r => r.id === vente.typeRessourceId) || {};
+              const prixBourse = ressource.prixBourse || 0;
+              const beneficeReel = prixBourse * (vente.quantite || 0);
+              await updateDoc(doc(fb.db, 'ventes', venteId), { 
+                statut: 'traite',
+                updatedAt: serverTimestamp()
+              });
+              await addDoc(collection(fb.db, 'stockagePrive'), {
+                venteId: venteId,
+                typeRessourceId: vente.typeRessourceId || null,
+                ressourceNom: ressource.nom || '',
+                quantite: vente.quantite || 0,
+                employeId: vente.employeId || null,
+                employeNom: `${vente.prenom || ''} ${vente.nom || ''}`.trim(),
+                telephone: vente.telephone || '',
+                beneficeBourse: beneficeReel,
+                prixBourse: prixBourse,
+                prixEntreprise: ressource.prixVente || ressource.prix || 0,
+                tailleObjet: vente.tailleObjet || ressource.tailleObjet || 1,
+                dateVente: vente.dateVente || null,
+                dateStockage: serverTimestamp()
+              });
+              await addLogEntry(fb, { 
+                type: 'action', 
+                action: 'traitement_validate', 
+                category: 'ventes',
+                message: `Validation du traitement de la vente ${venteId}` 
+              });
+              loadStats();
+              loadGestionVentes();
+              loadTraitement();
+              loadHistorique();
+              loadStockage();
+              loadStockagePrive();
+            } catch (e) { 
+              showNotification({ message: 'Erreur lors de la validation du traitement.', type: 'error' });
+              console.error(e); 
+            }
+          }
+        });
+        return;
+      }
+      
+      if (e.target.closest('.btn-stockage-prive-gestion')) {
+        confirmAction({
+          message: 'Vente transférée en stockage privé avec succès.',
+          type: 'success',
+          onConfirm: async () => {
+            try {
+              const ressource = ressourcesCache.find(r => r.id === vente.typeRessourceId) || {};
+              const prixBourse = ressource.prixBourse || 0;
+              const beneficeReel = prixBourse * (vente.quantite || 0);
+              await updateDoc(doc(fb.db, 'ventes', venteId), { 
+                statut: 'traite',
+                updatedAt: serverTimestamp()
+              });
+              await addDoc(collection(fb.db, 'stockagePrive'), {
+                venteId: venteId,
+                typeRessourceId: vente.typeRessourceId || null,
+                ressourceNom: ressource.nom || '',
+                quantite: vente.quantite || 0,
+                employeId: vente.employeId || null,
+                employeNom: `${vente.prenom || ''} ${vente.nom || ''}`.trim(),
+                telephone: vente.telephone || '',
+                beneficeBourse: beneficeReel,
+                prixBourse: prixBourse,
+                prixEntreprise: ressource.prixVente || ressource.prix || 0,
+                tailleObjet: vente.tailleObjet || ressource.tailleObjet || 1,
+                dateVente: vente.dateVente || null,
+                dateStockage: serverTimestamp()
+              });
+              await addLogEntry(fb, { 
+                type: 'action', 
+                action: 'stockage_prive_transfer', 
+                category: 'ventes',
+                message: `Transfert de la vente ${venteId} en stockage privé` 
+              });
+              loadStats();
+              loadGestionVentes();
+              loadTraitement();
+              loadHistorique();
+              loadStockage();
+              loadStockagePrive();
+            } catch (e) { 
+              showNotification({ message: 'Erreur lors du transfert en stockage privé.', type: 'error' });
+              console.error(e); 
+            }
+          }
+        });
+        return;
+      }
+      
+      if (e.target.closest('.btn-vendre-gestion')) {
+        const ressource = ressourcesCache.find(r => r.id === vente.typeRessourceId) || {};
+        const prixBase = ressource.prixVente || ressource.prix || 0;
+        const montantBase = prixBase * (vente.quantite || 0);
+        
+        createModal({
+          title: 'Vendre pour l\'entreprise',
+          body: `
+            <div class="modal-field">
+              <label>Prix unitaire (€) *</label>
+              <input id="modal-prix-vente-entreprise" type="number" min="0" step="0.01" value="${prixBase.toFixed(2)}" required />
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Prix de base: ${prixBase.toFixed(2)} €</p>
+            </div>
+            <div class="modal-field">
+              <label>Montant total</label>
+              <div id="modal-montant-total-entreprise" class="text-lg font-semibold text-blue-600 dark:text-blue-400">${montantBase.toFixed(2)} €</div>
+            </div>
+            <div class="modal-field">
+              <label>Quantité</label>
+              <div class="text-sm text-slate-600 dark:text-slate-400">${vente.quantite || 0}</div>
+            </div>
+          `,
+          confirmText: 'Valider la vente',
+          cancelText: 'Annuler',
+          onConfirm: async () => {
+            try {
+              const prixInput = document.getElementById('modal-prix-vente-entreprise');
+              const prixVente = parseFloat(prixInput?.value || prixBase);
+              const montant = prixVente * (vente.quantite || 0);
+              
+              if (montant > 0) {
+                await addDoc(collection(fb.db, 'finance'), {
+                  type: 'benefice',
+                  montant,
+                  venteId: venteId,
+                  source: 'vente_entreprise',
+                  date: serverTimestamp(),
+                  description: `Vente entreprise: ${ressource.nom || ''} x${vente.quantite || 0} (prix: ${prixVente.toFixed(2)}€)`
+                });
+              }
+              
+              await updateDoc(doc(fb.db, 'ventes', venteId), {
+                statut: 'traite',
+                prixVenteFinal: prixVente,
+                updatedAt: serverTimestamp()
+              });
+              
+              await addLogEntry(fb, {
+                type: 'action',
+                action: 'vente_entreprise',
+                category: 'ventes',
+                message: `Vente pour l'entreprise: ${ressource.nom || ''} x${vente.quantite || 0} - ${montant.toFixed(2)}€`
+              });
+              
+              loadStats();
+              loadGestionVentes();
+              loadTraitement();
+              loadHistorique();
+              showNotification({ message: `Vente enregistrée pour ${montant.toFixed(2)} €`, type: 'success' });
+            } catch (e) {
+              showNotification({ message: 'Erreur lors de la vente pour l\'entreprise.', type: 'error' });
+              console.error(e);
+            }
+          }
+        });
+        
+        // Mettre à jour le montant total quand le prix change
+        setTimeout(() => {
+          const prixInput = document.getElementById('modal-prix-vente-entreprise');
+          const montantEl = document.getElementById('modal-montant-total-entreprise');
+          if (prixInput && montantEl) {
+            prixInput.addEventListener('input', () => {
+              const prix = parseFloat(prixInput.value || prixBase);
+              const montant = prix * (vente.quantite || 0);
+              montantEl.textContent = `${montant.toFixed(2)} €`;
+            });
+          }
+        }, 100);
+        
         return;
       }
     }
@@ -2405,7 +2883,7 @@ export function viewVentes(root) {
             const tailleObjet = parseFloat(document.getElementById('modal-edit-res-taille').value);
             const legalite = document.getElementById('modal-edit-res-legalite').value;
             if (!nom || isNaN(prixVente) || isNaN(prixBourse) || isNaN(tailleObjet) || !legalite) {
-              alertModal({ title: 'Champs requis', message: 'Tous les champs sont requis.', type: 'warning' });
+              showNotification({ message: 'Tous les champs sont requis.', type: 'warning' });
               return;
             }
             try {

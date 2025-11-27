@@ -1,4 +1,4 @@
-import { html, mount, createModal, getCachedProfile, loadUserProfile, updateNavPermissions, alertModal, updateAvatar, isAuthenticated, updateRoleBadge, applyPagePermissions } from '../utils.js';
+import { html, mount, createModal, getCachedProfile, loadUserProfile, updateNavPermissions, alertModal, updateAvatar, isAuthenticated, updateRoleBadge, applyPagePermissions, checkPermission, showNotification, confirmAction } from '../utils.js';
 import { getFirebase, getFlotteFirebase, waitForFirebase, collection, getDocs, getDoc, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where, query, orderBy, setDoc, signOut } from '../firebase.js';
 import { addLogEntry } from '../firebase.js';
 
@@ -115,12 +115,64 @@ export function viewCentrale(root) {
             <div class="tabs-list">
               <button class="tab-item effectif-tab active" data-tab="centrale">Centrale</button>
               <button class="tab-item effectif-tab" data-tab="prise-service">Prise de service</button>
-              <button class="tab-item effectif-tab" data-tab="historique">Historique</button>
+              <button id="tab-historique-btn" class="tab-item effectif-tab" data-tab="historique" style="display: none;">Historique</button>
             </div>
           </div>
 
           <div id="tab-centrale" class="tab-content active">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              <div class="card p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border-blue-200 dark:border-blue-800">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-1">Affectations actives</div>
+                    <div id="centrale-affectations-count" class="text-2xl font-bold text-blue-900 dark:text-blue-100">—</div>
+                  </div>
+                  <div class="w-12 h-12 rounded-lg bg-blue-200 dark:bg-blue-800/50 flex items-center justify-center">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-blue-600 dark:text-blue-400">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="9" cy="7" r="4"></circle>
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+              <div class="card p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border-green-200 dark:border-green-800">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-xs font-medium text-green-600 dark:text-green-400 uppercase tracking-wide mb-1">En service</div>
+                    <div id="centrale-en-service-count" class="text-2xl font-bold text-green-900 dark:text-green-100">—</div>
+                  </div>
+                  <div class="w-12 h-12 rounded-lg bg-green-200 dark:bg-green-800/50 flex items-center justify-center">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-green-600 dark:text-green-400">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+              <div class="card p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border-purple-200 dark:border-purple-800">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="text-xs font-medium text-purple-600 dark:text-purple-400 uppercase tracking-wide mb-1">Véhicules</div>
+                    <div id="centrale-vehicules-count" class="text-2xl font-bold text-purple-900 dark:text-purple-100">—</div>
+                  </div>
+                  <div class="w-12 h-12 rounded-lg bg-purple-200 dark:bg-purple-800/50 flex items-center justify-center">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-purple-600 dark:text-purple-400">
+                      <path d="M5 17H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1"></path>
+                      <polygon points="12 15 17 21 7 21 12 15"></polygon>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
             <div class="card mt-4">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <h3 class="font-semibold text-lg">Affectations</h3>
+                  <p class="text-sm text-slate-500 dark:text-slate-400">Gestion des équipes et véhicules</p>
+                </div>
+              </div>
               <div class="user-table">
                 <table>
                   <thead>
@@ -141,41 +193,76 @@ export function viewCentrale(root) {
           </div>
 
           <div id="tab-prise-service" class="tab-content hidden">
-            <div class="card mt-4">
-              <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-                <div>
-                  <h3 class="font-medium text-lg">Mon statut de service</h3>
-                  <div id="entreprise-service-status" class="text-sm text-slate-500 dark:text-slate-400">—</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div class="card p-6 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-800">
+                <div class="flex items-center justify-between mb-4">
+                  <div>
+                    <div class="text-xs font-medium text-green-600 dark:text-green-400 uppercase tracking-wide mb-1">Mon statut</div>
+                    <div id="entreprise-service-status" class="text-xl font-bold text-green-900 dark:text-green-100">—</div>
+                  </div>
+                  <div class="w-14 h-14 rounded-xl bg-green-200 dark:bg-green-800/50 flex items-center justify-center">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7 text-green-600 dark:text-green-400">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                  </div>
                 </div>
-                <div class="flex gap-2 flex-wrap justify-end">
-                  <button id="btn-refresh-service-ent" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-sm flex items-center gap-2">
-                    <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0115-6.7L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 01-15 6.7L3 16"></path><path d="M8 16H3v5"></path></svg></span>
-                    Actualiser
-                  </button>
-                  <button id="btn-toggle-service-ent" class="btn-primary flex items-center gap-2">
-                    <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7h-1l-1-2h-8l-1 2H6a2 2 0 00-2 2v9a2 2 0 002 2h13a2 2 0 002-2V9a2 2 0 00-2-2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg></span>
-                    <span id="entreprise-service-action-text">Prendre mon service</span>
+                <div class="space-y-2 pt-4 border-t border-green-200 dark:border-green-800">
+                  <div class="flex items-center justify-between text-sm">
+                    <span class="text-green-700 dark:text-green-300">Statut :</span>
+                    <span id="entreprise-service-status-text" class="font-semibold text-green-900 dark:text-green-100">Chargement...</span>
+                  </div>
+                  <div class="flex items-center justify-between text-sm">
+                    <span class="text-green-700 dark:text-green-300">Depuis :</span>
+                    <span id="entreprise-service-started" class="font-medium text-green-900 dark:text-green-100">—</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="card p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800">
+                <div class="flex items-center justify-between mb-4">
+                  <div>
+                    <div class="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-1">En service</div>
+                    <div id="centrale-service-count-card" class="text-xl font-bold text-blue-900 dark:text-blue-100">—</div>
+                  </div>
+                  <div class="w-14 h-14 rounded-xl bg-blue-200 dark:bg-blue-800/50 flex items-center justify-center">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7 text-blue-600 dark:text-blue-400">
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="9" cy="7" r="4"></circle>
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                  </div>
+                </div>
+                <div class="pt-4 border-t border-blue-200 dark:border-blue-800">
+                  <button id="btn-refresh-service-ent-table" class="w-full rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-white/5 px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-white/10 transition-colors flex items-center justify-center gap-2">
+                    <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M3 12a9 9 0 0115-6.7L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 01-15 6.7L3 16"></path><path d="M8 16H3v5"></path></svg></span>
+                    Actualiser la liste
                   </button>
                 </div>
               </div>
-              <div class="space-y-3">
-                <div class="p-4 rounded-md bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                  <div class="text-sm text-slate-600 dark:text-slate-300">Statut : <span id="entreprise-service-status-text">Chargement...</span></div>
-                  <div class="text-sm text-slate-600 dark:text-slate-300 mt-1">Depuis : <span id="entreprise-service-started">—</span></div>
+            </div>
+
+            <div class="card mt-4 p-6">
+              <div class="flex items-center justify-between mb-6">
+                <div>
+                  <h3 class="font-semibold text-xl mb-1">Gérer mon service</h3>
+                  <p class="text-sm text-slate-500 dark:text-slate-400">Prenez ou terminez votre service</p>
                 </div>
+                <button id="btn-toggle-service-ent" class="btn-service-start">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                  <span id="entreprise-service-action-text">Prendre mon service</span>
+                </button>
               </div>
             </div>
 
             <div class="card mt-4">
               <div class="flex items-center justify-between mb-4">
-                <h3 class="font-medium text-lg">Employés en service</h3>
-                <div class="flex items-center gap-3">
-                  <button id="btn-refresh-service-ent-table" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1.5 text-sm flex items-center gap-2">
-                    <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0115-6.7L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 01-15 6.7L3 16"></path><path d="M8 16H3v5"></path></svg></span>
-                    Actualiser
-                  </button>
-                  <div id="centrale-service-count" class="text-sm text-slate-500 dark:text-slate-400">—</div>
+                <div>
+                  <h3 class="font-semibold text-lg">Employés en service</h3>
+                  <p class="text-sm text-slate-500 dark:text-slate-400">Liste des collaborateurs actuellement en service</p>
                 </div>
+                <div id="centrale-service-count" class="px-4 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium text-sm">—</div>
               </div>
               <div class="user-table">
                 <table>
@@ -205,9 +292,12 @@ export function viewCentrale(root) {
 
             <div id="subtab-prises-service" class="tab-content active">
               <div class="card mt-4">
-                <div class="flex items-center justify-between mb-4">
-                  <h3 class="font-medium text-lg">Historique des prises de service</h3>
-                  <div id="prises-service-count" class="text-sm text-slate-500 dark:text-slate-400">—</div>
+                <div class="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 class="font-semibold text-xl mb-1">Historique des prises de service</h3>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Toutes les prises de service enregistrées</p>
+                  </div>
+                  <div id="prises-service-count" class="px-4 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 font-medium text-sm">—</div>
                 </div>
                 <div class="user-table">
                   <table>
@@ -229,9 +319,12 @@ export function viewCentrale(root) {
 
             <div id="subtab-fins-service" class="tab-content hidden">
               <div class="card mt-4">
-                <div class="flex items-center justify-between mb-4">
-                  <h3 class="font-medium text-lg">Historique des fins de service</h3>
-                  <div id="fins-service-count" class="text-sm text-slate-500 dark:text-slate-400">—</div>
+                <div class="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 class="font-semibold text-xl mb-1">Historique des fins de service</h3>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Toutes les fins de service enregistrées</p>
+                  </div>
+                  <div id="fins-service-count" class="px-4 py-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 font-medium text-sm">—</div>
                 </div>
                 <div class="user-table">
                   <table>
@@ -318,8 +411,41 @@ export function viewCentrale(root) {
     const tbody = document.getElementById('centrale-tbody');
     if (!tbody) return;
 
+    // Mettre à jour les statistiques
+    const affectationsCountEl = document.getElementById('centrale-affectations-count');
+    const enServiceCountEl = document.getElementById('centrale-en-service-count');
+    const vehiculesCountEl = document.getElementById('centrale-vehicules-count');
+    
+    if (affectationsCountEl) {
+      affectationsCountEl.textContent = centraleEntries.length;
+    }
+    if (enServiceCountEl) {
+      enServiceCountEl.textContent = serviceEmployeIds.size;
+    }
+    if (vehiculesCountEl) {
+      const uniqueVehicules = new Set(centraleEntries.map(e => e.vehiculeId).filter(Boolean));
+      vehiculesCountEl.textContent = uniqueVehicules.size;
+    }
+
     if (!centraleEntries.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="py-6 text-center text-slate-500 dark:text-slate-400">Aucune affectation enregistrée pour le moment.</td></tr>';
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="5" class="py-12 text-center">
+            <div class="flex flex-col items-center gap-3">
+              <div class="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 text-slate-400">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+              </div>
+              <div class="text-slate-500 dark:text-slate-400 font-medium">Aucune affectation enregistrée</div>
+              <div class="text-xs text-slate-400 dark:text-slate-500">Créez votre première affectation pour commencer</div>
+            </div>
+          </td>
+        </tr>
+      `;
       return;
     }
 
@@ -335,20 +461,36 @@ export function viewCentrale(root) {
             const displayName = option?.name || emp.name || option?.email || emp.email || emp.uid || '—';
             const inService = emp.uid ? serviceEmployeIds.has(emp.uid) : false;
             const badgeClass = inService
-              ? 'bg-blue-50 dark:bg-white/10 text-blue-600 dark:text-blue-300'
-              : 'bg-slate-200/70 dark:bg-white/10 text-slate-600 dark:text-slate-300';
-            const statusSuffix = inService ? '' : '<span class="ml-1 text-[10px] uppercase tracking-wide text-red-500 dark:text-red-400">hors service</span>';
-            return `<span class="inline-flex items-center gap-2 rounded-full px-2 py-1 text-xs font-medium ${badgeClass}">${displayName}${statusSuffix}</span>`;
+              ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+              : 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-white/20';
+            const statusSuffix = inService ? '' : '<span class="ml-1 text-[10px] uppercase tracking-wide text-red-500 dark:text-red-400 font-semibold">hors service</span>';
+            return `<span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${badgeClass}">${displayName}${statusSuffix}</span>`;
           }).join(' ')
-        : '<span class="text-xs text-slate-400">—</span>';
+        : '<span class="text-xs text-slate-400">Aucun employé</span>';
 
       const statutLabel = entry.statut || '—';
       const statutColor = getStatusColor(statutLabel);
 
       const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-50 dark:hover:bg-white/5 transition-colors';
       tr.innerHTML = `
-        <td>${entry.affectation || '—'}</td>
-        <td>${vehiculeLabel}</td>
+        <td>
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
+              ${(entry.affectation || 'A').charAt(0)}
+            </div>
+            <span class="font-semibold text-slate-900 dark:text-slate-100">${entry.affectation || '—'}</span>
+          </div>
+        </td>
+        <td>
+          <div class="flex items-center gap-2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 text-slate-400">
+              <path d="M5 17H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1"></path>
+              <polygon points="12 15 17 21 7 21 12 15"></polygon>
+            </svg>
+            <span class="text-slate-700 dark:text-slate-300">${vehiculeLabel}</span>
+          </div>
+        </td>
         <td class="space-x-1 space-y-1">${employesHtml}</td>
         <td><span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold" style="background:${statutColor.bg}; color:${statutColor.fg};">${statutLabel}</span></td>
         <td>
@@ -441,14 +583,29 @@ export function viewCentrale(root) {
       const fb = getFirebase();
       if (!fb || !fb.db) return;
       const snap = await getDocs(collection(fb.db, 'users'));
-      employeOptions = snap.docs.map(d => ({ uid: d.id, ...d.data() }))
-        .filter(u => !!u.roleEntreprise && !!u.roleEmploye)
+      employeOptions = snap.docs
+        .map(d => {
+          const data = d.data();
+          const uid = d.id;
+          return {
+            uid: uid,
+            data: data,
+            name: buildUserDisplayName({ ...data, uid: uid }),
+            email: data.email || '',
+            phone: data.phone || '',
+            avatar: data.photoUrl || ''
+          };
+        })
+        .filter(u => {
+          // Vérifier que l'utilisateur a les deux rôles
+          return !!u.data.roleEntreprise && !!u.data.roleEmploye;
+        })
         .map(u => ({
-          uid: u.uid || u.id || u.userId || d.id,
-          name: buildUserDisplayName({ ...u, uid: d.id }),
-          email: u.email || '',
-          phone: u.phone || '',
-          avatar: u.photoUrl || ''
+          uid: u.uid,
+          name: u.name,
+          email: u.email,
+          phone: u.phone,
+          avatar: u.avatar
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
       renderCentraleTable();
@@ -523,31 +680,59 @@ export function viewCentrale(root) {
       const fb = getFirebase();
       if (!fb || !fb.db) return;
 
-      // Récupérer tous les documents de centraleServices avec startedAt non null
-      const snap = await getDocs(query(
-        collection(fb.db, 'centraleServices'),
-        where('startedAt', '!=', null),
-        orderBy('startedAt', 'desc')
-      ));
-      const prises = snap.docs.map(docSnap => {
+      // Vérifier les permissions pour l'historique
+      const hasPermission = await checkPermission('centrale');
+      if (!hasPermission) {
+        prisesServiceHistorique = [];
+        renderPrisesServiceTable();
+        return;
+      }
+
+      // Récupérer tous les documents de l'historique avec type 'start'
+      // Essayer d'abord avec la requête optimisée, sinon récupérer tous les documents
+      let snap;
+      try {
+        snap = await getDocs(query(
+          collection(fb.db, 'centraleServiceHistory'),
+          where('type', '==', 'start'),
+          orderBy('startedAt', 'desc')
+        ));
+      } catch (queryError) {
+        // Si la requête échoue (index manquant), récupérer tous les documents
+        if (queryError.code === 'failed-precondition' || queryError.code === 'permission-denied') {
+          snap = await getDocs(collection(fb.db, 'centraleServiceHistory'));
+        } else {
+          throw queryError;
+        }
+      }
+      
+      const prisesMap = new Map();
+      snap.docs.forEach(docSnap => {
         const data = docSnap.data() || {};
+        // Filtrer seulement les prises de service (type 'start')
+        if (data.type !== 'start') return;
+        
         const startedAt = data.startedAt?.toDate ? data.startedAt.toDate() : (data.startedAt ? new Date(data.startedAt) : null);
         const empOption = employeOptions.find(e => e.uid === data.uid);
 
-        return {
+        const prise = {
           id: docSnap.id,
           uid: data.uid,
-          name: data.name || empOption?.name || data.uid || '—',
+          name: data.name || empOption?.name || data.email || data.uid || '—',
           email: data.email || empOption?.email || '',
           phone: data.phone || empOption?.phone || '',
           startedAt,
           createdBy: data.createdBy || null,
           createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt ? new Date(data.createdAt) : startedAt)
         };
+        
+        // Éviter les doublons en utilisant l'ID comme clé
+        if (!prisesMap.has(prise.id)) {
+          prisesMap.set(prise.id, prise);
+        }
       });
 
-      // Trier par date décroissante (plus récent en premier)
-      prises.sort((a, b) => {
+      const prises = Array.from(prisesMap.values()).sort((a, b) => {
         const timeA = a.startedAt ? a.startedAt.getTime() : 0;
         const timeB = b.startedAt ? b.startedAt.getTime() : 0;
         return timeB - timeA;
@@ -557,8 +742,58 @@ export function viewCentrale(root) {
       renderPrisesServiceTable();
     } catch (e) {
       console.error('Erreur chargement historique prises de service:', e);
-      prisesServiceHistorique = [];
-      renderPrisesServiceTable();
+      // Si erreur de permissions, ne pas afficher l'historique
+      if (e.code === 'permission-denied') {
+        prisesServiceHistorique = [];
+        renderPrisesServiceTable();
+        return;
+      }
+      // Si la requête échoue (index manquant), récupérer tous les documents et filtrer côté client
+      try {
+        const fb = getFirebase();
+        if (!fb || !fb.db) return;
+        const snap = await getDocs(collection(fb.db, 'centraleServiceHistory'));
+        const prisesMap = new Map();
+        snap.docs.forEach(docSnap => {
+          const data = docSnap.data() || {};
+          if (data.type !== 'start') return;
+          const startedAt = data.startedAt?.toDate ? data.startedAt.toDate() : (data.startedAt ? new Date(data.startedAt) : null);
+          const empOption = employeOptions.find(e => e.uid === data.uid);
+
+          const prise = {
+            id: docSnap.id,
+            uid: data.uid,
+            name: data.name || empOption?.name || data.email || data.uid || '—',
+            email: data.email || empOption?.email || '',
+            phone: data.phone || empOption?.phone || '',
+            startedAt,
+            createdBy: data.createdBy || null,
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt ? new Date(data.createdAt) : startedAt)
+          };
+          
+          // Éviter les doublons
+          if (!prisesMap.has(prise.id)) {
+            prisesMap.set(prise.id, prise);
+          }
+        });
+        
+        const prises = Array.from(prisesMap.values()).sort((a, b) => {
+          const timeA = a.startedAt ? a.startedAt.getTime() : 0;
+          const timeB = b.startedAt ? b.startedAt.getTime() : 0;
+          return timeB - timeA;
+        });
+        prisesServiceHistorique = prises;
+        renderPrisesServiceTable();
+      } catch (e2) {
+        console.error('Erreur chargement historique prises de service (fallback):', e2);
+        if (e2.code === 'permission-denied') {
+          prisesServiceHistorique = [];
+          renderPrisesServiceTable();
+          return;
+        }
+        prisesServiceHistorique = [];
+        renderPrisesServiceTable();
+      }
     }
   }
 
@@ -567,14 +802,38 @@ export function viewCentrale(root) {
       const fb = getFirebase();
       if (!fb || !fb.db) return;
 
-      // Récupérer tous les documents de centraleServices avec endedAt non null
-      const snap = await getDocs(query(
-        collection(fb.db, 'centraleServices'),
-        where('endedAt', '!=', null),
-        orderBy('endedAt', 'desc')
-      ));
-      const fins = snap.docs.map(docSnap => {
+      // Vérifier les permissions pour l'historique
+      const hasPermission = await checkPermission('centrale');
+      if (!hasPermission) {
+        finsServiceHistorique = [];
+        renderFinsServiceTable();
+        return;
+      }
+
+      // Récupérer tous les documents de l'historique avec type 'end'
+      // Essayer d'abord avec la requête optimisée, sinon récupérer tous les documents
+      let snap;
+      try {
+        snap = await getDocs(query(
+          collection(fb.db, 'centraleServiceHistory'),
+          where('type', '==', 'end'),
+          orderBy('endedAt', 'desc')
+        ));
+      } catch (queryError) {
+        // Si la requête échoue (index manquant), récupérer tous les documents
+        if (queryError.code === 'failed-precondition' || queryError.code === 'permission-denied') {
+          snap = await getDocs(collection(fb.db, 'centraleServiceHistory'));
+        } else {
+          throw queryError;
+        }
+      }
+      
+      const finsMap = new Map();
+      snap.docs.forEach(docSnap => {
         const data = docSnap.data() || {};
+        // Filtrer seulement les fins de service (type 'end')
+        if (data.type !== 'end') return;
+        
         const startedAt = data.startedAt?.toDate ? data.startedAt.toDate() : (data.startedAt ? new Date(data.startedAt) : null);
         const endedAt = data.endedAt?.toDate ? data.endedAt.toDate() : (data.endedAt ? new Date(data.endedAt) : null);
         const empOption = employeOptions.find(e => e.uid === data.uid);
@@ -587,10 +846,10 @@ export function viewCentrale(root) {
           duree = `${diffHours}h ${diffMinutes}min`;
         }
 
-        return {
+        const fin = {
           id: docSnap.id,
           uid: data.uid,
-          name: data.name || empOption?.name || data.uid || '—',
+          name: data.name || empOption?.name || data.email || data.uid || '—',
           email: data.email || empOption?.email || '',
           phone: data.phone || empOption?.phone || '',
           startedAt,
@@ -598,10 +857,14 @@ export function viewCentrale(root) {
           duree,
           createdBy: data.createdBy || null
         };
+        
+        // Éviter les doublons
+        if (!finsMap.has(fin.id)) {
+          finsMap.set(fin.id, fin);
+        }
       });
 
-      // Trier par date décroissante (plus récent en premier)
-      fins.sort((a, b) => {
+      const fins = Array.from(finsMap.values()).sort((a, b) => {
         const timeA = a.endedAt ? a.endedAt.getTime() : 0;
         const timeB = b.endedAt ? b.endedAt.getTime() : 0;
         return timeB - timeA;
@@ -611,8 +874,68 @@ export function viewCentrale(root) {
       renderFinsServiceTable();
     } catch (e) {
       console.error('Erreur chargement historique fins de service:', e);
-      finsServiceHistorique = [];
-      renderFinsServiceTable();
+      // Si erreur de permissions, ne pas afficher l'historique
+      if (e.code === 'permission-denied') {
+        finsServiceHistorique = [];
+        renderFinsServiceTable();
+        return;
+      }
+      // Si la requête échoue (index manquant), récupérer tous les documents et filtrer côté client
+      try {
+        const fb = getFirebase();
+        if (!fb || !fb.db) return;
+        const snap = await getDocs(collection(fb.db, 'centraleServiceHistory'));
+        const finsMap = new Map();
+        snap.docs.forEach(docSnap => {
+          const data = docSnap.data() || {};
+          if (data.type !== 'end') return;
+          const startedAt = data.startedAt?.toDate ? data.startedAt.toDate() : (data.startedAt ? new Date(data.startedAt) : null);
+          const endedAt = data.endedAt?.toDate ? data.endedAt.toDate() : (data.endedAt ? new Date(data.endedAt) : null);
+          const empOption = employeOptions.find(e => e.uid === data.uid);
+
+          let duree = '—';
+          if (startedAt && endedAt) {
+            const diffMs = endedAt.getTime() - startedAt.getTime();
+            const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+            const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+            duree = `${diffHours}h ${diffMinutes}min`;
+          }
+
+          const fin = {
+            id: docSnap.id,
+            uid: data.uid,
+            name: data.name || empOption?.name || data.email || data.uid || '—',
+            email: data.email || empOption?.email || '',
+            phone: data.phone || empOption?.phone || '',
+            startedAt,
+            endedAt,
+            duree,
+            createdBy: data.createdBy || null
+          };
+          
+          // Éviter les doublons
+          if (!finsMap.has(fin.id)) {
+            finsMap.set(fin.id, fin);
+          }
+        });
+        
+        const fins = Array.from(finsMap.values()).sort((a, b) => {
+          const timeA = a.endedAt ? a.endedAt.getTime() : 0;
+          const timeB = b.endedAt ? b.endedAt.getTime() : 0;
+          return timeB - timeA;
+        });
+        finsServiceHistorique = fins;
+        renderFinsServiceTable();
+      } catch (e2) {
+        console.error('Erreur chargement historique fins de service (fallback):', e2);
+        if (e2.code === 'permission-denied') {
+          finsServiceHistorique = [];
+          renderFinsServiceTable();
+          return;
+        }
+        finsServiceHistorique = [];
+        renderFinsServiceTable();
+      }
     }
   }
 
@@ -627,7 +950,22 @@ export function viewCentrale(root) {
     if (!tbody) return;
 
     if (!prisesServiceHistorique.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-slate-500 dark:text-slate-400">Aucune prise de service enregistrée.</td></tr>';
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="4" class="py-12 text-center">
+            <div class="flex flex-col items-center gap-3">
+              <div class="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 text-slate-400">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
+              <div class="text-slate-500 dark:text-slate-400 font-medium">Aucune prise de service enregistrée</div>
+              <div class="text-xs text-slate-400 dark:text-slate-500">Les prises de service apparaîtront ici</div>
+            </div>
+          </td>
+        </tr>
+      `;
       return;
     }
 
@@ -635,20 +973,51 @@ export function viewCentrale(root) {
     prisesServiceHistorique.forEach(prise => {
       const contactParts = [];
       if (prise.phone) {
-        contactParts.push(`<span class="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="M22 16.92V21a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2 4.18 2 2 0 0 1 4 2h4.09a2 2 0 0 1 2 1.72c.12.86.37 1.7.72 2.49a2 2 0 0 1-.45 2.11L9.91 9.91a16 16 0 0 0 6.18 6.18l1.59-1.59a2 2 0 0 1 2.11-.45c.79.35 1.63.6 2.49.72a2 2 0 0 1 1.72 2z"></path></svg>${prise.phone}</span>`);
+        contactParts.push(`<span class="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M22 16.92V21a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2 4.18 2 2 0 0 1 4 2h4.09a2 2 0 0 1 2 1.72c.12.86.37 1.7.72 2.49a2 2 0 0 1-.45 2.11L9.91 9.91a16 16 0 0 0 6.18 6.18l1.59-1.59a2 2 0 0 1 2.11-.45c.79.35 1.63.6 2.49.72a2 2 0 0 1 1.72 2z"></path></svg>${prise.phone}</span>`);
       }
       if (prise.email) {
-        contactParts.push(`<span class="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>${prise.email}</span>`);
+        contactParts.push(`<span class="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>${prise.email}</span>`);
       }
-      const contactHtml = contactParts.length ? contactParts.join('<br>') : '—';
-      const startedAt = prise.startedAt ? prise.startedAt.toLocaleString('fr-FR') : '—';
+      const contactHtml = contactParts.length ? contactParts.join('<br class="my-1">') : '<span class="text-slate-400">—</span>';
+      const startedAt = prise.startedAt ? prise.startedAt.toLocaleString('fr-FR', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      }) : '—';
+      const dateOnly = prise.startedAt ? prise.startedAt.toLocaleDateString('fr-FR') : '—';
+      const timeOnly = prise.startedAt ? prise.startedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—';
 
       const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-50 dark:hover:bg-white/5 transition-colors';
       tr.innerHTML = `
-        <td>${prise.name || prise.uid || '—'}</td>
+        <td>
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-semibold">
+              ${(prise.name || 'U').charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div class="font-medium text-slate-900 dark:text-slate-100">${prise.name || prise.uid || '—'}</div>
+            </div>
+          </div>
+        </td>
         <td>${contactHtml}</td>
-        <td>${startedAt}</td>
-        <td class="text-sm text-slate-600 dark:text-slate-300">${prise.createdBy || 'Système'}</td>
+        <td>
+          <div class="flex flex-col">
+            <span class="font-medium text-slate-900 dark:text-slate-100">${dateOnly}</span>
+            <span class="text-xs text-slate-500 dark:text-slate-400">${timeOnly}</span>
+          </div>
+        </td>
+        <td>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-white/10 text-xs font-medium text-slate-700 dark:text-slate-300">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            ${prise.createdBy ? 'Utilisateur' : 'Système'}
+          </span>
+        </td>
       `;
       tbody.appendChild(tr);
     });
@@ -665,7 +1034,22 @@ export function viewCentrale(root) {
     if (!tbody) return;
 
     if (!finsServiceHistorique.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="py-4 text-center text-slate-500 dark:text-slate-400">Aucune fin de service enregistrée.</td></tr>';
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="4" class="py-12 text-center">
+            <div class="flex flex-col items-center gap-3">
+              <div class="w-16 h-16 rounded-full bg-slate-100 dark:bg-white/5 flex items-center justify-center">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 text-slate-400">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
+              <div class="text-slate-500 dark:text-slate-400 font-medium">Aucune fin de service enregistrée</div>
+              <div class="text-xs text-slate-400 dark:text-slate-500">Les fins de service apparaîtront ici</div>
+            </div>
+          </td>
+        </tr>
+      `;
       return;
     }
 
@@ -673,20 +1057,64 @@ export function viewCentrale(root) {
     finsServiceHistorique.forEach(fin => {
       const contactParts = [];
       if (fin.phone) {
-        contactParts.push(`<span class="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="M22 16.92V21a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2 4.18 2 2 0 0 1 4 2h4.09a2 2 0 0 1 2 1.72c.12.86.37 1.7.72 2.49a2 2 0 0 1-.45 2.11L9.91 9.91a16 16 0 0 0 6.18 6.18l1.59-1.59a2 2 0 0 1 2.11-.45c.79.35 1.63.6 2.49.72a2 2 0 0 1 1.72 2z"></path></svg>${fin.phone}</span>`);
+        contactParts.push(`<span class="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M22 16.92V21a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2 4.18 2 2 0 0 1 4 2h4.09a2 2 0 0 1 2 1.72c.12.86.37 1.7.72 2.49a2 2 0 0 1-.45 2.11L9.91 9.91a16 16 0 0 0 6.18 6.18l1.59-1.59a2 2 0 0 1 2.11-.45c.79.35 1.63.6 2.49.72a2 2 0 0 1 1.72 2z"></path></svg>${fin.phone}</span>`);
       }
       if (fin.email) {
-        contactParts.push(`<span class="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>${fin.email}</span>`);
+        contactParts.push(`<span class="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>${fin.email}</span>`);
       }
-      const contactHtml = contactParts.length ? contactParts.join('<br>') : '—';
-      const endedAt = fin.endedAt ? fin.endedAt.toLocaleString('fr-FR') : '—';
+      const contactHtml = contactParts.length ? contactParts.join('<br class="my-1">') : '<span class="text-slate-400">—</span>';
+      const endedAt = fin.endedAt ? fin.endedAt.toLocaleString('fr-FR', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      }) : '—';
+      const dateOnly = fin.endedAt ? fin.endedAt.toLocaleDateString('fr-FR') : '—';
+      const timeOnly = fin.endedAt ? fin.endedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—';
+      
+      // Déterminer la couleur du badge de durée
+      let dureeColor = 'bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300';
+      if (fin.duree && fin.duree !== '—') {
+        const hours = parseInt(fin.duree.split('h')[0]) || 0;
+        if (hours >= 8) {
+          dureeColor = 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300';
+        } else if (hours >= 4) {
+          dureeColor = 'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300';
+        } else {
+          dureeColor = 'bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300';
+        }
+      }
 
       const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-50 dark:hover:bg-white/5 transition-colors';
       tr.innerHTML = `
-        <td>${fin.name || fin.uid || '—'}</td>
+        <td>
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white text-xs font-semibold">
+              ${(fin.name || 'U').charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div class="font-medium text-slate-900 dark:text-slate-100">${fin.name || fin.uid || '—'}</div>
+            </div>
+          </div>
+        </td>
         <td>${contactHtml}</td>
-        <td>${endedAt}</td>
-        <td class="text-sm text-slate-600 dark:text-slate-300">${fin.duree}</td>
+        <td>
+          <div class="flex flex-col">
+            <span class="font-medium text-slate-900 dark:text-slate-100">${dateOnly}</span>
+            <span class="text-xs text-slate-500 dark:text-slate-400">${timeOnly}</span>
+          </div>
+        </td>
+        <td>
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md ${dureeColor} text-xs font-semibold">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            ${fin.duree}
+          </span>
+        </td>
       `;
       tbody.appendChild(tr);
     });
@@ -718,11 +1146,11 @@ export function viewCentrale(root) {
         const input = document.getElementById('modal-new-status');
         const value = input ? input.value.trim() : '';
         if (!value) {
-          alertModal({ title: 'Information', message: 'Veuillez saisir un libellé de statut.', type: 'info' });
+          showNotification({ message: 'Veuillez saisir un libellé de statut.', type: 'info' });
           return;
         }
         if (statutOptions.some(opt => opt.toLowerCase() === value.toLowerCase())) {
-          alertModal({ title: 'Information', message: 'Ce statut est déjà disponible.', type: 'info' });
+          showNotification({ message: 'Ce statut est déjà disponible.', type: 'info' });
           return;
         }
         try {
@@ -730,10 +1158,10 @@ export function viewCentrale(root) {
           if (!fb || !fb.db) return;
           statutOptions.push(value);
           await setDoc(doc(fb.db, CENTRALE_CONFIG_COLLECTION, CENTRALE_CONFIG_DOC), { statuts: statutOptions }, { merge: true });
-          alertModal({ title: 'Succès', message: `Le statut "${value}" a été ajouté.`, type: 'success' });
+          showNotification({ message: `Le statut "${value}" a été ajouté.`, type: 'success' });
         } catch (e) {
           console.error('Erreur ajout statut centrale:', e);
-          alertModal({ title: 'Erreur', message: 'Impossible d\'ajouter ce statut.', type: 'danger' });
+          showNotification({ message: 'Impossible d\'ajouter ce statut.', type: 'error' });
         }
       }
     });
@@ -753,17 +1181,33 @@ export function viewCentrale(root) {
       const fallback = (!Object.keys(emp).length && currentUser && currentUser.uid === uid) ? currentUser : {};
       const resolved = Object.keys(emp).length ? emp : fallback;
       const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+      const now = serverTimestamp();
+      
+      // Mettre à jour le statut actif
       await setDoc(doc(fb.db, 'centraleServices', uid), {
         uid,
         name: resolved.name || resolved.email || uid,
         email: resolved.email || '',
         phone: resolved.phone || '',
         active: true,
-        startedAt: serverTimestamp(),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        startedAt: now,
+        createdAt: now,
+        updatedAt: now,
         createdBy: authState?.uid || null
       }, { merge: true });
+      
+      // Créer une entrée dans l'historique
+      await addDoc(collection(fb.db, 'centraleServiceHistory'), {
+        uid,
+        name: resolved.name || resolved.email || uid,
+        email: resolved.email || '',
+        phone: resolved.phone || '',
+        type: 'start',
+        startedAt: now,
+        createdAt: now,
+        createdBy: authState?.uid || null
+      });
+      
       await addLogEntry(fb, {
         type: 'action',
         action: 'centrale_service_start',
@@ -777,13 +1221,13 @@ export function viewCentrale(root) {
         await loadFinsServiceHistorique();
       }
       if (showAlert) {
-        alertModal({ title: 'Succès', message: successMessage || `Prise de service enregistrée pour ${resolved.name || resolved.email || uid}.`, type: 'success' });
+        showNotification({ message: successMessage || `Prise de service enregistrée pour ${resolved.name || resolved.email || uid}.`, type: 'success' });
       }
       return true;
     } catch (e) {
       console.error('Erreur lors de la prise de service:', e);
       if (showAlert) {
-        alertModal({ title: 'Erreur', message: errorMessage || 'Impossible d\'enregistrer la prise de service.', type: 'danger' });
+        showNotification({ message: errorMessage || 'Impossible d\'enregistrer la prise de service.', type: 'error' });
       }
       return false;
     }
@@ -798,14 +1242,38 @@ export function viewCentrale(root) {
         }
         return false;
       }
-      await setDoc(doc(fb.db, 'centraleServices', uid), {
-        active: false,
-        endedAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      }, { merge: true });
+      
+      // Récupérer les informations du service actuel
+      const serviceDoc = await getDoc(doc(fb.db, 'centraleServices', uid));
+      const serviceData = serviceDoc.exists() ? serviceDoc.data() : {};
+      const startedAt = serviceData.startedAt?.toDate ? serviceData.startedAt.toDate() : (serviceData.startedAt ? new Date(serviceData.startedAt) : null);
+      
       const empFound = serviceEmployes.find(e => e.uid === uid) || employeOptions.find(e => e.uid === uid) || {};
       const fallback = (!Object.keys(empFound).length && currentUser && currentUser.uid === uid) ? currentUser : {};
       const resolved = Object.keys(empFound).length ? empFound : fallback;
+      const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+      const now = serverTimestamp();
+      
+      // Mettre à jour le statut actif
+      await setDoc(doc(fb.db, 'centraleServices', uid), {
+        active: false,
+        endedAt: now,
+        updatedAt: now
+      }, { merge: true });
+      
+      // Créer une entrée dans l'historique avec la durée
+      await addDoc(collection(fb.db, 'centraleServiceHistory'), {
+        uid,
+        name: resolved.name || resolved.email || uid,
+        email: resolved.email || '',
+        phone: resolved.phone || '',
+        type: 'end',
+        startedAt: serviceData.startedAt || null,
+        endedAt: now,
+        createdAt: now,
+        createdBy: authState?.uid || null
+      });
+      
       await addLogEntry(fb, {
         type: 'action',
         action: 'centrale_service_end',
@@ -819,13 +1287,13 @@ export function viewCentrale(root) {
         await loadFinsServiceHistorique();
       }
       if (showAlert) {
-        alertModal({ title: 'Succès', message: successMessage || `Fin de service enregistrée pour ${resolved.name || resolved.email || uid}.`, type: 'success' });
+        showNotification({ message: successMessage || `Fin de service enregistrée pour ${resolved.name || resolved.email || uid}.`, type: 'success' });
       }
       return true;
     } catch (e) {
       console.error('Erreur fin de service:', e);
       if (showAlert) {
-        alertModal({ title: 'Erreur', message: errorMessage || 'Impossible d\'enregistrer la fin de service.', type: 'danger' });
+        showNotification({ message: errorMessage || 'Impossible d\'enregistrer la fin de service.', type: 'error' });
       }
       return false;
     }
@@ -833,7 +1301,7 @@ export function viewCentrale(root) {
 
   async function toggleMyServiceEntreprise() {
     if (!currentUser) {
-      alertModal({ title: 'Information', message: 'Utilisateur non identifié.', type: 'info' });
+      showNotification({ message: 'Utilisateur non identifié.', type: 'info' });
       return;
     }
 
@@ -885,10 +1353,15 @@ export function viewCentrale(root) {
   function renderServiceTable() {
     const tbody = document.getElementById('centrale-service-tbody');
     const countEl = document.getElementById('centrale-service-count');
+    const countCardEl = document.getElementById('centrale-service-count-card');
+    
     if (countEl) {
       countEl.textContent = serviceEmployes.length > 0
         ? `${serviceEmployes.length} en service`
         : 'Aucun employé en service';
+    }
+    if (countCardEl) {
+      countCardEl.textContent = serviceEmployes.length;
     }
     if (!tbody) return;
     if (!serviceEmployes.length) {
@@ -915,8 +1388,8 @@ export function viewCentrale(root) {
         <td>${startedAt}</td>
         <td>
           <div class="action-buttons" data-service-uid="${emp.uid}">
-            <button class="action-btn btn-stop-service" title="Mettre fin au service" style="background: #dc2626; color: white;">
-              <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"></path><path d="M6 6l12 12"></path></svg></span>
+            <button class="btn-service-stop btn-stop-service" title="Mettre fin au service">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M18 6L6 18M6 6l12 12"></path></svg>
             </button>
           </div>
         </td>
@@ -941,9 +1414,12 @@ export function viewCentrale(root) {
       statusTextEl.textContent = 'Utilisateur inconnu';
       startedEl.textContent = '—';
       toggleBtn.disabled = true;
-      toggleBtn.classList.remove('bg-red-600', 'hover:bg-red-700', 'text-white');
-      toggleBtn.classList.add('btn-primary');
-      actionTextEl.textContent = 'Prendre mon service';
+      toggleBtn.classList.remove('btn-service-end');
+      toggleBtn.classList.add('btn-service-start');
+      toggleBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+        <span id="entreprise-service-action-text">Prendre mon service</span>
+      `;
       return;
     }
 
@@ -953,18 +1429,22 @@ export function viewCentrale(root) {
       statusEl.textContent = 'Hors service';
       statusTextEl.textContent = 'Hors service';
       startedEl.textContent = '—';
-      toggleBtn.classList.remove('bg-red-600', 'hover:bg-red-700', 'text-white');
-      if (!toggleBtn.classList.contains('btn-primary')) {
-        toggleBtn.classList.add('btn-primary');
-      }
-      actionTextEl.textContent = 'Prendre mon service';
+      toggleBtn.classList.remove('btn-service-end');
+      toggleBtn.classList.add('btn-service-start');
+      toggleBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+        <span id="entreprise-service-action-text">Prendre mon service</span>
+      `;
     } else {
       statusEl.textContent = 'En service';
       statusTextEl.textContent = 'En service';
       startedEl.textContent = myServiceStatus.startedAt ? myServiceStatus.startedAt.toLocaleString('fr-FR') : '—';
-      toggleBtn.classList.remove('btn-primary');
-      toggleBtn.classList.add('bg-red-600', 'hover:bg-red-700', 'text-white');
-      actionTextEl.textContent = 'Terminer mon service';
+      toggleBtn.classList.remove('btn-service-start');
+      toggleBtn.classList.add('btn-service-end');
+      toggleBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M18 6L6 18M6 6l12 12"></path></svg>
+        <span id="entreprise-service-action-text">Terminer mon service</span>
+      `;
     }
   }
 
@@ -1041,15 +1521,15 @@ export function viewCentrale(root) {
         const statut = document.getElementById('modal-statut')?.value.trim();
 
         if (!affectation) {
-          alertModal({ title: 'Champs requis', message: 'Veuillez sélectionner une affectation.', type: 'warning' });
+          showNotification({ message: 'Veuillez sélectionner une affectation.', type: 'warning' });
           return;
         }
         if (!vehiculeId) {
-          alertModal({ title: 'Champs requis', message: 'Veuillez sélectionner un véhicule.', type: 'warning' });
+          showNotification({ message: 'Veuillez sélectionner un véhicule.', type: 'warning' });
           return;
         }
         if (!statut) {
-          alertModal({ title: 'Champs requis', message: 'Veuillez sélectionner un statut.', type: 'warning' });
+          showNotification({ message: 'Veuillez sélectionner un statut.', type: 'warning' });
           return;
         }
 
@@ -1081,7 +1561,7 @@ export function viewCentrale(root) {
         try {
           const fb = getFirebase();
           if (!fb || !fb.db) {
-            alertModal({ title: 'Erreur', message: 'Base de données indisponible.', type: 'danger' });
+            showNotification({ message: 'Base de données indisponible.', type: 'error' });
             return;
           }
 
@@ -1107,10 +1587,10 @@ export function viewCentrale(root) {
           }
 
           await loadCentraleEntries();
-          alertModal({ title: 'Succès', message: 'Affectation enregistrée avec succès.', type: 'success' });
+          showNotification({ message: 'Affectation enregistrée avec succès.', type: 'success' });
         } catch (e) {
           console.error('Erreur sauvegarde affectation centrale:', e);
-          alertModal({ title: 'Erreur', message: 'Impossible d\'enregistrer cette affectation.', type: 'danger' });
+          showNotification({ message: 'Impossible d\'enregistrer cette affectation.', type: 'error' });
         }
       }
     });
@@ -1184,12 +1664,9 @@ export function viewCentrale(root) {
         const container = stopBtn.closest('.action-buttons');
         const uid = container?.getAttribute('data-service-uid');
         const emp = serviceEmployes.find(s => s.uid === uid);
-        createModal({
-          title: 'Mettre fin au service',
-          body: `<p>Confirmez-vous la fin de service pour <strong>${emp?.name || 'cet employé'}</strong> ?</p>`,
-          confirmText: 'Mettre fin',
-          cancelText: 'Annuler',
-          confirmStyle: 'background: #dc2626; color: white;',
+        confirmAction({
+          message: `Fin de service enregistrée pour ${emp?.name || 'cet employé'}`,
+          type: 'success',
           onConfirm: async () => {
             await closeServiceForEmployee(uid);
           }
@@ -1211,12 +1688,9 @@ export function viewCentrale(root) {
       }
 
       if (e.target.closest('.btn-delete')) {
-        createModal({
-          title: 'Supprimer l’affectation',
-          body: `<p>Souhaitez-vous supprimer <strong>${entry.affectation || 'cette affectation'}</strong> ?</p><p class="text-sm text-slate-500 mt-2">Cette action est irréversible.</p>`,
-          confirmText: 'Supprimer',
-          cancelText: 'Annuler',
-          confirmStyle: 'background: #dc2626; color: white;',
+        confirmAction({
+          message: `Affectation "${entry.affectation || 'cette affectation'}" supprimée`,
+          type: 'success',
           onConfirm: async () => {
             try {
               const fb = getFirebase();
@@ -1230,10 +1704,9 @@ export function viewCentrale(root) {
               });
               centraleEntries = centraleEntries.filter(ent => ent.id !== entryId);
               renderCentraleTable();
-              alertModal({ title: 'Succès', message: 'Affectation supprimée.', type: 'success' });
             } catch (err) {
               console.error('Erreur suppression affectation centrale:', err);
-              alertModal({ title: 'Erreur', message: 'Impossible de supprimer cette affectation.', type: 'danger' });
+              showNotification({ message: 'Impossible de supprimer cette affectation.', type: 'error' });
             }
           }
         });
@@ -1279,6 +1752,19 @@ export function viewCentrale(root) {
       if (roleBadge) await updateRoleBadge(roleBadge);
 
       await updateNavPermissions();
+      
+      // Vérifier les permissions pour l'historique et afficher/masquer l'onglet
+      const hasCentralePermission = await checkPermission('centrale');
+      const historiqueTabBtn = document.getElementById('tab-historique-btn');
+      if (historiqueTabBtn) {
+        if (hasCentralePermission) {
+          historiqueTabBtn.style.display = '';
+        } else {
+          historiqueTabBtn.style.display = 'none';
+        }
+      }
+      
+      // Appliquer les permissions pour les actions (création/modification d'affectations nécessite permission)
       await applyPagePermissions({
         create: 'centrale',
         edit: 'centrale',
@@ -1289,12 +1775,15 @@ export function viewCentrale(root) {
       await loadVehiculesAchetes();
       await loadEmployeOptions();
       await loadServiceEmployes();
-      await loadPrisesServiceHistorique();
-      await loadFinsServiceHistorique();
+      // Charger l'historique seulement si l'utilisateur a les permissions
+      if (hasCentralePermission) {
+        await loadPrisesServiceHistorique();
+        await loadFinsServiceHistorique();
+      }
       await loadCentraleEntries();
     } catch (e) {
       console.error('Erreur initialisation centrale:', e);
-      alertModal({ title: 'Erreur', message: 'Impossible de charger la centrale.', type: 'danger' });
+      showNotification({ message: 'Impossible de charger la centrale.', type: 'error' });
     }
   })();
 }
