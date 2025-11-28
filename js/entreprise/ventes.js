@@ -180,6 +180,12 @@ export function viewVentes(root) {
               <button class="tab-item" data-tab="stockage">Gestion Stockage</button>
               <button class="tab-item" data-tab="ressources">Gestion Ressources</button>
             </div>
+            <div class="flex items-center gap-2 ml-auto">
+              <button id="btn-send-discord" class="btn-primary flex items-center gap-2" style="background: #5865F2;">
+                <span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg></span>
+                Envoyer sur Discord
+              </button>
+            </div>
           </div>
 
           <!-- Tab 1: Historique Ventes -->
@@ -443,7 +449,7 @@ export function viewVentes(root) {
                     <th>Nom</th>
                     <th>Prix de vente entreprise</th>
                     <th>Prix en bourse</th>
-                    <th>Taille objet</th>
+                    <th>Taille objet (Brut / Traité)</th>
                     <th>Légalité</th>
                     <th>Actions</th>
                   </tr>
@@ -1608,7 +1614,7 @@ export function viewVentes(root) {
           <td>${res.nom || '—'}</td>
           <td>${(res.prixVente || res.prix || 0).toFixed(2)} €</td>
           <td>${(res.prixBourse || 0).toFixed(2)} €</td>
-          <td>${(res.tailleObjet || 1).toFixed(2)}</td>
+          <td>${(res.tailleObjet || 1).toFixed(2)} / ${(res.tailleObjetTraite || res.tailleObjet || 1).toFixed(2)}</td>
           <td><span class="badge-role ${res.legalite === 'illegal' ? 'badge-inactif' : 'badge-actif'}">${res.legalite === 'illegal' ? 'Illégale' : 'Légale'}</span></td>
           <td>
             <div class="action-buttons" data-ressource-id="${res.id}">
@@ -1949,9 +1955,14 @@ export function viewVentes(root) {
             </select>
           </div>
       <div class="modal-field">
-        <label>Taille objet (place dans le stockage) *</label>
+        <label>Taille objet brut (place dans le stockage) *</label>
         <input id="modal-res-taille" type="number" min="0" step="0.01" required placeholder="1.00" />
-        <div class="text-xs text-slate-500 mt-1">Définit la place prise par unité dans le stockage</div>
+        <div class="text-xs text-slate-500 mt-1">Définit la place prise par unité brute dans le stockage</div>
+      </div>
+      <div class="modal-field">
+        <label>Taille objet traité (place dans le stockage) *</label>
+        <input id="modal-res-taille-traite" type="number" min="0" step="0.01" required placeholder="0.50" />
+        <div class="text-xs text-slate-500 mt-1">Définit la place prise par unité traitée dans le stockage (normalement plus faible que le brut)</div>
       </div>
     `;
     createModal({
@@ -1964,8 +1975,9 @@ export function viewVentes(root) {
         const prixVente = parseFloat(document.getElementById('modal-res-prix-vente').value);
         const prixBourse = parseFloat(document.getElementById('modal-res-prix-bourse').value);
         const tailleObjet = parseFloat(document.getElementById('modal-res-taille').value);
+        const tailleObjetTraite = parseFloat(document.getElementById('modal-res-taille-traite').value);
         const legalite = document.getElementById('modal-res-legalite').value;
-        if (!nom || isNaN(prixVente) || isNaN(prixBourse) || isNaN(tailleObjet) || !legalite) {
+        if (!nom || isNaN(prixVente) || isNaN(prixBourse) || isNaN(tailleObjet) || isNaN(tailleObjetTraite) || !legalite) {
           showNotification({ message: 'Tous les champs sont requis.', type: 'warning' });
           return;
         }
@@ -1976,6 +1988,7 @@ export function viewVentes(root) {
             prixVente,
             prixBourse,
             tailleObjet,
+            tailleObjetTraite,
             legalite,
             position: nextPosition,
             createdAt: serverTimestamp()
@@ -2868,9 +2881,14 @@ export function viewVentes(root) {
             </select>
           </div>
           <div class="modal-field">
-            <label>Taille objet (place dans le stockage) *</label>
+            <label>Taille objet brut (place dans le stockage) *</label>
             <input id="modal-edit-res-taille" type="number" min="0" step="0.01" value="${res.tailleObjet || 1}" required />
-            <div class="text-xs text-slate-500 mt-1">Définit la place prise par unité dans le stockage</div>
+            <div class="text-xs text-slate-500 mt-1">Définit la place prise par unité brute dans le stockage</div>
+          </div>
+          <div class="modal-field">
+            <label>Taille objet traité (place dans le stockage) *</label>
+            <input id="modal-edit-res-taille-traite" type="number" min="0" step="0.01" value="${res.tailleObjetTraite || res.tailleObjet || 0.5}" required />
+            <div class="text-xs text-slate-500 mt-1">Définit la place prise par unité traitée dans le stockage (normalement plus faible que le brut)</div>
           </div>
         `;
         createModal({
@@ -2881,8 +2899,9 @@ export function viewVentes(root) {
             const prixVente = parseFloat(document.getElementById('modal-edit-res-prix-vente').value);
             const prixBourse = parseFloat(document.getElementById('modal-edit-res-prix-bourse').value);
             const tailleObjet = parseFloat(document.getElementById('modal-edit-res-taille').value);
+            const tailleObjetTraite = parseFloat(document.getElementById('modal-edit-res-taille-traite').value);
             const legalite = document.getElementById('modal-edit-res-legalite').value;
-            if (!nom || isNaN(prixVente) || isNaN(prixBourse) || isNaN(tailleObjet) || !legalite) {
+            if (!nom || isNaN(prixVente) || isNaN(prixBourse) || isNaN(tailleObjet) || isNaN(tailleObjetTraite) || !legalite) {
               showNotification({ message: 'Tous les champs sont requis.', type: 'warning' });
               return;
             }
@@ -2892,6 +2911,7 @@ export function viewVentes(root) {
                 prixVente,
                 prixBourse,
                 tailleObjet,
+                tailleObjetTraite,
                 legalite
               });
               await addLogEntry(fb, { 
@@ -2935,4 +2955,471 @@ export function viewVentes(root) {
       }
     }
   });
+
+  // Fonction pour envoyer les ventes sur Discord
+  const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1443537523958611998/N2Dg44JBIrwu4CwE-n0MtSgx3ReWZTxt5hb4wU6V_O58A6Wryfuw1-UGt_x-St3xmdQM';
+
+  async function sendVentesToDiscord(employeIdSelected = null) {
+    try {
+      const fb = getFirebase();
+      if (!fb || !fb.db) {
+        alertModal({ title: 'Erreur', message: 'Impossible de se connecter à la base de données.', type: 'danger' });
+        return;
+      }
+
+      // Charger les ventes (filtrer par employé si sélectionné)
+      let ventesQuery = collection(fb.db, 'ventes');
+      if (employeIdSelected) {
+        ventesQuery = query(collection(fb.db, 'ventes'), where('employeId', '==', employeIdSelected));
+      }
+      const ventesSnap = await getDocs(ventesQuery);
+      const allVentes = ventesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      if (allVentes.length === 0) {
+        alertModal({ title: 'Information', message: 'Aucune vente à envoyer.', type: 'info' });
+        return;
+      }
+
+      // Charger les ressources et utilisateurs
+      const ressourcesSnap = await getDocs(collection(fb.db, 'ressources'));
+      const ressources = ressourcesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      const usersSnap = await getDocs(collection(fb.db, 'users'));
+      const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      // Si un employé spécifique est sélectionné, créer un rapport détaillé
+      if (employeIdSelected) {
+        const employe = users.find(u => u.id === employeIdSelected);
+        const employeName = employe?.name || allVentes[0]?.prenom && allVentes[0]?.nom 
+          ? `${allVentes[0].prenom} ${allVentes[0].nom}` 
+          : allVentes[0]?.telephone || 'Employé inconnu';
+
+        // Trier les ventes par date (plus récentes en premier)
+        const ventesTriees = allVentes.map(vente => {
+          const ressource = ressources.find(r => r.id === vente.typeRessourceId);
+          const prixVente = ressource ? (ressource.prixVente || ressource.prix || 0) : 0;
+          const quantite = vente.quantite || 0;
+          const montant = prixVente * quantite;
+          const dateVente = vente.dateVente 
+            ? (vente.dateVente.toDate ? vente.dateVente.toDate() : new Date(vente.dateVente))
+            : new Date();
+
+          return {
+            date: dateVente,
+            ressource: ressource?.nom || 'Ressource inconnue',
+            quantite,
+            prixUnitaire: prixVente,
+            montant,
+            statut: vente.statut || 'en attente',
+            telephone: vente.telephone || ''
+          };
+        }).sort((a, b) => b.date - a.date);
+
+        const totalQuantite = ventesTriees.reduce((sum, v) => sum + v.quantite, 0);
+        const totalCA = ventesTriees.reduce((sum, v) => sum + v.montant, 0);
+
+        // Grouper par statut
+        const parStatut = {
+          'en attente': ventesTriees.filter(v => v.statut === 'en attente'),
+          'valide': ventesTriees.filter(v => v.statut === 'valide'),
+          'traite': ventesTriees.filter(v => v.statut === 'traite'),
+          'annule': ventesTriees.filter(v => v.statut === 'annule')
+        };
+
+        const statutEmojis = {
+          'en attente': '⏳',
+          'valide': '✅',
+          'traite': '✅',
+          'annule': '❌'
+        };
+
+        // Créer l'embed détaillé pour cet employé
+        let description = `**Total:** ${totalQuantite} unités | **CA:** ${totalCA.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €\n\n`;
+        
+        // Statistiques par statut
+        description += '**Statistiques par statut:**\n';
+        Object.entries(parStatut).forEach(([statut, ventes]) => {
+          if (ventes.length > 0) {
+            const caStatut = ventes.reduce((sum, v) => sum + v.montant, 0);
+            description += `${statutEmojis[statut] || '•'} **${statut.charAt(0).toUpperCase() + statut.slice(1)}:** ${ventes.length} vente(s) - ${caStatut.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €\n`;
+          }
+        });
+
+        // Liste détaillée des ventes (toutes les ventes)
+        description += `\n**📋 Liste détaillée des ventes (${ventesTriees.length}):**\n`;
+        ventesTriees.forEach((v, index) => {
+          const dateStr = v.date.toLocaleDateString('fr-FR');
+          const ressourceNom = v.ressource.substring(0, 40);
+          const statutEmoji = statutEmojis[v.statut] || '•';
+          description += `${index + 1}. ${statutEmoji} **${dateStr}** - ${ressourceNom}\n`;
+          description += `   └ Quantité: ${v.quantite} | Prix unitaire: ${v.prixUnitaire.toFixed(2)} € | Total: ${v.montant.toFixed(2)} € | Statut: ${v.statut}\n`;
+        });
+
+        const embeds = [{
+          title: `Rapport détaillé - ${employeName}`,
+          description: description.substring(0, 4096),
+          color: 0x5865F2,
+          footer: {
+            text: `${ventesTriees.length} vente(s) au total`
+          },
+          timestamp: new Date().toISOString()
+        }];
+
+        // Envoyer au webhook Discord
+        const response = await fetch(DISCORD_WEBHOOK_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            embeds: embeds
+          })
+        });
+
+        if (response.ok) {
+          alertModal({ 
+            title: 'Succès', 
+            message: `Le rapport détaillé de ${employeName} a été envoyé sur Discord avec succès !\n\n${ventesTriees.length} vente(s) - ${totalQuantite} unités - ${totalCA.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`, 
+            type: 'success' 
+          });
+          
+          await addLogEntry(fb, { 
+            type: 'action', 
+            action: 'discord_send', 
+            category: 'ventes',
+            message: `Envoi des ventes de ${employeName} sur Discord` 
+          });
+        } else {
+          const errorText = await response.text();
+          console.error('Erreur Discord:', errorText);
+          alertModal({ 
+            title: 'Erreur', 
+            message: `Erreur lors de l'envoi sur Discord: ${response.status}`, 
+            type: 'danger' 
+          });
+        }
+        return;
+      }
+
+      // Sinon, créer un résumé pour tous les employés (code existant)
+      const ventesParEmploye = {};
+      
+      allVentes.forEach(vente => {
+        const employeId = vente.employeId || 'inconnu';
+        const employeName = vente.prenom && vente.nom 
+          ? `${vente.prenom} ${vente.nom}` 
+          : users.find(u => u.id === employeId)?.name || vente.telephone || 'Employé inconnu';
+        
+        if (!ventesParEmploye[employeId]) {
+          ventesParEmploye[employeId] = {
+            nom: employeName,
+            ventes: [],
+            totalQuantite: 0,
+            totalCA: 0
+          };
+        }
+
+        const ressource = ressources.find(r => r.id === vente.typeRessourceId);
+        const prixVente = ressource ? (ressource.prixVente || ressource.prix || 0) : 0;
+        const quantite = vente.quantite || 0;
+        const montant = prixVente * quantite;
+
+        const dateVente = vente.dateVente 
+          ? (vente.dateVente.toDate ? vente.dateVente.toDate() : new Date(vente.dateVente))
+          : new Date();
+
+        ventesParEmploye[employeId].ventes.push({
+          date: dateVente,
+          ressource: ressource?.nom || 'Ressource inconnue',
+          quantite,
+          prixUnitaire: prixVente,
+          montant,
+          statut: vente.statut || 'en attente'
+        });
+
+        ventesParEmploye[employeId].totalQuantite += quantite;
+        ventesParEmploye[employeId].totalCA += montant;
+      });
+
+      // Créer les embeds Discord
+      const embeds = [];
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('fr-FR', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+
+      // Embed principal avec le résumé
+      let totalGlobalCA = 0;
+      let totalGlobalQuantite = 0;
+      Object.values(ventesParEmploye).forEach(emp => {
+        totalGlobalCA += emp.totalCA;
+        totalGlobalQuantite += emp.totalQuantite;
+      });
+
+      embeds.push({
+        title: '📊 Résumé des Ventes',
+        description: `Rapport des ventes par employé - ${dateStr}`.substring(0, 4096),
+        color: 0x5865F2, // Couleur Discord
+        fields: [
+          {
+            name: 'Nombre employés',
+            value: Object.keys(ventesParEmploye).length.toString().substring(0, 1024),
+            inline: true
+          },
+          {
+            name: 'Total quantité',
+            value: totalGlobalQuantite.toLocaleString('fr-FR').substring(0, 1024),
+            inline: true
+          },
+          {
+            name: 'CA total',
+            value: `${totalGlobalCA.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`.substring(0, 1024),
+            inline: true
+          }
+        ],
+        timestamp: now.toISOString(),
+        footer: {
+          text: 'MS Corp - Système de gestion'.substring(0, 2048)
+        }
+      });
+
+      // Créer un embed par employé (limiter à 9 pour rester sous la limite de 10 embeds)
+      const employesArray = Object.values(ventesParEmploye);
+      const maxEmbeds = Math.min(employesArray.length, 9); // Max 9 + 1 embed résumé = 10 total
+      
+      employesArray.slice(0, maxEmbeds).forEach((emp, index) => {
+        // Trier les ventes par date (plus récentes en premier)
+        emp.ventes.sort((a, b) => b.date - a.date);
+
+        // Grouper par statut
+        const parStatut = {
+          'en attente': emp.ventes.filter(v => v.statut === 'en attente'),
+          'valide': emp.ventes.filter(v => v.statut === 'valide'),
+          'traite': emp.ventes.filter(v => v.statut === 'traite'),
+          'annule': emp.ventes.filter(v => v.statut === 'annule')
+        };
+
+        const statutEmojis = {
+          'en attente': '⏳',
+          'valide': '✅',
+          'traite': '✅',
+          'annule': '❌'
+        };
+
+        let description = `**Total:** ${emp.totalQuantite} unités | **CA:** ${emp.totalCA.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €\n\n`;
+        
+        // Ajouter les ventes par statut
+        Object.entries(parStatut).forEach(([statut, ventes]) => {
+          if (ventes.length > 0) {
+            description += `**${statutEmojis[statut] || '•'} ${statut.charAt(0).toUpperCase() + statut.slice(1)}:** ${ventes.length} vente(s)\n`;
+          }
+        });
+
+        // Limiter à 5 ventes récentes pour éviter que l'embed soit trop long
+        const ventesRecentes = emp.ventes.slice(0, 5);
+        let ventesList = '';
+        ventesRecentes.forEach(v => {
+          const dateStr = v.date.toLocaleDateString('fr-FR');
+          const ressourceNom = (v.ressource || 'Inconnu').substring(0, 30);
+          ventesList += `• ${dateStr} - ${ressourceNom} (x${v.quantite}) - ${v.montant.toFixed(2)} €\n`;
+        });
+        
+        if (emp.ventes.length > 5) {
+          ventesList += `\n*... et ${emp.ventes.length - 5} autre(s)*`;
+        }
+
+        // S'assurer que le nom n'est pas vide et limiter la longueur
+        const nomEmploye = (emp.nom || 'Employé inconnu').substring(0, 200);
+        const descriptionComplete = (description + (ventesList ? `\n**Dernières ventes:**\n${ventesList}` : '')).substring(0, 4096);
+        const footerText = `${emp.ventes.length} vente(s)`.substring(0, 2048);
+
+        embeds.push({
+          title: nomEmploye.length > 0 ? nomEmploye : 'Employé',
+          description: descriptionComplete || 'Aucune information disponible',
+          color: index % 2 === 0 ? 0x43e97b : 0x4facfe,
+          footer: {
+            text: (footerText && footerText.length > 0) ? footerText : 'MS Corp'
+          }
+        });
+      });
+
+      // Envoyer au webhook Discord
+      const response = await fetch(DISCORD_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          embeds: embeds
+        })
+      });
+
+      if (response.ok) {
+        alertModal({ 
+          title: 'Succès', 
+          message: `Les ventes ont été envoyées sur Discord avec succès !\n\n${Object.keys(ventesParEmploye).length} employé(s) - ${totalGlobalQuantite} unités - ${totalGlobalCA.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`, 
+          type: 'success' 
+        });
+        
+        await addLogEntry(fb, { 
+          type: 'action', 
+          action: 'discord_send', 
+          category: 'ventes',
+          message: `Envoi des ventes sur Discord: ${Object.keys(ventesParEmploye).length} employés` 
+        });
+      } else {
+        const errorText = await response.text();
+        console.error('Erreur Discord:', errorText);
+        alertModal({ 
+          title: 'Erreur', 
+          message: `Erreur lors de l'envoi sur Discord: ${response.status}`, 
+          type: 'danger' 
+        });
+      }
+    } catch (error) {
+      console.error('Erreur envoi Discord:', error);
+      alertModal({ 
+        title: 'Erreur', 
+        message: `Erreur lors de l'envoi sur Discord: ${error.message}`, 
+        type: 'danger' 
+      });
+    }
+  }
+
+  // Event listener pour le bouton Discord
+  document.getElementById('btn-send-discord')?.addEventListener('click', async () => {
+    const confirmed = await confirmModal({
+      title: 'Envoyer le menu sur Discord',
+      message: 'Voulez-vous envoyer un menu interactif sur Discord pour choisir un employé ?',
+      confirmText: 'Envoyer',
+      cancelText: 'Annuler'
+    });
+    
+    if (confirmed) {
+      const btn = document.getElementById('btn-send-discord');
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg></span> Envoi en cours...';
+      
+      await sendMenuDiscord();
+      
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+    }
+  });
+
+  async function sendMenuDiscord() {
+    try {
+      const fb = getFirebase();
+      if (!fb || !fb.db) {
+        alertModal({ title: 'Erreur', message: 'Impossible de se connecter à la base de données.', type: 'danger' });
+        return;
+      }
+
+      // Charger les utilisateurs et ventes
+      const usersSnap = await getDocs(collection(fb.db, 'users'));
+      const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      const ventesSnap = await getDocs(collection(fb.db, 'ventes'));
+      const allVentes = ventesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      if (allVentes.length === 0) {
+        alertModal({ title: 'Information', message: 'Aucune vente à envoyer.', type: 'info' });
+        return;
+      }
+
+      // Créer un Set des IDs d'employés qui ont des ventes
+      const employesAvecVentes = new Set();
+      allVentes.forEach(vente => {
+        if (vente.employeId) {
+          employesAvecVentes.add(vente.employeId);
+        }
+      });
+
+      // Filtrer les utilisateurs qui ont des ventes et créer les options
+      const employesList = Array.from(employesAvecVentes).map(empId => {
+        const user = users.find(u => u.id === empId);
+        const vente = allVentes.find(v => v.employeId === empId);
+        const nom = user?.name || (vente?.prenom && vente?.nom ? `${vente.prenom} ${vente.nom}` : vente?.telephone || 'Employé inconnu');
+        return { id: empId, nom };
+      }).sort((a, b) => a.nom.localeCompare(b.nom));
+
+      // Créer un message avec la liste des employés formatée
+      let description = `**👥 Liste des employés avec ventes:**\n\n`;
+      
+      // Créer une liste numérotée avec les noms des employés
+      employesList.forEach((emp, index) => {
+        const nomAffichage = emp.nom.length > 50 ? emp.nom.substring(0, 47) + '...' : emp.nom;
+        const numero = String(index + 1).padStart(2, '0');
+        description += `**${numero}.** ${nomAffichage}\n`;
+      });
+
+      // Créer le message avec la liste des employés
+      const messagePayload = {
+        embeds: [{
+          title: '📊 Menu de sélection des ventes',
+          description: description.substring(0, 4096), // Limite Discord
+          color: 0x5865F2,
+          fields: [
+            {
+              name: '📋 Comment voir les détails d\'un employé',
+              value: '1️⃣ Allez sur le site web MS Corp\n2️⃣ Cliquez sur "Envoyer sur Discord"\n3️⃣ Sélectionnez l\'employé dans le menu\n4️⃣ Les détails seront envoyés ici',
+              inline: false
+            },
+            {
+              name: '📊 Total',
+              value: `**${employesList.length}** employé(s) avec des ventes`,
+              inline: true
+            }
+          ],
+          footer: {
+            text: `MS Corp - Système de gestion • Cliquez sur "Envoyer sur Discord" sur le site pour voir les détails`
+          },
+          timestamp: new Date().toISOString()
+        }]
+      };
+
+      // Envoyer au webhook Discord
+      const response = await fetch(DISCORD_WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messagePayload)
+      });
+
+      if (response.ok) {
+        alertModal({ 
+          title: 'Succès', 
+          message: `Le menu avec la liste des employés a été envoyé sur Discord !\n\nLa liste contient ${employesList.length} employé(s) avec leurs IDs.\n\nPour voir les détails d'un employé, utilisez le bouton "Envoyer sur Discord" sur le site web et sélectionnez l'employé souhaité.`, 
+          type: 'success' 
+        });
+        
+        await addLogEntry(fb, { 
+          type: 'action', 
+          action: 'discord_menu_send', 
+          category: 'ventes',
+          message: `Envoi du menu Discord avec ${employesList.length} employés` 
+        });
+      } else {
+        const errorText = await response.text();
+        console.error('Erreur Discord:', errorText);
+        alertModal({ 
+          title: 'Erreur', 
+          message: `Erreur lors de l'envoi sur Discord: ${response.status}\n\n${errorText.substring(0, 200)}`, 
+          type: 'danger' 
+        });
+      }
+    } catch (error) {
+      console.error('Erreur envoi menu Discord:', error);
+      alertModal({ 
+        title: 'Erreur', 
+        message: `Erreur lors de l'envoi du menu sur Discord: ${error.message}`, 
+        type: 'danger' 
+      });
+    }
+  }
 }

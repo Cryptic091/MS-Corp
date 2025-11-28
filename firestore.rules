@@ -134,5 +134,31 @@ service cloud.firestore {
       // Ne pas permettre la modification ou suppression pour préserver l'intégrité de l'historique
       allow update, delete: if false;
     }
+
+    // Collection: discord_announcements
+    // Contient les annonces Discord à envoyer (title, description, color, fields, channelId, status, etc.)
+    // Permet la création pour les utilisateurs authentifiés (gestion générale)
+    // Permet la lecture pour tous les utilisateurs authentifiés
+    // Permet la mise à jour uniquement pour le bot (via Firebase Admin SDK)
+    match /discord_announcements/{announcementId} {
+      allow read: if isAuthed();
+      allow create: if isAuthed();
+      // Les mises à jour sont gérées par le bot Discord via Firebase Admin SDK
+      // Les utilisateurs ne peuvent pas modifier ou supprimer les annonces après création
+      allow update, delete: if false;
+    }
+
+    // Collection: discord_actions
+    // Contient les actions Discord à exécuter (kick, ban, addRole, removeRole)
+    // Permet la création pour les utilisateurs authentifiés (gestion générale)
+    // Permet la lecture pour tous les utilisateurs authentifiés
+    // Permet la mise à jour uniquement pour le bot (via Firebase Admin SDK)
+    match /discord_actions/{actionId} {
+      allow read: if isAuthed();
+      allow create: if isAuthed();
+      // Les mises à jour sont gérées par le bot Discord via Firebase Admin SDK
+      // Les utilisateurs ne peuvent pas modifier ou supprimer les actions après création
+      allow update, delete: if false;
+    }
   }
 }

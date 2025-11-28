@@ -44,6 +44,21 @@ body { margin: 0; }
 }
 .btn-primary:hover { filter: brightness(1.05); }
 
+.calc-mode-btn {
+  cursor: pointer;
+}
+.calc-mode-btn.active {
+  background: var(--bleuFr);
+  color: white;
+  border-color: var(--bleuFr);
+}
+.calc-mode-btn:hover:not(.active) {
+  background: rgba(0, 85, 164, 0.1);
+}
+.dark .calc-mode-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .btn-danger { background: var(--rougeFr); color: white; padding: 0.5rem 0.9rem; border-radius: 0.5rem; }
 .btn-danger:hover { filter: brightness(1.05); }
 

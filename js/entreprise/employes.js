@@ -632,176 +632,177 @@ function buildRoleOptions(roles, { includeNoAccess = true, includeEmpty = true, 
     //   body,
     //   confirmText: 'Créer',
     //   onConfirm: async () => {
-        (async () => {
-        const fb = getFirebase();
-        const name = document.getElementById('modal-name').value.trim();
-        let emailRaw = document.getElementById('modal-email').value.trim();
-        const phone = document.getElementById('modal-phone').value.trim();
-        const roleEntrepriseSelection = document.getElementById('modal-role-entreprise').value;
-        const roleEmployeSelection = document.getElementById('modal-role-employe')?.value ?? ROLE_OPTION_NONE;
-        const tempPassword = document.getElementById('modal-temp-password').value.trim();
-        
-        if (!name) {
-          alertModal({ title: 'Champs requis', message: 'Le nom est requis.', type: 'warning' });
-          return;
-        }
-        
-        // Générer un email automatique si vide ou invalide
-        if (!emailRaw) {
-          const nameSlug = name.toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-z0-9\s]/g, '')
-            .replace(/\s+/g, '.')
-            .substring(0, 30);
-          const timestamp = Date.now().toString().slice(-6);
-          emailRaw = `${nameSlug}.${timestamp}@entreprise.local`;
-        }
-        
-        // Normaliser l'email (en minuscules) et s'assurer qu'il a un format valide
-        let email = emailRaw.toLowerCase().trim();
-        
-        // Si l'email n'a pas le format @, ajouter un domaine fictif
-        if (!email.includes('@')) {
-          email = `${email}@entreprise.local`;
-        }
-        
-        // S'assurer que l'email a au moins un format basique valide pour Firebase
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          const nameSlug = name.toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-z0-9\s]/g, '')
-            .replace(/\s+/g, '.')
-            .substring(0, 30);
-          const timestamp = Date.now().toString().slice(-6);
-          email = `${nameSlug}.${timestamp}@entreprise.local`;
-        }
-        if (!tempPassword) {
-          alertModal({ title: 'Mot de passe requis', message: 'Veuillez renseigner un mot de passe provisoire.', type: 'warning' });
-          return;
-        }
-        if (!roleEntrepriseSelection) {
-          alertModal({ title: 'Rôle requis', message: 'Veuillez sélectionner un rôle pour l\'espace Entreprise.', type: 'warning' });
-          return;
-        }
-        const roleEntrepriseValue = optionToRoleValue(roleEntrepriseSelection, false);
-        if (roleEntrepriseValue === undefined) {
-          alertModal({ title: 'Rôle invalide', message: 'Sélection de rôle Entreprise incorrecte.', type: 'warning' });
-          return;
-        }
-        const roleEmployeValue = optionToRoleValue(roleEmployeSelection, true);
-        try {
-          let fbInstance = fb;
-          if (!fbInstance || !fbInstance.auth) {
-            fbInstance = await waitForFirebase();
-          }
-          if (!fbInstance || !fbInstance.auth || !fbInstance.db) {
-            alertModal({ title: 'Firebase indisponible', message: 'Impossible de créer le compte pour le moment.', type: 'danger' });
-            return;
-          }
-
-          const adminFb = getAdminFirebaseAuth();
-          if (!adminFb || !adminFb.auth) {
-            alertModal({ title: 'Service indisponible', message: 'Impossible d’ouvrir la session administrative de création. Réessayez plus tard.', type: 'danger' });
-            return;
-          }
-
-          if (tempPassword.length < 6) {
-            alertModal({ title: 'Mot de passe trop court', message: 'Le mot de passe doit contenir au moins 6 caractères.', type: 'warning' });
-            return;
-          }
-
-          // Vérifier si l'email existe déjà dans Firebase Auth
-          // Si l'email existe déjà, générer un nouvel email unique
-          let finalEmail = email;
-          let attempts = 0;
-          const maxAttempts = 5;
-          
-          while (attempts < maxAttempts) {
-            try {
-              const signInMethods = await fetchSignInMethodsForEmail(fbInstance.auth, finalEmail);
-              if (signInMethods && signInMethods.length > 0) {
-                // Email existe déjà, générer un nouveau avec un suffixe unique
-                const baseEmail = email.split('@')[0];
-                const domain = email.split('@')[1] || 'entreprise.local';
-                const uniqueSuffix = Date.now().toString().slice(-8) + Math.random().toString(36).substring(2, 5);
-                finalEmail = `${baseEmail}.${uniqueSuffix}@${domain}`;
-                attempts++;
-              } else {
-                // Email disponible, utiliser celui-ci
-                break;
-              }
-            } catch (checkError) {
-              // Si la vérification échoue, continuer avec l'email actuel
-              break;
-            }
-          }
-          
-          email = finalEmail;
-
-          const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
-          const createdBy = authState?.uid || null;
-
-          const roleEntrepriseId = typeof roleEntrepriseValue === 'string' ? roleEntrepriseValue : '';
-          const roleEmployeId = typeof roleEmployeValue === 'string' ? roleEmployeValue : roleEmployeValue === '' ? '' : null;
-          
-          const cred = await createUserWithEmailAndPassword(adminFb.auth, email, tempPassword);
-          await setDoc(doc(fbInstance.db, 'users', cred.user.uid), {
-            name,
-            email,
-            phone: phone || null,
-            roleEntreprise: roleEntrepriseId || "",
-            roleEmploye: roleEmployeId !== undefined ? roleEmployeId : null,
-            active: true,
-            initialPassword: tempPassword,
-            createdAt: serverTimestamp(),
-            createdBy
-          });
-
-          cache.push({
-            id: cred.user.uid,
-            name,
-            email,
-            phone,
-            roleEntreprise: roleEntrepriseId || "",
-            roleEmploye: roleEmployeId !== undefined ? roleEmployeId : null,
-            active: true,
-            initialPassword: tempPassword,
-            createdAt: new Date()
-          });
-          applyFilters();
-          const entrepriseLabel = getRoleDisplayInfo('Entreprise', roleEntrepriseId || '').text;
-          const employeLabel = getRoleDisplayInfo('Employé', roleEmployeId !== undefined ? roleEmployeId : null).text;
-          await addLogEntry(fbInstance, { 
-            type: 'action', 
-            action: 'user_create', 
-            category: 'utilisateurs',
-            message: `Création de l'utilisateur "${name || email}" (${email}) - Entreprise: ${entrepriseLabel} | Employé: ${employeLabel}` 
-          });
-
-          try {
-            await signOut(adminFb.auth);
-          } catch (signOutError) {
-            console.warn('Impossible de fermer la session secondaire de création:', signOutError);
-          }
-          alertModal({ title: 'Succès', message: `Utilisateur créé avec succès.<br><strong>Mot de passe :</strong> ${tempPassword}`, type: 'success' });
-        } catch (e) { 
-          let message = 'Erreur lors de la création de l\'utilisateur.';
-          if (e?.code === 'auth/email-already-in-use') {
-            message = `Un compte existe déjà avec l'adresse email "${email}" dans Firebase Authentication. Veuillez vérifier dans la console Firebase (Authentication > Users) et supprimer le compte existant si nécessaire, ou utiliser une autre adresse email.`;
-          } else if (e?.code === 'auth/invalid-email') {
-            message = `L'adresse email "${email}" n'est pas valide.`;
-          } else if (e?.code === 'auth/weak-password') {
-            message = 'Le mot de passe est trop faible.';
-          } else if (e?.message) {
-            message = `${e.message} (Email utilisé: "${email}")`;
-          } else {
-            message = `Erreur inconnue. Email utilisé: "${email}"`;
-          }
-          alertModal({ title: 'Erreur', message, type: 'danger' });
-        }
-        })();
+    //     (async () => {
+    //     const fb = getFirebase();
+    //     const name = document.getElementById('modal-name').value.trim();
+    //     let emailRaw = document.getElementById('modal-email').value.trim();
+    //     const phone = document.getElementById('modal-phone').value.trim();
+    //     const roleEntrepriseSelection = document.getElementById('modal-role-entreprise').value;
+    //     const roleEmployeSelection = document.getElementById('modal-role-employe')?.value ?? ROLE_OPTION_NONE;
+    //     const tempPassword = document.getElementById('modal-temp-password').value.trim();
+    //     
+    //     if (!name) {
+    //       alertModal({ title: 'Champs requis', message: 'Le nom est requis.', type: 'warning' });
+    //       return;
+    //     }
+    //     
+    //     // Générer un email automatique si vide ou invalide
+    //     if (!emailRaw) {
+    //       const nameSlug = name.toLowerCase()
+    //         .normalize('NFD')
+    //         .replace(/[\u0300-\u036f]/g, '')
+    //         .replace(/[^a-z0-9\s]/g, '')
+    //         .replace(/\s+/g, '.')
+    //         .substring(0, 30);
+    //       const timestamp = Date.now().toString().slice(-6);
+    //       emailRaw = `${nameSlug}.${timestamp}@entreprise.local`;
+    //     }
+    //     
+    //     // Normaliser l'email (en minuscules) et s'assurer qu'il a un format valide
+    //     let email = emailRaw.toLowerCase().trim();
+    //     
+    //     // Si l'email n'a pas le format @, ajouter un domaine fictif
+    //     if (!email.includes('@')) {
+    //       email = `${email}@entreprise.local`;
+    //     }
+    //     
+    //     // S'assurer que l'email a au moins un format basique valide pour Firebase
+    //     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    //       const nameSlug = name.toLowerCase()
+    //         .normalize('NFD')
+    //         .replace(/[\u0300-\u036f]/g, '')
+    //         .replace(/[^a-z0-9\s]/g, '')
+    //         .replace(/\s+/g, '.')
+    //         .substring(0, 30);
+    //       const timestamp = Date.now().toString().slice(-6);
+    //       email = `${nameSlug}.${timestamp}@entreprise.local`;
+    //     }
+    //     if (!tempPassword) {
+    //       alertModal({ title: 'Mot de passe requis', message: 'Veuillez renseigner un mot de passe provisoire.', type: 'warning' });
+    //       return;
+    //     }
+    //     if (!roleEntrepriseSelection) {
+    //       alertModal({ title: 'Rôle requis', message: 'Veuillez sélectionner un rôle pour l\'espace Entreprise.', type: 'warning' });
+    //       return;
+    //     }
+    //     const roleEntrepriseValue = optionToRoleValue(roleEntrepriseSelection, false);
+    //     if (roleEntrepriseValue === undefined) {
+    //       alertModal({ title: 'Rôle invalide', message: 'Sélection de rôle Entreprise incorrecte.', type: 'warning' });
+    //       return;
+    //     }
+    //     const roleEmployeValue = optionToRoleValue(roleEmployeSelection, true);
+    //     try {
+    //       let fbInstance = fb;
+    //       if (!fbInstance || !fbInstance.auth) {
+    //         fbInstance = await waitForFirebase();
+    //       }
+    //       if (!fbInstance || !fbInstance.auth || !fbInstance.db) {
+    //         alertModal({ title: 'Firebase indisponible', message: 'Impossible de créer le compte pour le moment.', type: 'danger' });
+    //         return;
+    //       }
+    //
+    //       const adminFb = getAdminFirebaseAuth();
+    //       if (!adminFb || !adminFb.auth) {
+    //         alertModal({ title: 'Service indisponible', message: 'Impossible d'ouvrir la session administrative de création. Réessayez plus tard.', type: 'danger' });
+    //         return;
+    //       }
+    //
+    //       if (tempPassword.length < 6) {
+    //         alertModal({ title: 'Mot de passe trop court', message: 'Le mot de passe doit contenir au moins 6 caractères.', type: 'warning' });
+    //         return;
+    //       }
+    //
+    //       // Vérifier si l'email existe déjà dans Firebase Auth
+    //       // Si l'email existe déjà, générer un nouvel email unique
+    //       let finalEmail = email;
+    //       let attempts = 0;
+    //       const maxAttempts = 5;
+    //       
+    //       while (attempts < maxAttempts) {
+    //         try {
+    //           const signInMethods = await fetchSignInMethodsForEmail(fbInstance.auth, finalEmail);
+    //           if (signInMethods && signInMethods.length > 0) {
+    //             // Email existe déjà, générer un nouveau avec un suffixe unique
+    //             const baseEmail = email.split('@')[0];
+    //             const domain = email.split('@')[1] || 'entreprise.local';
+    //             const uniqueSuffix = Date.now().toString().slice(-8) + Math.random().toString(36).substring(2, 5);
+    //             finalEmail = `${baseEmail}.${uniqueSuffix}@${domain}`;
+    //             attempts++;
+    //           } else {
+    //             // Email disponible, utiliser celui-ci
+    //             break;
+    //           }
+    //         } catch (checkError) {
+    //           // Si la vérification échoue, continuer avec l'email actuel
+    //           break;
+    //         }
+    //       }
+    //       
+    //       email = finalEmail;
+    //
+    //       const authState = JSON.parse(localStorage.getItem('ms_auth_state') || 'null');
+    //       const createdBy = authState?.uid || null;
+    //
+    //       const roleEntrepriseId = typeof roleEntrepriseValue === 'string' ? roleEntrepriseValue : '';
+    //       const roleEmployeId = typeof roleEmployeValue === 'string' ? roleEmployeValue : roleEmployeValue === '' ? '' : null;
+    //       
+    //       const cred = await createUserWithEmailAndPassword(adminFb.auth, email, tempPassword);
+    //       await setDoc(doc(fbInstance.db, 'users', cred.user.uid), {
+    //         name,
+    //         email,
+    //         phone: phone || null,
+    //         roleEntreprise: roleEntrepriseId || "",
+    //         roleEmploye: roleEmployeId !== undefined ? roleEmployeId : null,
+    //         active: true,
+    //         initialPassword: tempPassword,
+    //         createdAt: serverTimestamp(),
+    //         createdBy
+    //       });
+    //
+    //       cache.push({
+    //         id: cred.user.uid,
+    //         name,
+    //         email,
+    //         phone,
+    //         roleEntreprise: roleEntrepriseId || "",
+    //         roleEmploye: roleEmployeId !== undefined ? roleEmployeId : null,
+    //         active: true,
+    //         initialPassword: tempPassword,
+    //         createdAt: new Date()
+    //       });
+    //       applyFilters();
+    //       const entrepriseLabel = getRoleDisplayInfo('Entreprise', roleEntrepriseId || '').text;
+    //       const employeLabel = getRoleDisplayInfo('Employé', roleEmployeId !== undefined ? roleEmployeId : null).text;
+    //       await addLogEntry(fbInstance, { 
+    //         type: 'action', 
+    //         action: 'user_create', 
+    //         category: 'utilisateurs',
+    //         message: `Création de l'utilisateur "${name || email}" (${email}) - Entreprise: ${entrepriseLabel} | Employé: ${employeLabel}` 
+    //       });
+    //
+    //       try {
+    //         await signOut(adminFb.auth);
+    //       } catch (signOutError) {
+    //         console.warn('Impossible de fermer la session secondaire de création:', signOutError);
+    //       }
+    //       alertModal({ title: 'Succès', message: `Utilisateur créé avec succès.<br><strong>Mot de passe :</strong> ${tempPassword}`, type: 'success' });
+    //     } catch (e) { 
+    //       let message = 'Erreur lors de la création de l\'utilisateur.';
+    //       if (e?.code === 'auth/email-already-in-use') {
+    //         message = `Un compte existe déjà avec l'adresse email "${email}" dans Firebase Authentication. Veuillez vérifier dans la console Firebase (Authentication > Users) et supprimer le compte existant si nécessaire, ou utiliser une autre adresse email.`;
+    //       } else if (e?.code === 'auth/invalid-email') {
+    //         message = `L'adresse email "${email}" n'est pas valide.`;
+    //       } else if (e?.code === 'auth/weak-password') {
+    //         message = 'Le mot de passe est trop faible.';
+    //       } else if (e?.message) {
+    //         message = `${e.message} (Email utilisé: "${email}")`;
+    //       } else {
+    //         message = `Erreur inconnue. Email utilisé: "${email}"`;
+    //       }
+    //       alertModal({ title: 'Erreur', message, type: 'danger' });
+    //     }
+    //     })();
+    //   }
     // });
     // Remplir la liste des rôles depuis la BDD - uniquement les rôles de l'espace Entreprise
     // const entrepriseSelect = document.getElementById('modal-role-entreprise');

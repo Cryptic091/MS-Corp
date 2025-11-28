@@ -66,17 +66,68 @@ export function viewCalcul(root) {
               <p class="text-sm text-slate-600 dark:text-slate-400">Sélectionnez une ressource et indiquez la quantité disponible pour calculer le chiffre d'affaires potentiel.</p>
             </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="modal-field">
-                <label>Type de ressource *</label>
-                <select id="calc-ressource" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm w-full" required>
-                  <option value="">Sélectionnez une ressource</option>
-                </select>
+            <div class="mb-4">
+              <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Mode de calcul *</label>
+              <div class="flex gap-2">
+                <button id="calc-mode-quantite" class="calc-mode-btn active flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm font-medium transition-colors" data-mode="quantite">
+                  Quantité directe
+                </button>
+                <button id="calc-mode-camions" class="calc-mode-btn flex-1 px-4 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-sm font-medium transition-colors" data-mode="camions">
+                  Par camions
+                </button>
               </div>
-              
-              <div class="modal-field">
-                <label>Quantité disponible *</label>
-                <input id="calc-quantite" type="number" min="1" step="1" required placeholder="0" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm w-full" />
+            </div>
+            
+            <div id="calc-form-quantite">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="modal-field">
+                  <label>Type de ressource *</label>
+                  <select id="calc-ressource" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm w-full" required>
+                    <option value="">Sélectionnez une ressource</option>
+                  </select>
+                </div>
+                
+                <div class="modal-field">
+                  <label>Type d'objet *</label>
+                  <select id="calc-type-objet" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm w-full" required>
+                    <option value="brut">Brut</option>
+                    <option value="traite">Traité</option>
+                  </select>
+                </div>
+                
+                <div class="modal-field">
+                  <label>Quantité disponible *</label>
+                  <input id="calc-quantite" type="number" min="1" step="1" required placeholder="0" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm w-full" />
+                </div>
+              </div>
+            </div>
+
+            <div id="calc-form-camions" class="hidden">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="modal-field">
+                  <label>Type de ressource *</label>
+                  <select id="calc-ressource-camions" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm w-full" required>
+                    <option value="">Sélectionnez une ressource</option>
+                  </select>
+                </div>
+                
+                <div class="modal-field">
+                  <label>Type d'objet *</label>
+                  <select id="calc-type-objet-camions" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm w-full" required>
+                    <option value="brut">Brut</option>
+                    <option value="traite">Traité</option>
+                  </select>
+                </div>
+                
+                <div class="modal-field">
+                  <label>Nombre de camions *</label>
+                  <input id="calc-nb-camions" type="number" min="1" step="1" required placeholder="0" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm w-full" />
+                </div>
+                
+                <div class="modal-field">
+                  <label>Stockage par camion *</label>
+                  <input id="calc-stockage-camion" type="number" min="0" step="0.01" required placeholder="0" class="rounded border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-3 py-2 text-sm w-full" />
+                </div>
               </div>
             </div>
 
@@ -179,7 +230,11 @@ export function viewCalcul(root) {
                   </div>
                   <div class="view-item">
                     <div class="view-item-label">Formule</div>
-                    <div class="view-item-value text-sm">Quantité × Prix de vente</div>
+                    <div id="detail-formule" class="view-item-value text-sm">Quantité × Prix de vente</div>
+                  </div>
+                  <div id="detail-camions-info" class="view-item hidden">
+                    <div class="view-item-label">Informations camions</div>
+                    <div id="detail-camions-details" class="view-item-value text-sm">—</div>
                   </div>
                   <div class="view-item">
                     <div class="view-item-label">Chiffre d'affaires</div>
@@ -285,29 +340,88 @@ export function viewCalcul(root) {
       const resSnap = await getDocs(collection(fb.db, 'ressources'));
       ressourcesCache = resSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       
-      // Remplir le select
+      // Remplir les selects
       const select = document.getElementById('calc-ressource');
+      const selectCamions = document.getElementById('calc-ressource-camions');
+      const optionsHtml = '<option value="">Sélectionnez une ressource</option>' +
+        ressourcesCache.map(r => `<option value="${r.id}">${r.nom || 'Sans nom'}</option>`).join('');
       if (select) {
-        select.innerHTML = '<option value="">Sélectionnez une ressource</option>' +
-          ressourcesCache.map(r => `<option value="${r.id}">${r.nom || 'Sans nom'}</option>`).join('');
+        select.innerHTML = optionsHtml;
+      }
+      if (selectCamions) {
+        selectCamions.innerHTML = optionsHtml;
       }
     } catch (e) {
       console.error('Erreur chargement:', e);
     }
   })();
 
+  // Gestion du mode de calcul
+  let currentMode = 'quantite';
+  const modeButtons = document.querySelectorAll('#calc-mode-quantite, #calc-mode-camions');
+  modeButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentMode = btn.getAttribute('data-mode');
+      modeButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      
+      if (currentMode === 'quantite') {
+        document.getElementById('calc-form-quantite').classList.remove('hidden');
+        document.getElementById('calc-form-camions').classList.add('hidden');
+      } else {
+        document.getElementById('calc-form-quantite').classList.add('hidden');
+        document.getElementById('calc-form-camions').classList.remove('hidden');
+      }
+    });
+  });
+
   // Calculer
   document.getElementById('btn-calculer').addEventListener('click', () => {
-    const ressourceId = document.getElementById('calc-ressource').value;
-    const quantite = parseFloat(document.getElementById('calc-quantite').value);
+    let ressourceId, quantite;
 
-    if (!ressourceId || !quantite || quantite <= 0) {
-      alertModal({ 
-        title: 'Informations manquantes', 
-        message: 'Pour effectuer le calcul, veuillez :<br><br>• Sélectionner un type de ressource<br>• Entrer une quantité supérieure à zéro', 
-        type: 'warning' 
-      });
-      return;
+    let typeObjet;
+    if (currentMode === 'quantite') {
+      ressourceId = document.getElementById('calc-ressource').value;
+      quantite = parseFloat(document.getElementById('calc-quantite').value);
+      typeObjet = document.getElementById('calc-type-objet').value;
+
+      if (!ressourceId || !quantite || quantite <= 0 || !typeObjet) {
+        alertModal({ 
+          title: 'Informations manquantes', 
+          message: 'Pour effectuer le calcul, veuillez :<br><br>• Sélectionner un type de ressource<br>• Sélectionner un type d\'objet<br>• Entrer une quantité supérieure à zéro', 
+          type: 'warning' 
+        });
+        return;
+      }
+    } else {
+      ressourceId = document.getElementById('calc-ressource-camions').value;
+      const nbCamions = parseFloat(document.getElementById('calc-nb-camions').value);
+      const stockageCamion = parseFloat(document.getElementById('calc-stockage-camion').value);
+      typeObjet = document.getElementById('calc-type-objet-camions').value;
+
+      if (!ressourceId || !nbCamions || nbCamions <= 0 || !stockageCamion || stockageCamion <= 0 || !typeObjet) {
+        alertModal({ 
+          title: 'Informations manquantes', 
+          message: 'Pour effectuer le calcul, veuillez :<br><br>• Sélectionner un type de ressource<br>• Sélectionner un type d\'objet<br>• Entrer un nombre de camions supérieur à zéro<br>• Entrer un stockage par camion supérieur à zéro', 
+          type: 'warning' 
+        });
+        return;
+      }
+
+      // Calculer la quantité totale de ressources basée sur le stockage
+      const ressource = ressourcesCache.find(r => r.id === ressourceId);
+      if (!ressource) {
+        alertModal({ 
+          title: 'Ressource introuvable', 
+          message: 'La ressource sélectionnée n\'a pas pu être trouvée dans la base de données.', 
+          type: 'danger' 
+        });
+        return;
+      }
+
+      const tailleObjet = typeObjet === 'traite' ? (ressource.tailleObjetTraite || ressource.tailleObjet || 1) : (ressource.tailleObjet || 1);
+      const stockageTotal = nbCamions * stockageCamion;
+      quantite = Math.floor(stockageTotal / tailleObjet);
     }
 
     const ressource = ressourcesCache.find(r => r.id === ressourceId);
@@ -334,11 +448,15 @@ export function viewCalcul(root) {
     document.getElementById('calc-quantite-display').textContent = quantite.toLocaleString('fr-FR');
     document.getElementById('calc-ca-total').textContent = formatAmount(caTotal) + ' €';
 
+    // Calculer la taille d'objet selon le type sélectionné
+    const tailleObjetUtilisee = typeObjet === 'traite' ? (ressource.tailleObjetTraite || ressource.tailleObjet || 1) : (ressource.tailleObjet || 1);
+    const typeObjetLabel = typeObjet === 'traite' ? 'Traité' : 'Brut';
+    
     // Détails
     document.getElementById('detail-ressource-nom').textContent = ressource.nom || '—';
     document.getElementById('detail-prix-vente').textContent = formatAmount(prixVente) + ' €';
     document.getElementById('detail-prix-bourse').textContent = formatAmount(prixBourse) + ' €';
-    document.getElementById('detail-taille').textContent = (ressource.tailleObjet || 0).toFixed(2);
+    document.getElementById('detail-taille').textContent = `${tailleObjetUtilisee.toFixed(2)} (${typeObjetLabel})`;
     const legaliteBadge = document.querySelector('#detail-legalite .badge-role');
     if (legaliteBadge) {
       legaliteBadge.textContent = ressource.legalite === 'illegal' ? 'Illégale' : 'Légale';
@@ -347,6 +465,27 @@ export function viewCalcul(root) {
     document.getElementById('detail-quantite').textContent = quantite.toLocaleString('fr-FR');
     document.getElementById('detail-ca').textContent = formatAmount(caTotal) + ' €';
     document.getElementById('detail-ca-bourse').textContent = formatAmount(caBourse) + ' €';
+    
+    // Afficher les informations sur les camions si mode camions
+    const camionsInfo = document.getElementById('detail-camions-info');
+    const camionsDetails = document.getElementById('detail-camions-details');
+    const formuleEl = document.getElementById('detail-formule');
+    
+    if (currentMode === 'camions') {
+      const nbCamions = parseFloat(document.getElementById('calc-nb-camions').value);
+      const stockageCamion = parseFloat(document.getElementById('calc-stockage-camion').value);
+      const stockageTotal = nbCamions * stockageCamion;
+      
+      camionsInfo.classList.remove('hidden');
+      camionsDetails.innerHTML = `
+        ${nbCamions.toLocaleString('fr-FR')} camion(s) × ${stockageCamion.toLocaleString('fr-FR')} stockage = ${stockageTotal.toLocaleString('fr-FR')} stockage total<br>
+        ${stockageTotal.toLocaleString('fr-FR')} stockage ÷ ${tailleObjetUtilisee.toFixed(2)} taille/unité (${typeObjetLabel}) = ${quantite.toLocaleString('fr-FR')} unités
+      `;
+      formuleEl.textContent = `(Stockage total ÷ Taille objet ${typeObjetLabel.toLowerCase()}) × Prix de vente`;
+    } else {
+      camionsInfo.classList.add('hidden');
+      formuleEl.textContent = `Quantité (${typeObjetLabel.toLowerCase()}) × Prix de vente`;
+    }
   });
 }
 

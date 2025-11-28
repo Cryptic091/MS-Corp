@@ -1221,6 +1221,11 @@ export function viewFlotte(root) {
           <input id="modal-places" type="number" min="1" required placeholder="Ex: 3" />
         </div>
         <div class="modal-field">
+          <label>Stockage (coffre) *</label>
+          <input id="modal-stockage" type="number" min="0" step="0.01" required placeholder="Ex: 100.00" />
+          <div class="text-xs text-slate-500 mt-1">Capacité de stockage du véhicule</div>
+        </div>
+        <div class="modal-field">
           <label>Prix d'achat (€) *</label>
           <input id="modal-prix" type="number" min="0" step="0.01" required placeholder="Ex: 25000.00" />
         </div>
@@ -1266,6 +1271,7 @@ export function viewFlotte(root) {
         const type = document.getElementById('modal-type').value.trim();
         const modele = document.getElementById('modal-modele').value.trim();
         const nombrePlaces = parseInt(document.getElementById('modal-places').value);
+        const stockage = parseFloat(document.getElementById('modal-stockage').value);
         const prixAchat = parseFloat(document.getElementById('modal-prix').value);
         const assuranceTier1 = parseFloat(document.getElementById('modal-assurance1').value) || null;
         const assuranceTier2 = parseFloat(document.getElementById('modal-assurance2').value) || null;
@@ -1274,10 +1280,10 @@ export function viewFlotte(root) {
         const kilometrage = parseInt(document.getElementById('modal-kilometrage').value) || null;
         const notes = document.getElementById('modal-notes').value.trim() || null;
 
-        if (!type || !modele || !nombrePlaces || isNaN(prixAchat)) {
+        if (!type || !modele || !nombrePlaces || isNaN(stockage) || isNaN(prixAchat)) {
           alertModal({ 
             title: 'Champs requis', 
-            message: 'Type, modèle, nombre de places et prix d\'achat sont requis.', 
+            message: 'Type, modèle, nombre de places, stockage et prix d\'achat sont requis.', 
             type: 'warning' 
           });
           return;
@@ -1288,6 +1294,7 @@ export function viewFlotte(root) {
             type,
             modele,
             nombrePlaces,
+            stockage,
             prixAchat,
             achete: false,
             createdAt: serverTimestamp()
@@ -1367,6 +1374,10 @@ export function viewFlotte(root) {
             <div class="view-item">
               <div class="view-item-label">Nombre de places</div>
               <div class="view-item-value">${formatNumber(vehicule.nombrePlaces || 0)}</div>
+            </div>
+            <div class="view-item">
+              <div class="view-item-label">Stockage (coffre)</div>
+              <div class="view-item-value">${formatNumber(vehicule.stockage || vehicule.coffre || 0)}</div>
             </div>
             <div class="view-item">
               <div class="view-item-label">Prix d'achat</div>
@@ -1468,6 +1479,11 @@ export function viewFlotte(root) {
           <input id="modal-edit-places" type="number" min="1" value="${vehicule.nombrePlaces || 1}" required />
         </div>
         <div class="modal-field">
+          <label>Stockage (coffre) *</label>
+          <input id="modal-edit-stockage" type="number" min="0" step="0.01" value="${vehicule.stockage || vehicule.coffre || 0}" required />
+          <div class="text-xs text-slate-500 mt-1">Capacité de stockage du véhicule</div>
+        </div>
+        <div class="modal-field">
           <label>Prix d'achat (€) *</label>
           <input id="modal-edit-prix" type="number" min="0" step="0.01" value="${vehicule.prixAchat || 0}" required />
         </div>
@@ -1510,6 +1526,7 @@ export function viewFlotte(root) {
           const immatriculationInput = document.getElementById('modal-edit-immatriculation');
           const immatriculation = immatriculationInput ? immatriculationInput.value.trim() : '';
           const nombrePlaces = parseInt(document.getElementById('modal-edit-places').value);
+          const stockage = parseFloat(document.getElementById('modal-edit-stockage').value);
           const prixAchat = parseFloat(document.getElementById('modal-edit-prix').value);
           const assuranceTier1 = parseFloat(document.getElementById('modal-edit-assurance1').value) || null;
           const assuranceTier2 = parseFloat(document.getElementById('modal-edit-assurance2').value) || null;
@@ -1519,10 +1536,10 @@ export function viewFlotte(root) {
           const kilometrage = parseInt(document.getElementById('modal-edit-kilometrage').value) || null;
           const notes = document.getElementById('modal-edit-notes').value.trim() || null;
 
-          if (!type || !modele || !nombrePlaces || isNaN(prixAchat)) {
+          if (!type || !modele || !nombrePlaces || isNaN(stockage) || isNaN(prixAchat)) {
             alertModal({ 
               title: 'Champs requis', 
-              message: 'Type, modèle, nombre de places et prix d\'achat sont requis.', 
+              message: 'Type, modèle, nombre de places, stockage et prix d\'achat sont requis.', 
               type: 'warning' 
             });
             return;
@@ -1543,6 +1560,7 @@ export function viewFlotte(root) {
               type,
               modele,
               nombrePlaces,
+              stockage,
               prixAchat,
               updatedAt: serverTimestamp()
             };

@@ -1124,25 +1124,35 @@ function getInitials(name) {
 export function updateAvatar(element, profile) {
   if (!element) return;
   
-  // Si l'utilisateur a une photo de profil, l'utiliser
+  // Priorité 1 : Avatar Discord si disponible
+  if (profile?.discordAvatarUrl) {
+    element.style.backgroundImage = `url('${profile.discordAvatarUrl}')`;
+    element.style.backgroundSize = 'cover';
+    element.style.backgroundPosition = 'center';
+    element.textContent = '';
+    return;
+  }
+  
+  // Priorité 2 : Photo de profil uploadée
   if (profile?.photoUrl) {
     element.style.backgroundImage = `url('${profile.photoUrl}')`;
-  element.style.backgroundSize = 'cover';
-  element.style.backgroundPosition = 'center';
-  element.textContent = '';
-  } else {
-    // Sinon, utiliser les initiales avec un gradient
-    const name = profile?.name || profile?.email || 'MS';
-    const initials = getInitials(name);
-    element.style.backgroundImage = '';
-    element.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    element.textContent = initials;
-    element.style.display = 'flex';
-    element.style.alignItems = 'center';
-    element.style.justifyContent = 'center';
-    element.style.color = 'white';
-    element.style.fontWeight = '600';
+    element.style.backgroundSize = 'cover';
+    element.style.backgroundPosition = 'center';
+    element.textContent = '';
+    return;
   }
+  
+  // Priorité 3 : Initiales avec gradient
+  const name = profile?.name || profile?.email || 'MS';
+  const initials = getInitials(name);
+  element.style.backgroundImage = '';
+  element.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+  element.textContent = initials;
+  element.style.display = 'flex';
+  element.style.alignItems = 'center';
+  element.style.justifyContent = 'center';
+  element.style.color = 'white';
+  element.style.fontWeight = '600';
 }
 
 

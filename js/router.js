@@ -293,6 +293,7 @@ async function render() {
     let permission = 'gestion-generale-utilisateurs';
     if (key === '#/gestion-generale' || key.includes('/utilisateurs')) permission = 'gestion-generale-utilisateurs';
     else if (key.includes('/roles')) permission = 'gestion-generale-roles';
+    else if (key.includes('/annonces-discord')) permission = 'gestion-generale-utilisateurs'; // Annonces Discord utilise la même permission que utilisateurs
     
     const hasPagePermission = await checkPermission(permission);
     if (!hasPagePermission) {
